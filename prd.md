@@ -47,6 +47,7 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | W-10 | Data rights | P1 | Request access, request erasure, raise grievance, each logged and visible in status |
 | W-11 | Expiry reminders | P2 | Local notification 3 days before a consent expires |
 | W-12 | Nominee | P2 | Nominate a trusted person (DPDP right) |
+| W-13 | Share your details securely | P1 | After consenting to a data-using purpose, the wallet offers a screen (W10) that collects the sensitive fields (PAN, income band, employment) from the local demo profile or by manual entry, validates them on the device, encrypts them for the Processor (V-01) and uploads only the ciphertext. The fields are never stored by the wallet, never sent anywhere in plain form and are cleared from memory once sent. Available in English, Hindi and Kannada |
 
 ### 6.2 Gateway + Company Console
 
@@ -60,6 +61,7 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | C-06 | Downstream processors | P1 | Company lists processors per purpose; on withdrawal each receives a notification and returns a signed acknowledgement |
 | C-07 | Consent table | P1 | Live table of customers and per-purpose status |
 | C-08 | Compliance export | P1 | One-click evidence pack for the regulator |
+| C-09 | Demo company portal | P1 | A QuickLoan customer page (`/portal/quickloan`): demo login with a company-side alias, a loan application form with one unticked consent checkbox and the purposes listed beneath it in plain language; ticking it creates the consent request and shows the QR inline with a live status; the page follows the customer through consent received, data submitted securely, decided and withdrawn from real events. It never asks for, receives, shows or logs a PAN or an income, and no text input of the login or the form takes one. Apply calls the QuickLoan backend, which calls the Processor with the handle only; the decision card shows approved or declined, the limit and the reasons, never the data |
 
 ### 6.3 Regulator Auditor
 
@@ -102,6 +104,7 @@ Acceptance, end to end (all of it is in `pnpm e2e`):
 - Submit encrypted → evaluate returns `approved` → the admin view shows ciphertext metadata only → withdraw → evaluate returns 451 `CONSENT_WITHDRAWN` → the vault entry is erased.
 - Tampering with a stored ciphertext makes decryption fail (GCM tag) and the answer is an error (`CIPHERTEXT_INVALID`), never a guessed decision.
 - A search of every log line, WebSocket event, HTTP response from the company and database file produced by the run for the known plaintext (`ABCDE1234F`) finds nothing.
+- Customer journey (C-09, W-13), by one person on stage: tick the checkbox, scan, approve, submit the details in the wallet, Apply, see the decision, withdraw, see Apply blocked, with the page following each step live. `pnpm e2e` plays the same journey with a headless client in place of the wallet, driving the portal's own state machine with the real events.
 - Data Flow Inspector (V-07, S-04): with the full flow running, all four lanes update live from events; the staff lane's two buttons return only a handle, a ciphertext hash, a status and ciphertext; the privacy line stays hidden if a plaintext value is injected into any event; replay mode reproduces a recorded run with no stack running. Checked by web tests (reducer, privacy check, staff-view filter, replay file) and by recording the replay file from a real `pnpm e2e` run.
 
 ## 7. The four differentiators (what to emphasise)

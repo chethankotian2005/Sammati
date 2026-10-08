@@ -299,10 +299,13 @@ A separate process from Core and from every company. It is the only place where 
 |---|---|
 | `pan` does not match `^[A-Z]{5}[0-9]{4}[A-Z]$` | declined, `PAN_INVALID` |
 | `incomeBand` not one of `0-3 LPA`, `3-6 LPA`, `6-9 LPA`, `9+ LPA` | declined, `INCOME_UNKNOWN` |
+| `employment`, when present, is not one of `salaried`, `self-employed`, `student`, `unemployed` | declined, `EMPLOYMENT_UNKNOWN` |
+| `employment` is `student` or `unemployed` | declined, `EMPLOYMENT_INELIGIBLE` |
+| `score` absent (the wallet's manual entry has no credit score to give) | the Processor assumes 700 and adds the code `SCORE_ASSUMED` to the answer, so it is never mistaken for a measured score |
 | `score < 650` (integer) | declined, `SCORE_LOW` |
 | otherwise | approved. `base` = 100000, 250000, 500000 or 1000000 for the four bands. `score >= 750`: `limit = base`, code `SCORE_GOOD`. `650..749`: `limit = base * 60 / 100`, code `SCORE_FAIR` |
 
-For the demo profile (6-9 LPA, score 742) the answer is `approved`, `limit: 300000`, `["SCORE_FAIR"]`. A declined answer has `limit: null`. The decision itself reveals coarse facts (a score band): that is the point of data minimisation, and `demo.md` says so.
+For the demo profile (6-9 LPA, salaried, score 742) the answer is `approved`, `limit: 300000`, `["SCORE_FAIR"]`; the same details entered by hand, with no score, give `approved`, `300000`, `["SCORE_FAIR", "SCORE_ASSUMED"]`. A declined answer has `limit: null`. The decision itself reveals coarse facts (a score band): that is the point of data minimisation, and `demo.md` says so.
 
 **Erasure.** A row is erased by overwriting `ciphertext` with `NULL` and setting `erased_at`; the metadata row stays so a later call can still be told why. Triggers: evaluate refusals above; the Processor's subscription to Core's `fiduciary:<address>` topic (a `consent.updated` that is no longer Active for a stored row erases it at once); a sweep every `PROCESSOR_SWEEP_MS` that re-checks every live row on chain (covers expiry and missed events); a newer submission. It never erases when the chain cannot be read.
 
@@ -329,6 +332,30 @@ For the demo profile (6-9 LPA, score 742) the answer is `approved`, `limit: 3000
 - **Privacy check.** Every WebSocket event of the session, whatever its type, is scanned recursively for the known demo values (the PAN, the income band) and for field names that only a profile has (`pan`, `incomeBand`, `score`, `plaintext`). The line "No plaintext was visible to QuickLoan or any third party" is shown only when at least one decision was seen and nothing was found. If something is found the page says so, in words and with an icon, and keeps saying so.
 - **Withdraw and re-run.** `POST /v1/demo/withdraw` when Core holds the principal's key, otherwise the page waits for the `consent.updated` (Withdrawn) of the customer's own phone; then `POST /v1/demo/fire` with `action: "loan_decision"`. It shows the BLOCKED result from the events and "Ciphertext erased" from `vault.erased`.
 - **Replay.** `web/public/flow-replay.json`: `{ v: 1, recordedAt, note, events: [{ t, event }], vaultRow, staffView }` where `t` is milliseconds since the first event, `vaultRow` is the Processor's `GET /v1/vault/:handle` answer for the recorded handle and `staffView` is QuickLoan's admin answer. The replay mode feeds the same state machine from the file at the recorded pace (`?replay=1`, or the Replay button) and answers the staff buttons from the file. It is generated from a real run by `pnpm e2e` with `E2E_RECORD_FLOW=web/public/flow-replay.json`, so it contains real events and real ciphertext, and the same privacy check runs over it (a web test fails if the file contains a plaintext value).
+
+### 6.10 QuickLoan customer portal (web, C-09)
+
+A route of the web app, `/portal/quickloan`, in QuickLoan's colour. It is a stand-in for the company's own website: it talks to Core for the consent request, to Core's WebSocket for what happens, and to QuickLoan's backend for Apply. It never talks to the Processor and never holds data.
+
+**State machine** (`web/src/portal/journey.ts`, pure TypeScript with injected I/O, so `pnpm e2e` drives the very same code with real answers):
+
+| Stage | Entered when | Page shows |
+|---|---|---|
+| `logged-out` | start, or sign out | the demo login: one text input for the customer name or ID (a company-side alias) |
+| `form` | login | the loan application form: the checkbox "Allow QuickLoan to use my data for loan purposes" (unticked), the purposes beneath it, Apply disabled |
+| `awaiting-scan` | the checkbox is ticked and `POST /v1/fiduciaries/:fid/requests` answered | the QR inline (the request's `qrPayload`), "Waiting for you to approve in the Sammati app...", a live status. Unticking cancels and returns to `form` |
+| `consent-received` | `consent.updated` Active for `credit_check` after the request was made, and the company-side table maps that principal to this alias | "Consent received", the short tx hash, and for each sensitive field (PAN, income, employment) "Provided securely in your Sammati app"; Apply disabled |
+| `data-submitted` | `vault.stored` for this customer and purpose | "Data submitted securely", the handle and ciphertext hash only; Apply enabled |
+| `decided` | Apply answered 200 | the decision card: Approved or Declined, the limit, the reason codes |
+| `withdrawn` | `consent.updated` Withdrawn for this customer, or Apply answered 451 `CONSENT_WITHDRAWN` | "Consent withdrawn. Application cannot be processed"; Apply disabled |
+| `error` | a request failed or Core is unreachable | what failed and how to retry; the form is kept |
+
+- **Who the customer is.** The page never asks for an address. After a `consent.updated` Active it reads the company-side consents table (`GET /v1/fiduciaries/:fid/consents`, `customerAlias` per row, `trd.md` §6.2) and accepts the event only if the row of that principal carries this page's alias. Another customer consenting at the same time is ignored.
+- **Optional purposes.** `marketing` and `bureau_share` are listed unticked; those the customer ticks before the main box go into the request. `credit_check` is the loan purpose and is what the main checkbox asks for. After the QR exists the boxes are locked.
+- **Apply.** `POST <QuickLoan>/customers/<alias>/apply` with `x-sammati-principal` (`trd.md` §6.8). 200: the decision card from `{ decision, limit, reasonCodes }`. 451: `CONSENT_WITHDRAWN` moves to `withdrawn`, any other reason is shown as the refusal it is. 409 `NO_SUBMISSION` and everything else: `error`, with Apply still available.
+- **Never plaintext.** The page has no field for a PAN or an income and no code that could display one. The login refuses an alias shaped like a PAN ("That looks like a PAN. QuickLoan does not need it here."). Every frame the page receives is checked like the Data Flow Inspector's (`web/src/flow/privacy.ts`): if a profile value turns up in one, the page shows a plain warning and stops the journey (`error`) rather than render it.
+
+**Wallet side (W-13, `ui.md` W10).** The profile the wallet encrypts is `{ pan, incomeBand, employment }` plus `score` when the demo profile is used. `employment` is one of `salaried`, `self-employed`, `student`, `unemployed`; `incomeBand` one of the four bands of §6.7. The wallet validates the PAN against `^[A-Z]{5}[0-9]{4}[A-Z]$` before it will send.
 
 ## 7. Gateway SDK
 

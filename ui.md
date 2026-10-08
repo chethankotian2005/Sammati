@@ -103,6 +103,15 @@ Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under
 - The state is held while the app runs; after a restart the section is idle again until the next `vault.stored` / `vault.erased` event (there is no read endpoint for "what do I have stored", on purpose: the wallet does not ask the Processor questions about stored data).
 - The vault never changes the pass-cut animation or the cascade list.
 
+### W10 Share your details securely (W-13), after consent or from the QuickLoan pass
+Opens from the receipt (W4) as a primary button "Share your details securely" when a data-using purpose was granted, and from "Send securely" on W5 (V2). Closing it never withdraws anything.
+- Intro: "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them."
+- A button "Use demo details" fills the three fields from the demo profile (and sends the demo score with them).
+- Fields: **PAN** (text, upper-cased as typed, hint "Like ABCDE1234F", error "Enter a PAN like ABCDE1234F" shown after the field was touched), **Income band** (choice of four: up to 3 LPA, 3 to 6 LPA, 6 to 9 LPA, 9 LPA and above), **Employment** (choice of four: salaried, self-employed, student, unemployed). Nothing is pre-filled; "Send securely" stays disabled until all three are valid.
+- Send: device-credential prompt (`auth_reason_vault`), "Encrypting and sending…", then the sent state of V2 ("Sent encrypted. {company} holds only a reference.", the handle shortened) and a "Done" button. Failed, unreachable and refused states are V2's.
+- The fields live only in this screen's memory: they are cleared once sent, and when the screen closes. Nothing is logged, saved or shown on any other screen.
+- A standing line, as on V1: "Demo processor (simulated enclave, not real hardware protection)".
+
 ### Edge states
 Offline banner "No connection. Showing last known consents."; expired consent chip "Expired 3 days ago, give consent again"; QR from a different network "Could not reach Sammati. Check Wi-Fi."; failed transaction "Could not record this. Try again" with retry.
 
@@ -118,6 +127,20 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **Consents:** table of customers by purpose with status, filterable.
 - **Processors:** per purpose list, ack state and time.
 - **Evidence:** "Generate compliance pack" button, preview, download.
+
+### 3.1 QuickLoan customer portal (`/portal/quickloan`, C-09)
+
+QuickLoan's own customer page, not part of the console: header in `#2F5BEA`, "QuickLoan" and "Loans, quickly." one column, 640 px, large controls (48 px), sentence case. It looks like a company website because it is meant to be taken for one; the footer says "Demo page. Consent by Sammati." The states of `trd.md` §6.10:
+
+- **Logged out:** a card "Sign in to apply", one text input **"Your customer name or ID"** (placeholder "for example Asha"), a button "Continue". There is no password and no other field; in particular none for a PAN or an income. An alias shaped like a PAN is refused with the message "That looks like a PAN. QuickLoan does not need it here."
+- **Application form:** "Hello, {alias}". A card "Apply for a loan" with the checkbox **"Allow QuickLoan to use my data for loan purposes"**, unticked. Beneath it, indented and in plain language, the purposes: "Check your credit eligibility" (this is what the box asks for) and, each with its own unticked box, "Send you loan offers" and "Share repayment history with credit bureaus", the latter marked "Shared with third parties". "Apply" is disabled with the line "Allow the use of your data first".
+- **Awaiting scan:** the same card with the QR (240 px, white tile) and "Waiting for you to approve in the Sammati app...", a live status chip (● Waiting / ✓ Connected), "Untick to cancel".
+- **Consent received:** "✓ Consent received" and "Recorded on the ledger" with the transaction shortened (tap to copy). Beneath, three rows (PAN, Income, Employment), each "Provided securely in your Sammati app" with a lock icon. Apply disabled with "Share your details in the Sammati app".
+- **Data submitted:** "✓ Data submitted securely", the handle and ciphertext hash shortened (tap to copy), the line "QuickLoan holds only a reference. Only the Sammati Processor can open your details." Apply enabled.
+- **Decided:** a decision card: **Approved** (`allow`, ✓) with "Limit 3,00,000" and the reason codes as chips, or **Declined** (`block`, ✕) with the reasons. No data is shown, only the outcome.
+- **Withdrawn:** "Consent withdrawn. Application cannot be processed" in `block` with an icon; Apply disabled; the data rows are replaced by "Your encrypted details were erased" once the Processor says so.
+- **Error:** a `block` banner naming what failed, "Try again", and the form is kept.
+Status is never colour alone. Every dynamic line is an `aria-live` region.
 
 ## 4. Auditor (web)
 
@@ -302,6 +325,28 @@ Confidential processing (V1, V2), same status as above. `{company}` is a placeho
 | vault_erased | Your encrypted details were erased. | आपका एन्क्रिप्टेड विवरण मिटा दिया गया। | ನಿಮ್ಮ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿದ ವಿವರಗಳನ್ನು ಅಳಿಸಲಾಗಿದೆ. |
 | vault_failed | Could not send securely. Try again. | सुरक्षित रूप से नहीं भेज सके। दोबारा कोशिश करें। | ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
 | auth_reason_vault | Confirm to send your details securely | अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲು ದೃಢೀಕರಿಸಿ |
+
+Share your details securely (W10, W-13), same status as above. `{company}` is a placeholder. The income-band and employment labels are shown to the user; what is encrypted is the fixed value (`0-3 LPA`, `salaried`, ...). The portal's strings are English only, like the console's, and are listed in §3.1.
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| share_title | Share your details securely | अपना विवरण सुरक्षित रूप से साझा करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ |
+| share_intro | {company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them. | {company} को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए {company} इन्हें कभी नहीं देखती। | {company} ಗೆ ನಿಮ್ಮ ಸಾಲ ನಿರ್ಧರಿಸಲು ಇವು ಬೇಕು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ {company} ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ. |
+| share_use_demo | Use demo details | डेमो विवरण भरें | ಡೆಮೊ ವಿವರಗಳನ್ನು ಬಳಸಿ |
+| share_pan | PAN | PAN | PAN |
+| share_pan_hint | Like ABCDE1234F | जैसे ABCDE1234F | ಉದಾಹರಣೆ ABCDE1234F |
+| share_pan_invalid | Enter a PAN like ABCDE1234F | ABCDE1234F जैसा PAN दर्ज करें | ABCDE1234F ಮಾದರಿಯ PAN ನಮೂದಿಸಿ |
+| share_income | Income band | आय वर्ग | ಆದಾಯ ವರ್ಗ |
+| income_0_3 | Up to 3 LPA | 3 LPA तक | 3 LPA ವರೆಗೆ |
+| income_3_6 | 3 to 6 LPA | 3 से 6 LPA | 3 ರಿಂದ 6 LPA |
+| income_6_9 | 6 to 9 LPA | 6 से 9 LPA | 6 ರಿಂದ 9 LPA |
+| income_9_plus | 9 LPA and above | 9 LPA और अधिक | 9 LPA ಮತ್ತು ಹೆಚ್ಚು |
+| share_employment | Employment | रोज़गार | ಉದ್ಯೋಗ |
+| emp_salaried | Salaried | वेतनभोगी | ವೇತನದಾರ |
+| emp_self_employed | Self-employed | स्वरोज़गार | ಸ್ವಯಂ ಉದ್ಯೋಗಿ |
+| emp_student | Student | विद्यार्थी | ವಿದ್ಯಾರ್ಥಿ |
+| emp_unemployed | Not employed | बेरोज़गार | ಉದ್ಯೋಗವಿಲ್ಲ |
+| share_cta | Share your details securely | अपना विवरण सुरक्षित रूप से साझा करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 

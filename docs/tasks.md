@@ -48,6 +48,9 @@ Built once the golden path, tamper detection and cascade work (it is a different
 ### Data Flow Inspector (V-07, S-04): with the confidential-processing work
 Built after V-01 to V-06 work end to end, since it reads their events. Order: (1) spec commit; (2) Core's `POST /v1/demo/withdraw`; (3) the pure parts first, each with tests: lane state machine, privacy check, staff-view filter, replay file; (4) the screen and the `/stage` panel; (5) record `web/public/flow-replay.json` from a real `pnpm e2e` run. Gate: the replay plays with no stack running, and a plaintext value injected into any event hides the privacy line.
 
+### Customer portal and wallet data entry (C-09, W-13)
+Built after the Inspector. Order: (1) spec commit; (2) Processor rules for employment and a missing score, with tests; (3) `web/src/portal/journey.ts` and its tests, then the page; (4) the wallet's W10 screen and strings; (5) the e2e section that drives the journey with a headless wallet. Gate: one person can do the whole loop on stage, and `pnpm e2e` plays it.
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.

@@ -44,6 +44,10 @@ It plays the demo once, against real services: reset → a company creates a con
 - It ends with the QuickLoan log deliberately tampered with, so run `pnpm demo:reset` before rehearsing.
 - Set `E2E_CORE_URL` to point it at another Core.
 
+### Customer portal (`/portal/quickloan`)
+
+QuickLoan's customer page for the demo: sign in with a name, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
+
 ### Data Flow Inspector (`/stage/flow`)
 
 `http://localhost:5173/stage/flow` shows, from real events and real answers, the customer's data going in encrypted, what QuickLoan's staff and database can reach (ciphertext only) and the sealed Processor deciding (`docs/ui.md` §5.1). `/stage` has the same screen as a **Data flow** panel. With no stack running, `/stage/flow?replay=1` plays `web/public/flow-replay.json`, a recording of a real run; regenerate it with `E2E_RECORD_FLOW=web/public/flow-replay.json pnpm e2e`.
