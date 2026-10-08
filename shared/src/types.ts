@@ -441,11 +441,15 @@ export interface DemoFireBody {
   purposeCode: string;
   principal: Hex;
   endpoint?: string;
+  /** "loan_decision" (QuickLoan, credit_check) calls the apply endpoint instead of the credit-profile one (trd.md §6.4). */
+  action?: "loan_decision";
 }
 export interface DemoFireResponse {
   decision: Decision;
   reason: AccessReason;
   entryId: string;
+  /** Only for the two QuickLoan endpoints that return no personal data by construction (trd.md §6.4). */
+  result?: VaultView | LoanDecision;
 }
 
 export interface DemoAnchorBody {
@@ -538,10 +542,88 @@ export interface TamperAlertEvent {
   detectedAt: UnixSeconds;
 }
 
+// --- 6.5 / 6.7 confidential processing (V-06): handles, hashes, codes and timings, never plaintext ---
+
+export type LoanDecisionKind = "approved" | "declined";
+/** What QuickLoan holds for a customer: a reference, never the data (trd.md §6.8). */
+export interface VaultView {
+  handle: Hex | null;
+  ciphertextHash: Hex | null;
+  status: "stored" | "erased" | "none";
+}
+/** The Processor's answer to an evaluate call (trd.md §6.7). */
+export interface LoanDecision {
+  decision: LoanDecisionKind;
+  /** Integer INR; null when declined. */
+  limit: number | null;
+  /** Decision codes (PAN_INVALID, INCOME_UNKNOWN, SCORE_LOW, SCORE_FAIR, SCORE_GOOD): not consent reason codes. */
+  reasonCodes: string[];
+}
+export type VaultEraseCause = "withdrawn" | "expired" | "no_consent" | "superseded";
+export type ProcessorOutcome = LoanDecisionKind | "blocked" | "error";
+
+interface VaultEventBase {
+  principal: Hex;
+  fiduciary: Hex;
+  purposeCode: string;
+  handle: Hex;
+  at: UnixSeconds;
+}
+export interface VaultEncryptedEvent extends VaultEventBase {
+  event: "vault.encrypted";
+  ciphertextHash: Hex;
+  sizeBytes: number;
+}
+export interface VaultStoredEvent extends VaultEventBase {
+  event: "vault.stored";
+  ciphertextHash: Hex;
+  sizeBytes: number;
+}
+export interface ProcessorRequestedEvent extends VaultEventBase {
+  event: "processor.requested";
+  action: "loan_decision";
+  requestedAt: number;
+}
+export interface ProcessorDecryptingEvent extends VaultEventBase {
+  event: "processor.decrypting";
+  decryptingAt: number;
+}
+export interface ProcessorDecidedEvent extends VaultEventBase {
+  event: "processor.decided";
+  decision: ProcessorOutcome;
+  limit: number | null;
+  reasonCodes: string[];
+  entryId: string;
+  durationMs: number;
+}
+export interface VaultErasedEvent extends VaultEventBase {
+  event: "vault.erased";
+  cause: VaultEraseCause;
+}
+export type VaultEvent =
+  | VaultEncryptedEvent
+  | VaultStoredEvent
+  | ProcessorRequestedEvent
+  | ProcessorDecryptingEvent
+  | ProcessorDecidedEvent
+  | VaultErasedEvent;
+export type VaultEventName = VaultEvent["event"];
+/** The extra fields each vault event carries beyond VaultEventBase: Core copies exactly these and nothing else. */
+export const VAULT_EVENT_FIELDS: Readonly<Record<VaultEventName, readonly string[]>> = {
+  "vault.encrypted": ["ciphertextHash", "sizeBytes"],
+  "vault.stored": ["ciphertextHash", "sizeBytes"],
+  "processor.requested": ["action", "requestedAt"],
+  "processor.decrypting": ["decryptingAt"],
+  "processor.decided": ["decision", "limit", "reasonCodes", "entryId", "durationMs"],
+  "vault.erased": ["cause"],
+};
+export const VAULT_EVENT_BASE_FIELDS = ["principal", "fiduciary", "purposeCode", "handle", "at"] as const;
+
 export type WsEvent =
   | ConsentUpdatedEvent
   | AccessLoggedEvent
   | CascadeUpdatedEvent
   | AnchorPostedEvent
-  | TamperAlertEvent;
+  | TamperAlertEvent
+  | VaultEvent;
 export type WsEventName = WsEvent["event"];

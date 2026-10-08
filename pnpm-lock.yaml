@@ -201,6 +201,46 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
 
+  processor:
+    dependencies:
+      '@sammati/gateway':
+        specifier: workspace:*
+        version: link:../gateway
+      '@sammati/shared':
+        specifier: workspace:*
+        version: link:../shared
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
+      ethers:
+        specifier: 6.13.4
+        version: 6.13.4
+      express:
+        specifier: 4.21.2
+        version: 4.21.2
+      ws:
+        specifier: 8.18.0
+        version: 8.18.0
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: 7.6.12
+        version: 7.6.12
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
+      '@types/ws':
+        specifier: 8.5.13
+        version: 8.5.13
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+      vitest:
+        specifier: 2.1.8
+        version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
+
   shared:
     dependencies:
       ethers:

@@ -1,0 +1,162 @@
+{
+  "description": "trd.md §4.4. Sealing with the given ephemeral key and nonce must reproduce `envelope` exactly; opening it with the processor private key must reproduce `plaintext`; every `negative` case must fail to open.",
+  "processor": {
+    "privateKey": "0x6c1b13e59eb4f0a3725fb788c5cd880d22d583e0853ec25f8c0f517569a6afdd",
+    "publicKey": "0x368bfb005513e4139a8cf639faf29eed6c9ea74abd6150f9b81c512df29dd26e"
+  },
+  "cases": [
+    {
+      "name": "demo profile for credit_check",
+      "ephemeralPrivateKey": "0xa5dcf68098ed9b55386a163951c0f4c917a3ba068a7bc5cc21b09bb72ae973d9",
+      "nonce": "0x0cd97f0a724c3230d642c15b",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "payload": {
+        "incomeBand": "6-9 LPA",
+        "pan": "ABCDE1234F",
+        "score": 742
+      },
+      "aad": "0x7b22666964756369617279223a22307837303939373937306335313831326463336130313063376430316235306530643137646337396338222c227072696e636970616c223a22307866333966643665353161616438386636663463653661623838323732373963666666623932323636222c22707572706f7365436f6465223a226372656469745f636865636b222c2276223a317d",
+      "plaintext": "0x7b22696e636f6d6542616e64223a22362d39204c5041222c2270616e223a2241424344453132333446222c2273636f7265223a3734327d",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "handle": "0x3074777cc00428e909c9ba7661ebf907763ed0d10293787823131f0487a65627",
+      "ciphertextHash": "0x780b379ea60d9ce0425f116f9664407e9315939697e5e511f1b7ae0fefcb1181"
+    },
+    {
+      "name": "unicode payload for marketing",
+      "ephemeralPrivateKey": "0x7bc28bd2a9d2669dd4a2bba026bebc326c01e7e929f1656763316510e8144ffb",
+      "nonce": "0xec54164d452ef610c8346f99",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "marketing",
+      "payload": {
+        "z": [
+          1,
+          {
+            "b": "ಕನ್ನಡ",
+            "a": "हिन्दी"
+          }
+        ],
+        "a": "x"
+      },
+      "aad": "0x7b22666964756369617279223a22307837303939373937306335313831326463336130313063376430316235306530643137646337396338222c227072696e636970616c223a22307866333966643665353161616438386636663463653661623838323732373963666666623932323636222c22707572706f7365436f6465223a226d61726b6574696e67222c2276223a317d",
+      "plaintext": "0x7b2261223a2278222c227a223a5b312c7b2261223a22e0a4b9e0a4bfe0a4a8e0a58de0a4a6e0a580222c2262223a22e0b295e0b2a8e0b38de0b2a8e0b2a1227d5d7d",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0x8037f1cce0debb889c7605582c6033e5db1e3d8b29b484d3367f21cceb1f4261",
+        "nonce": "0xec54164d452ef610c8346f99",
+        "ciphertext": "0x09606a1d500a8887438071abfa34d05e58de57a9babaf28ae8906f3b7c47a42510685793db6b6867f6732b3e64df6f8a50539421774f326f483548c1ceaef2ade422",
+        "tag": "0x784051aa26d07e1d76973ab542b31e20"
+      },
+      "handle": "0x9d53cfc18fbf3a3dc13016b035cbd380e3531ecaef8942b6765be97135663b0b",
+      "ciphertextHash": "0x4d1b1d0d18a06ac6a8ffa75520cf7850faf4f0ccaf0dd4c31eb450eaf614bb2e"
+    }
+  ],
+  "negative": [
+    {
+      "name": "flipped tag bit",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x57d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "flipped ciphertext bit",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd97cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "flipped nonce bit",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0dd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "wrong purpose in the context",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "marketing",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "wrong principal in the context",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "wrong version",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 2,
+        "ephPub": "0xa7621c5859321c7221a3d65e5e72f464be55817199a5e177fd7a9b1b64109620",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    },
+    {
+      "name": "all-zero ephemeral public key",
+      "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "purposeCode": "credit_check",
+      "envelope": {
+        "v": 1,
+        "ephPub": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x0cd97f0a724c3230d642c15b",
+        "ciphertext": "0xd87cc80876ed0ebe0a8a76bd843e0c0dfe2a41324dfe0ddddaead1adc57ca0ba7d16c85bb20b68ea6e701fe0af18b29d3c269f42dbc509",
+        "tag": "0x56d2609ac9c876b5529ea6899557d834"
+      },
+      "expect": "fail"
+    }
+  ]
+}

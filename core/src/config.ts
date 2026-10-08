@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_RELAYER_KEY, EXPLORERS, SEED_FIDUCIARIES, type Deployment } from "@sammati/shared";
+import { DEMO_RELAYER_KEY, EXPLORERS, PROCESSOR_PORT, SEED_FIDUCIARIES, type Deployment } from "@sammati/shared";
 
 export interface Config {
   port: number;
@@ -34,6 +34,10 @@ export interface Config {
   processorKeys: Record<string, string>;
   indexerIntervalMs: number;
   reconcileIntervalMs: number;
+  /** Where the wallet finds the Sammati Processor (trd.md §6.1). Core only points at it. */
+  processorUrl: string;
+  /** Shared secret the Processor sends with the events it reports: a disclosed demo secret (trd.md §10). */
+  processorEventKey: string;
 }
 
 /** Loads the repo-root .env if there is one; real environment variables win. */
@@ -77,5 +81,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     processorKeys: Object.fromEntries(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => [p.address.toLowerCase(), p.demoKey]))),
     indexerIntervalMs: Number(env.INDEXER_INTERVAL_MS ?? 1000),
     reconcileIntervalMs: Number(env.RECONCILE_INTERVAL_MS ?? 30_000),
+    processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
+    processorEventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
   };
 }

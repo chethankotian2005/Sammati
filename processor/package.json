@@ -1,0 +1,28 @@
+{
+  "name": "@sammati/processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sammati/gateway": "workspace:*",
+    "@sammati/shared": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "ethers": "6.13.4",
+    "express": "4.21.2",
+    "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.12",
+    "@types/express": "4.17.21",
+    "@types/node": "20.17.10",
+    "@types/ws": "8.5.13",
+    "tsx": "4.19.2",
+    "vitest": "2.1.8"
+  }
+}

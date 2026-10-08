@@ -29,11 +29,12 @@ import type {
   VerifyResponse,
   WithdrawResponse,
 } from "@sammati/shared";
-import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, buildDomain, noticeHash } from "@sammati/shared";
+import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, LOAN_DECISION_ENDPOINT, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, buildDomain, noticeHash } from "@sammati/shared";
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
 import { buildNotice, noticeInput } from "../notice";
 import { now } from "../store";
 import { address, bytes32, parseGrant, parseLogEntry, parseRightsBody, parseWithdraw } from "../validate";
+import { sanitiseResult } from "../routes/vault";
 import { accessProof, report, scorecard, tamper, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
@@ -316,22 +317,28 @@ export function realRoutes(core: RealCore): Router {
     const principal = address(requireString(o, "principal"), "principal");
 
     // The company's own guarded endpoint decides and logs (through the gateway SDK); Core only reports the outcome.
-    const target = GUARDED_ENDPOINTS[purpose.code];
+    const loan = o.action === "loan_decision";
+    if (o.action !== undefined && !loan) throw badRequest('"action" must be "loan_decision" when given');
+    if (loan && purpose.code !== "credit_check") throw badRequest('"loan_decision" is a credit_check action');
+    const target = loan ? LOAN_DECISION_ENDPOINT : { ...GUARDED_ENDPOINTS[purpose.code], method: "GET" as const };
     const base = companyBaseUrl(config, f.address);
-    if (!target || !base) throw new HttpError(404, "NO_ENDPOINT", `${f.name} has no guarded endpoint for ${purpose.code}`);
+    if (!target.path || !base) throw new HttpError(404, "NO_ENDPOINT", `${f.name} has no guarded endpoint for ${purpose.code}`);
     const url = base + target.path.replace(":id", SIMULATOR_CUSTOMER_ID);
 
     let response: globalThis.Response;
     try {
-      response = await fetch(url, { headers: { "x-sammati-principal": principal }, signal: AbortSignal.timeout(COMPANY_TIMEOUT_MS) });
+      response = await fetch(url, { method: target.method, headers: { "x-sammati-principal": principal }, signal: AbortSignal.timeout(COMPANY_TIMEOUT_MS) });
     } catch {
       throw new HttpError(502, "COMPANY_UNREACHABLE", `${f.name}'s backend did not answer at ${base}; is it running?`);
     }
 
     let decision: Decision;
     let reason: AccessReason;
+    let result: DemoFireResponse["result"];
     if (response.status === 200) {
       [decision, reason] = ["ALLOWED", "OK"];
+      // Only the two QuickLoan endpoints that return no personal data by construction are relayed (trd.md §6.4).
+      if (purpose.code === "credit_check") result = sanitiseResult(await response.json().catch(() => undefined));
     } else if (response.status === 451) {
       const body = (await response.json().catch(() => ({}))) as { code?: string };
       if (!(REASON_CODES as readonly string[]).includes(body.code ?? "")) {
@@ -341,7 +348,7 @@ export function realRoutes(core: RealCore): Router {
     } else {
       throw new HttpError(502, "COMPANY_ERROR", `${f.name} answered ${response.status}`);
     }
-    res.json({ decision, reason, entryId: response.headers.get(ENTRY_ID_HEADER) ?? "" } satisfies DemoFireResponse);
+    res.json({ decision, reason, entryId: response.headers.get(ENTRY_ID_HEADER) ?? "", ...(result ? { result } : {}) } satisfies DemoFireResponse);
   }));
   // --- not built yet in real mode (trd.md §6.6) ---
 

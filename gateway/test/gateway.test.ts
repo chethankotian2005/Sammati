@@ -311,3 +311,42 @@ describe("access log", () => {
     warn.mockRestore();
   });
 });
+
+describe("logAccess (an access decided elsewhere, e.g. by the Processor)", () => {
+  it("appends to the same hash chain as requireConsent and returns the entry id", async () => {
+    const g = await serve();
+    await get(USER); // seq 1, written by requireConsent
+    const id = g.logAccess({ purpose: "credit_check", principal: USER, decision: "ALLOWED", reason: "OK", endpoint: "POST /v1/processor/evaluate", latencyMs: 7 });
+    await g.flush();
+    expect(core.logs.map((l) => l.seq)).toEqual([1, 2]);
+    expect(core.logs[1]).toMatchObject({ id, decision: "ALLOWED", reason: "OK", endpoint: "POST /v1/processor/evaluate", principal: USER, purposeCode: "credit_check", latencyMs: 7 });
+    expect(core.logs[1]!.prevHash).toBe(core.logs[0]!.hash);
+  });
+
+  it("records a block with its reason code", async () => {
+    const g = await serve();
+    g.logAccess({ purpose: "credit_check", principal: USER, decision: "BLOCKED", reason: "CONSENT_WITHDRAWN", endpoint: "POST /v1/processor/evaluate", latencyMs: 3 });
+    await g.flush();
+    expect(core.logs[0]).toMatchObject({ decision: "BLOCKED", reason: "CONSENT_WITHDRAWN" });
+  });
+
+  it("two writers on one company's chain both land, in order, after a sequence collision", async () => {
+    const first = await serve({ liveCache: false });
+    const second = sammati({ coreUrl: core.url, fiduciary: FID, liveCache: false, timeoutMs: 500 });
+    const entry = { purpose: "credit_check", principal: USER, decision: "ALLOWED" as const, reason: "OK" as const, endpoint: "x", latencyMs: 1 };
+    first.logAccess(entry);
+    await first.flush();
+    second.logAccess(entry); // knows nothing of the first entry: seq 1 is rejected, then it resumes
+    first.logAccess(entry); // its cached head is now stale too
+    await Promise.all([first.flush(), second.flush()]);
+    expect(core.logs.map((l) => l.seq)).toEqual([1, 2, 3]);
+    second.close();
+  });
+
+  it("turns a malformed principal into the zero address instead of failing", async () => {
+    const g = await serve();
+    g.logAccess({ purpose: "credit_check", principal: "customer-4821", decision: "BLOCKED", reason: "NO_PRINCIPAL", endpoint: "x", latencyMs: 1 });
+    await g.flush();
+    expect(core.logs[0]!.principal).toBe("0x" + "00".repeat(20));
+  });
+});

@@ -137,6 +137,16 @@ export const GUARDED_ENDPOINTS: Readonly<Record<string, GuardedEndpoint>> = {
   partner_share: { path: "/orders/partner-dispatch" },
 };
 
+/** QuickLoan's apply endpoint, called by /v1/demo/fire with action "loan_decision" (trd.md §6.8). */
+export const LOAN_DECISION_ENDPOINT = { path: "/customers/:id/apply", method: "POST" } as const;
+/** Purposes whose data the wallet can send to the Processor (ui.md V2). */
+export const VAULT_PURPOSES: readonly string[] = ["credit_check"];
+/** Demo company API keys for the Processor: public on purpose, like the demo chain keys (trd.md §10). */
+export const demoApiKey = (slug: string): string => `sk_demo_${slug}`;
+export const PROCESSOR_PORT = 4200;
+/** The fictional profile the wallet encrypts (drd.md §5). It exists nowhere else but the Processor's memory. */
+export const DEMO_PROFILE = { incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
+
 /** Company-side customer id used by the simulator; the real id never leaves the company (drd.md §1). */
 export const SIMULATOR_CUSTOMER_ID = "1";
 /**

@@ -10,6 +10,7 @@ import { companyRoutes } from "./routes/company";
 import { consentRoutes } from "./routes/consent";
 import { demoRoutes } from "./routes/demo";
 import { rightsRoutes } from "./routes/rights";
+import { vaultRoutes } from "./routes/vault";
 import { now } from "./store";
 
 // Browsers (the web console, Auditor and Stage view) call Core cross-origin.
@@ -49,13 +50,13 @@ function finish(app: Express): Express {
 /** Stub mode: fixtures plus light in-memory state, no chain. */
 export function createApp(ctx: Ctx): Express {
   const app = baseApp(ctx.config);
-  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx), rightsRoutes(ctx));
+  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx), rightsRoutes(ctx), vaultRoutes(ctx));
   return finish(app);
 }
 
 /** Real mode: SQLite, the chain and a relayer behind the same routes. */
 export function createRealApp(core: RealCore): Express {
   const app = baseApp(core.config);
-  app.use("/v1", realRoutes(core));
+  app.use("/v1", realRoutes(core), vaultRoutes(core));
   return finish(app);
 }
