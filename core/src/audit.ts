@@ -1,5 +1,6 @@
 import {
   ZERO_HASH,
+  explorerTxUrl,
   hashEntry,
   merkleProof,
   merkleRoot,
@@ -7,6 +8,7 @@ import {
   type AuditReportResponse,
   type BatchVerification,
   type Hex,
+  type Mismatch,
   type Scorecard,
   type StoredAccessLogEntry,
   type TamperResponse,
@@ -64,7 +66,13 @@ export function verifyFiduciary(store: StubStore, fiduciary: Hex): VerifyRespons
 
   const ok = chainOk && gaps.length === 0 && batches.every((b) => b.ok);
   store.setIntegrity(f.address, ok ? "verified" : "tampered");
-  return { fiduciary: f.address, ok, chainOk, gaps, batches, verifiedAt: now() };
+
+  // The stub only knows whether a row's hash still matches; the real Auditor tells the kinds of damage apart.
+  const badRow = firstBadSeq === null ? undefined : rows.find((r) => r.seq === firstBadSeq);
+  const firstMismatch: Mismatch | null = badRow
+    ? { kind: "HASH_MISMATCH", seq: badRow.seq, entryId: badRow.id, batchIndex: batches.find((b) => badRow.seq >= b.fromSeq && badRow.seq <= b.toSeq)?.index ?? null }
+    : null;
+  return { fiduciary: f.address, ok, chainOk, gaps, batches, firstMismatch, verifiedAt: now() };
 }
 
 export function scorecard(store: StubStore, fiduciary: Hex): Scorecard {
@@ -83,6 +91,10 @@ export function scorecard(store: StubStore, fiduciary: Hex): Scorecard {
     anchoredBatches: store.anchorsFor(f.address).length,
     integrity: store.integrityOf(f.address),
     violations: 0, // needs per-entry consent history; the real Core computes it from the ledger
+    avgWithdrawalToBlockSeconds: null,
+    unacknowledgedCascades: consents
+      .filter((c) => c.status === "Withdrawn")
+      .reduce((n, c) => n + store.cascadeFor(c.principal, f, c.purposeId).filter((item) => item.ackedAt === null).length, 0),
   };
 }
 
@@ -136,6 +148,6 @@ export function accessProof(store: StubStore, entryId: string, explorerBase: str
     merkleRoot: batch.merkleRoot,
     batchIndex: batch.index,
     anchorTxHash: batch.txHash,
-    explorerUrl: `${explorerBase}/tx/${batch.txHash}`,
+    explorerUrl: explorerTxUrl(explorerBase, batch.txHash),
   };
 }

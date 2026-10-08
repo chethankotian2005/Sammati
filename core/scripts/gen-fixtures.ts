@@ -103,7 +103,7 @@ const consentViews = (slug: string): ConsentView[] =>
       };
     });
 
-const consents: Omit<PrincipalConsentsResponse, "nonce"> = {
+const consents: Omit<PrincipalConsentsResponse, "nonce" | "domain"> = {
   principal: DEMO_PRINCIPAL,
   fiduciaries: directory.fiduciaries.map(
     (f): FiduciaryConsents => ({

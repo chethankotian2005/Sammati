@@ -48,7 +48,7 @@ export interface DirectoryFile {
 
 export interface Fixtures {
   directory: DirectoryFile;
-  consents: Omit<PrincipalConsentsResponse, "nonce">;
+  consents: Omit<PrincipalConsentsResponse, "nonce" | "domain">;
   access: Record<Hex, StoredAccessLogEntry[]>;
   anchors: Record<Hex, AnchorBatchView[]>;
   ledger: LedgerEventView[];

@@ -1,7 +1,6 @@
 import { Router } from "express";
-import { getAddress, isAddress, isHexString } from "ethers";
+import { isHexString } from "ethers";
 import {
-  REASON_CODES,
   type ConsentRow,
   type ConsentStateResponse,
   type ExportResponse,
@@ -9,57 +8,16 @@ import {
   type FiduciaryConsentsResponse,
   type GatewayLogResponse,
   type Hex,
-  type LocalizedText,
   type RegisterProcessorResponse,
   type RegisterPurposeResponse,
   type StoredAccessLogEntry,
 } from "@sammati/shared";
 import type { Ctx } from "../context";
-import { badRequest, isRecord, requireBody, requireNumber, requireString } from "../errors";
+import { badRequest, requireBody, requireNumber, requireString } from "../errors";
 import { now } from "../store";
+import { address, parseBoolean, parseLocalized, parseLogEntry } from "../validate";
 
 const DEFAULT_ACCESS_LIMIT = 100;
-
-function address(v: string, label: string): Hex {
-  if (!isAddress(v)) throw badRequest(`"${label}" must be an address`);
-  return getAddress(v);
-}
-
-function localized(o: Record<string, unknown>, key: string): LocalizedText {
-  const v = o[key];
-  if (!isRecord(v)) throw badRequest(`"${key}" must be an object with en, hi and kn`);
-  return { en: requireString(v, "en"), hi: requireString(v, "hi"), kn: requireString(v, "kn") };
-}
-
-function boolean(o: Record<string, unknown>, key: string): boolean {
-  if (typeof o[key] !== "boolean") throw badRequest(`"${key}" must be a boolean`);
-  return o[key] as boolean;
-}
-
-function parseLogEntry(raw: unknown): StoredAccessLogEntry {
-  const o = requireBody(raw);
-  const decision = requireString(o, "decision");
-  if (decision !== "ALLOWED" && decision !== "BLOCKED") throw badRequest('"decision" must be ALLOWED or BLOCKED');
-  const reason = requireString(o, "reason");
-  if (reason !== "OK" && !(REASON_CODES as readonly string[]).includes(reason)) {
-    throw badRequest(`"reason" must be OK or one of ${REASON_CODES.join(", ")}`);
-  }
-  return {
-    at: requireNumber(o, "at"),
-    decision,
-    endpoint: requireString(o, "endpoint"),
-    fiduciary: address(requireString(o, "fiduciary"), "fiduciary"),
-    id: requireString(o, "id"),
-    latencyMs: requireNumber(o, "latencyMs"),
-    principal: address(requireString(o, "principal"), "principal"),
-    purposeCode: requireString(o, "purposeCode"),
-    reason: reason as StoredAccessLogEntry["reason"],
-    seq: requireNumber(o, "seq"),
-    prevHash: requireString(o, "prevHash"),
-    hash: requireString(o, "hash"),
-    batchIndex: null,
-  };
-}
 
 export function companyRoutes(ctx: Ctx): Router {
   const { store } = ctx;
@@ -99,12 +57,12 @@ export function companyRoutes(ctx: Ctx): Router {
     }
     const purpose = store.addPurpose(f, {
       code: requireString(o, "code"),
-      title: localized(o, "title"),
-      description: localized(o, "description"),
+      title: parseLocalized(o, "title"),
+      description: parseLocalized(o, "description"),
       dataCategories: categories as string[],
       retentionDays: requireNumber(o, "retentionDays"),
-      sharesThirdParty: boolean(o, "sharesThirdParty"),
-      required: boolean(o, "required"),
+      sharesThirdParty: parseBoolean(o, "sharesThirdParty"),
+      required: parseBoolean(o, "required"),
     });
     res.status(201).json({ purposeId: purpose.id, txHash: store.newTxHash() } satisfies RegisterPurposeResponse);
   });

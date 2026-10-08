@@ -108,6 +108,20 @@ export function noticeHash(notice: NoticeInput): string {
   return keccak256(canonicalBytes(notice));
 }
 
+// --- Description and metadata hashes (drd.md §4.2a) ---
+
+export function descHash(description: { en: string; hi: string; kn: string }): string {
+  return keccak256(canonicalBytes({ desc_en: description.en, desc_hi: description.hi, desc_kn: description.kn }));
+}
+
+export function fiduciaryMetaHash(f: { name: string; sector: string }): string {
+  return keccak256(canonicalBytes({ name: f.name, sector: f.sector }));
+}
+
+export function processorMetaHash(p: { name: string }): string {
+  return keccak256(canonicalBytes({ name: p.name }));
+}
+
 // --- Merkle (drd.md §4.3) ---
 
 function hexLess(a: string, b: string): boolean {

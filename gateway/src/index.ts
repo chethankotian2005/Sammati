@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import {
+  ENTRY_ID_HEADER,
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
@@ -11,6 +12,7 @@ import {
   type ReasonCode,
   type StoredAccessLogEntry,
 } from "@sammati/shared";
+import { ConsentFeed, type ConsentVerdict } from "./feed";
 
 export interface SammatiOptions {
   coreUrl: string;
@@ -20,6 +22,12 @@ export interface SammatiOptions {
   signer?: string;
   /** Per-call timeout; consent checks fail closed when Core is slower than this. */
   timeoutMs?: number;
+  /** A cached consent decision older than this is re-checked with Core. Default 5000 (trd.md §7). */
+  cacheTtlMs?: number;
+  /** Set false to skip the WebSocket and ask Core on every request. */
+  liveCache?: boolean;
+  /** Log entries waiting for Core beyond this are dropped with a warning. Default 5000. */
+  maxQueuedLogs?: number;
 }
 
 export interface RequireConsentOptions {
@@ -30,10 +38,19 @@ export interface RequireConsentOptions {
 
 export interface SammatiGate {
   requireConsent(opts: RequireConsentOptions): RequestHandler;
+  /** Resolves when every queued access-log entry has been delivered (or given up on). */
+  flush(): Promise<void>;
+  /** Stops the consent feed. Call on shutdown. */
+  close(): void;
 }
 
+export { ENTRY_ID_HEADER };
+
 const DEFAULT_TIMEOUT_MS = 3000;
+const DEFAULT_CACHE_TTL_MS = 5000;
+const DEFAULT_MAX_QUEUED_LOGS = 5000;
 const NO_PRINCIPAL_ADDRESS: Hex = "0x" + "00".repeat(20);
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const MESSAGES: Record<ReasonCode, string> = {
   CONSENT_WITHDRAWN: "The user withdrew consent for this purpose.",
   CONSENT_EXPIRED: "The user's consent for this purpose has expired.",
@@ -42,22 +59,42 @@ const MESSAGES: Record<ReasonCode, string> = {
   NO_PRINCIPAL: "The request did not identify a data principal.",
 };
 
+const UNAVAILABLE: ConsentVerdict = { valid: false, reason: "LEDGER_UNAVAILABLE", expiresAt: null };
+
 export function sammati(options: SammatiOptions): SammatiGate {
   const core = options.coreUrl.replace(/\/+$/, "");
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const log = new LogChain(core, options.fiduciary, timeout);
+  const log = new LogChain(core, options.fiduciary, timeout, options.maxQueuedLogs ?? DEFAULT_MAX_QUEUED_LOGS);
+  const feed = new ConsentFeed({
+    coreUrl: core,
+    fiduciary: options.fiduciary,
+    ttlMs: options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS,
+    log: console.warn,
+  });
+  if (options.liveCache !== false) feed.start();
 
-  async function checkConsent(principal: string, purposeId: Hex): Promise<ReasonCode | null> {
+  /** Asks Core. Anything but a clean answer is "cannot verify", which blocks (AGENTS.md: fail closed). */
+  async function askCore(principal: string, purposeId: Hex): Promise<{ verdict: ConsentVerdict; trusted: boolean }> {
     const q = new URLSearchParams({ principal, fid: options.fiduciary, purpose: purposeId });
     try {
       const res = await fetch(`${core}/v1/gateway/consent-state?${q}`, { signal: AbortSignal.timeout(timeout) });
-      if (!res.ok) return "LEDGER_UNAVAILABLE";
+      if (!res.ok) return { verdict: UNAVAILABLE, trusted: false };
       const state = (await res.json()) as ConsentStateResponse;
-      if (state.valid) return null;
-      return isReasonCode(state.reason) ? state.reason : "LEDGER_UNAVAILABLE";
+      if (state.valid) return { verdict: { valid: true, expiresAt: state.expiresAt }, trusted: true };
+      const reason = isReasonCode(state.reason) ? state.reason : "LEDGER_UNAVAILABLE";
+      return { verdict: { valid: false, reason, expiresAt: state.expiresAt }, trusted: reason !== "LEDGER_UNAVAILABLE" };
     } catch {
-      return "LEDGER_UNAVAILABLE"; // fail closed (AGENTS.md)
+      return { verdict: UNAVAILABLE, trusted: false };
     }
+  }
+
+  async function verdictFor(principal: string, purposeId: Hex): Promise<ConsentVerdict> {
+    const cached = feed.lookup(principal, purposeId);
+    if (cached) return cached;
+    const token = feed.begin(principal, purposeId);
+    const { verdict, trusted } = await askCore(principal, purposeId);
+    if (trusted) feed.store(principal, purposeId, verdict, token);
+    return verdict;
   }
 
   return {
@@ -66,21 +103,25 @@ export function sammati(options: SammatiOptions): SammatiGate {
 
       return async (req: Request, res: Response, next: NextFunction) => {
         const started = Date.now();
-        const principal = principalFrom(req)?.trim() || undefined;
-        const denied = principal ? await checkConsent(principal, purposeId) : "NO_PRINCIPAL";
+        const raw = principalFrom(req)?.trim();
+        const principal = raw && ADDRESS.test(raw) ? raw : undefined;
+        const verdict = principal ? await verdictFor(principal, purposeId) : null;
+        const denied: ReasonCode | null = !principal ? "NO_PRINCIPAL" : verdict!.valid ? null : (verdict!.reason ?? "LEDGER_UNAVAILABLE");
 
+        const id = randomUUID();
         const entry = {
           at: Math.floor(started / 1000),
           decision: denied ? ("BLOCKED" as const) : ("ALLOWED" as const),
           endpoint: `${req.method} ${req.route?.path ?? req.path}`,
-          id: randomUUID(),
+          id,
           latencyMs: Date.now() - started,
           principal: principal ?? NO_PRINCIPAL_ADDRESS,
           purposeCode: purpose,
           reason: denied ?? ("OK" as const),
         };
 
-        // Logging never blocks the response (AGENTS.md): queued after the decision is sent.
+        res.setHeader(ENTRY_ID_HEADER, id);
+        // Logging never blocks the response (AGENTS.md): the entry is queued after the decision is sent.
         if (denied) {
           res.status(451).json({ code: denied, message: MESSAGES[denied] });
         } else {
@@ -89,6 +130,8 @@ export function sammati(options: SammatiOptions): SammatiGate {
         log.enqueue(entry);
       };
     },
+    flush: () => log.flush(),
+    close: () => feed.stop(),
   };
 }
 
@@ -106,17 +149,35 @@ type PendingEntry = Omit<AccessLogEntry, "seq" | "fiduciary">;
 class LogChain {
   private tail: Promise<void> = Promise.resolve();
   private head: { seq: number; hash: Hex } | null = null;
+  private queued = 0;
+  private dropped = 0;
 
   constructor(
     private readonly core: string,
     private readonly fiduciary: Hex,
     private readonly timeout: number,
+    private readonly maxQueued: number,
   ) {}
 
   enqueue(entry: PendingEntry): void {
-    this.tail = this.tail.then(() => this.append(entry)).catch((err) => {
-      console.warn("[sammati] access log failed:", err instanceof Error ? err.message : err);
-    });
+    if (this.queued >= this.maxQueued) {
+      // Core has been unreachable for a long time. Unbounded memory would take the company's app down with it.
+      if (this.dropped++ % 100 === 0) console.warn(`[sammati] access log queue full (${this.maxQueued}); dropped ${this.dropped} entries so far`);
+      return;
+    }
+    this.queued++;
+    this.tail = this.tail
+      .then(() => this.append(entry))
+      .catch((err) => {
+        console.warn("[sammati] access log failed:", err instanceof Error ? err.message : err);
+      })
+      .finally(() => {
+        this.queued--;
+      });
+  }
+
+  flush(): Promise<void> {
+    return this.tail;
   }
 
   private async append(entry: PendingEntry): Promise<void> {

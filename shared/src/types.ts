@@ -63,6 +63,9 @@ export interface StoredAccessLogEntry extends AccessLogEntry {
   batchIndex: number | null;
 }
 
+/** Header the gateway SDK sets on every response: the id of the access-log entry for that decision. */
+export const ENTRY_ID_HEADER = "x-sammati-entry-id";
+
 export interface HealthResponse {
   ok: true;
   service: "sammati-core";
@@ -197,7 +200,8 @@ export interface ConsentProofResponse {
   ledgerHead: Hex;
   blockNumber: number;
   at: UnixSeconds;
-  explorerUrl: string;
+  /** Public explorer page, or null on a chain that has none (the local demo chain). */
+  explorerUrl: string | null;
 }
 
 export interface AccessProofResponse {
@@ -206,7 +210,8 @@ export interface AccessProofResponse {
   merkleRoot: Hex;
   batchIndex: number;
   anchorTxHash: Hex;
-  explorerUrl: string;
+  /** Public explorer page, or null on a chain that has none (the local demo chain). */
+  explorerUrl: string | null;
 }
 
 // --- 6.2 Company and gateway ---
@@ -304,8 +309,15 @@ export interface Scorecard {
   blocked: number;
   anchoredBatches: number;
   integrity: IntegrityState;
-  /** Access that happened without valid consent at that time. */
+  /** ALLOWED log entries with no valid consent behind them (trd.md §6.3 for the exact rule). */
   violations: number;
+  /**
+   * Over withdrawals followed by at least one request: how long after the withdrawal the company
+   * still allowed access. 0 means blocked from the first request after it; null means no data yet.
+   */
+  avgWithdrawalToBlockSeconds: number | null;
+  /** Processors that have not acknowledged a withdrawal older than 30 s. */
+  unacknowledgedCascades: number;
 }
 export interface AuditFiduciariesResponse {
   fiduciaries: Scorecard[];
@@ -323,7 +335,8 @@ export interface LedgerEventView {
   ledgerHead: Hex | null;
   at: UnixSeconds;
   payload: Record<string, unknown> | null;
-  explorerUrl: string;
+  /** Public explorer page, or null on a chain that has none (the local demo chain). */
+  explorerUrl: string | null;
 }
 export interface AuditLedgerResponse {
   events: LedgerEventView[];
@@ -349,12 +362,25 @@ export interface BatchVerification {
   /** First stored row whose hash no longer matches, if any. */
   firstBadSeq: number | null;
 }
+/** What kind of evidence of tampering the Auditor found (trd.md §6.3). */
+export type MismatchKind = "HASH_MISMATCH" | "BROKEN_LINK" | "MISSING_ENTRY" | "ROOT_MISMATCH";
+
+/** The first record that does not check out. seq/entryId are null when no single row can be blamed. */
+export interface Mismatch {
+  kind: MismatchKind;
+  seq: number | null;
+  entryId: string | null;
+  batchIndex: number | null;
+}
+
 export interface VerifyResponse {
   fiduciary: Hex;
   ok: boolean;
   chainOk: boolean; // hash chain recomputes end to end
   gaps: number[]; // missing seq numbers
   batches: BatchVerification[];
+  /** Null when everything checks out. */
+  firstMismatch: Mismatch | null;
   verifiedAt: UnixSeconds;
 }
 
@@ -388,6 +414,26 @@ export interface DemoFireResponse {
   entryId: string;
 }
 
+export interface DemoAnchorBody {
+  /** One company, or all of them when omitted. */
+  fiduciary?: Hex;
+}
+
+export interface DemoAnchoredBatch {
+  fiduciary: Hex;
+  index: number;
+  fromSeq: number;
+  toSeq: number;
+  count: number;
+  merkleRoot: Hex;
+  txHash: Hex;
+}
+
+/** The batches anchored by this call; empty when nothing was waiting. */
+export interface DemoAnchorResponse {
+  batches: DemoAnchoredBatch[];
+}
+
 export interface DemoResetResponse {
   ok: true;
 }
@@ -398,6 +444,12 @@ export interface DemoResetResponse {
 export type WsTopic = string;
 export interface WsSubscribe {
   sub: WsTopic[];
+}
+
+/** Core's answer to a subscribe message: the topics are active from here on (trd.md §6.5). */
+export interface WsAck {
+  event: "subscribed";
+  topics: WsTopic[];
 }
 
 export interface ConsentUpdatedEvent {

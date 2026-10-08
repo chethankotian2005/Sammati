@@ -12,7 +12,7 @@ interface IConsentRegistry {
         uint64 expiresAt;
         uint64 updatedAt;
         bytes32 noticeHash; // hash of the exact notice text the user saw
-        uint32 noticeVersion;
+        uint32 noticeVersion; // number of grants of this consent, starting at 1
     }
 
     struct Purpose {
@@ -44,6 +44,7 @@ interface IConsentRegistry {
 
     event FiduciaryRegistered(address indexed fiduciary, string name);
     event PurposeRegistered(address indexed fiduciary, bytes32 indexed purposeId, bytes32 descHash);
+    event PurposeActiveChanged(address indexed fiduciary, bytes32 indexed purposeId, bool active);
     event ProcessorRegistered(bytes32 indexed purposeId, address indexed processor);
     event ConsentGranted(
         address indexed principal,
@@ -72,6 +73,7 @@ interface IConsentRegistry {
     // fiduciary
     function registerPurpose(bytes32 purposeId, bytes32 descHash, uint32 retentionDays, bool shares) external;
     function registerProcessor(bytes32 purposeId, address processor, bytes32 metaHash) external;
+    function setPurposeActive(bytes32 purposeId, bool active) external;
 
     // anyone (relayer) carrying the principal's signature
     function grantConsent(GrantConsent calldata req, bytes calldata sig) external;
@@ -81,6 +83,10 @@ interface IConsentRegistry {
     function acknowledgeWithdrawal(address principal, address fiduciary, bytes32 purposeId) external;
 
     // views
+    function admin() external view returns (address);
+    function isFiduciary(address fiduciary) external view returns (bool);
+    function isProcessor(bytes32 purposeId, address processor) external view returns (bool);
+    function getPurpose(bytes32 purposeId) external view returns (Purpose memory);
     function hasValidConsent(address principal, address fiduciary, bytes32 purposeId) external view returns (bool);
     function getConsent(address principal, address fiduciary, bytes32 purposeId) external view returns (Consent memory);
     function ledgerHead() external view returns (bytes32);

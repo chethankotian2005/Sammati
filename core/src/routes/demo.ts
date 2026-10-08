@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 import { getAddress, isAddress } from "ethers";
-import type { DemoFireResponse, DemoResetResponse, TamperResponse } from "@sammati/shared";
+import type { DemoAnchorResponse, DemoFireResponse, DemoResetResponse, TamperResponse } from "@sammati/shared";
 import { tamper } from "../audit";
 import type { Ctx } from "../context";
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
@@ -19,6 +19,11 @@ export function demoRoutes(ctx: Ctx): Router {
 
   r.post("/demo/tamper/:fid", (req, res) => {
     res.json(tamper(store, store.fiduciary(req.params.fid!).address) satisfies TamperResponse);
+  });
+
+  // The stub's fixtures are anchored already and it has no chain to anchor on.
+  r.post("/demo/anchor", (_req, res) => {
+    res.json({ batches: [] } satisfies DemoAnchorResponse);
   });
 
   r.post("/demo/reset", (_req, res) => {

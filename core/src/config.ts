@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEMO_RELAYER_KEY, EXPLORERS, SEED_FIDUCIARIES, type Deployment } from "@sammati/shared";
 
 export interface Config {
   port: number;
@@ -7,7 +8,32 @@ export interface Config {
   demoMode: boolean;
   /** Base URL the wallet reaches Core on; goes into the QR code (use the LAN IP on stage). */
   publicUrl: string;
-  explorerUrl: string;
+  /** Explorer base URL for proof links, overriding the deployment's. Null: use the deployment's (Polygon Amoy has one, the local chain none). */
+  explorerUrl: string | null;
+  // --- real mode only ---
+  chainRpc: string;
+  /** Key into shared/deployments.json. */
+  chainNetwork: string;
+  /** Overrides the deployments.json entry (tests). */
+  deployment?: Deployment;
+  relayerKey: string;
+  dbPath: string;
+  /** Consent requests (QR codes) stop working after this long. */
+  requestTtlSeconds: number;
+  /** Host the demo company backends run on (their ports are in shared/seed.ts). */
+  companyHost: string;
+  /** Per-company base URL overrides, keyed by lower-case fiduciary address (tests, remote companies). */
+  companyUrls: Record<string, string>;
+  /** How often pending log entries are anchored. 0 turns the timer off (the 20-entry trigger and runOnce still work). */
+  anchorIntervalMs: number;
+  /** Private keys Core holds for companies, by lower-case address: demo shortcut, disclosed in trd.md §12. */
+  fiduciaryKeys: Record<string, string>;
+  /** How long a processor stub waits before acknowledging, [min, max] ms (trd.md §9: 1 to 3 s). */
+  cascadeDelayMs: [number, number];
+  /** Private keys Core holds for the demo processors, by lower-case address: disclosed in demo.md. */
+  processorKeys: Record<string, string>;
+  indexerIntervalMs: number;
+  reconcileIntervalMs: number;
 }
 
 /** Loads the repo-root .env if there is one; real environment variables win. */
@@ -19,6 +45,17 @@ export function loadDotEnv(): void {
   }
 }
 
+/** Stub mode has no chain, so its proof links are fixtures: pointed at Amoy's explorer unless told otherwise. */
+export function stubExplorerUrl(config: Pick<Config, "explorerUrl">): string {
+  return config.explorerUrl ?? EXPLORERS.amoy!;
+}
+
+/** "1000,3000" -> [1000, 3000]; anything unusable falls back. */
+function parseRange(value: string | undefined, fallback: [number, number]): [number, number] {
+  const [min, max] = (value ?? "").split(",").map(Number);
+  return Number.isFinite(min) && Number.isFinite(max) && min! >= 0 && max! >= min! ? [min!, max!] : fallback;
+}
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = Number(env.PORT ?? 4000);
   return {
@@ -26,6 +63,19 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     stubMode: env.STUB_MODE !== "false",
     demoMode: env.DEMO_MODE !== "false",
     publicUrl: env.CORE_PUBLIC_URL ?? `http://localhost:${port}`,
-    explorerUrl: env.CHAIN_EXPLORER_URL ?? "https://amoy.polygonscan.com",
+    explorerUrl: env.CHAIN_EXPLORER_URL || null,
+    chainRpc: env.CHAIN_RPC ?? "http://127.0.0.1:8545",
+    chainNetwork: env.CHAIN_NETWORK ?? "localhost",
+    relayerKey: env.RELAYER_KEY ?? DEMO_RELAYER_KEY,
+    dbPath: env.DB_PATH ?? "./data/sammati.sqlite",
+    requestTtlSeconds: Number(env.REQUEST_TTL_SECONDS ?? 1800),
+    companyHost: env.COMPANY_HOST ?? "localhost",
+    companyUrls: {},
+    anchorIntervalMs: Number(env.ANCHOR_INTERVAL_MS ?? 10_000),
+    fiduciaryKeys: Object.fromEntries(SEED_FIDUCIARIES.map((f) => [f.address.toLowerCase(), f.demoKey])),
+    cascadeDelayMs: parseRange(env.CASCADE_DELAY_MS, [1000, 3000]),
+    processorKeys: Object.fromEntries(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => [p.address.toLowerCase(), p.demoKey]))),
+    indexerIntervalMs: Number(env.INDEXER_INTERVAL_MS ?? 1000),
+    reconcileIntervalMs: Number(env.RECONCILE_INTERVAL_MS ?? 30_000),
   };
 }

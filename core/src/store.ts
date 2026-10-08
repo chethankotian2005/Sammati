@@ -3,6 +3,7 @@ import {
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
+  explorerTxUrl,
   hashEntry,
   keccakUtf8,
   purposeIdOf,
@@ -23,7 +24,7 @@ import {
   type StoredAccessLogEntry,
   type WithdrawConsent,
 } from "@sammati/shared";
-import type { Config } from "./config";
+import { stubExplorerUrl, type Config } from "./config";
 import { HttpError } from "./errors";
 import {
   loadFixtures,
@@ -459,7 +460,7 @@ export class StubStore {
         ledgerHead: this.head,
         at: now(),
         payload,
-        explorerUrl: `${this.config.explorerUrl}/tx/${txHash}`,
+        explorerUrl: explorerTxUrl(stubExplorerUrl(this.config), txHash),
       },
     ];
   }
