@@ -1328,6 +1328,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{time} ago'**
   String alert_ago(String time);
+
+  /// No description provided for @protect_link.
+  ///
+  /// In en, this message translates to:
+  /// **'How this protects you'**
+  String get protect_link;
+
+  /// No description provided for @protect_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Each purpose is your own choice. Nothing is ticked for you.'**
+  String get protect_1;
+
+  /// No description provided for @protect_2.
+  ///
+  /// In en, this message translates to:
+  /// **'You can withdraw any purpose later in two taps. The company\'s next request is blocked.'**
+  String get protect_2;
+
+  /// No description provided for @protect_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Every time a company uses your data it is recorded. If the record is edited later, the edit shows.'**
+  String get protect_3;
+
+  /// No description provided for @protect_4.
+  ///
+  /// In en, this message translates to:
+  /// **'When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this demo the secure processor is simulated.'**
+  String get protect_4;
+
+  /// No description provided for @protect_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Sammati is a prototype with made-up data. It is aligned with the principles of India\'s DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md.'**
+  String get protect_note;
 }
 
 class _AppLocalizationsDelegate

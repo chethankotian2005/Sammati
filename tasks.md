@@ -39,7 +39,7 @@ Everything below P0 waits until this path runs end to end on the real phone.
 ### H14–H18: Polish and depth
 - **A:** Amoy deployment and explorer links, reconcile job, `pnpm e2e`, fail-closed behaviour, README run instructions.
 - **B:** animations (pass-cut), rights screens (W8), error/offline states, app icon, release APK.
-- **C:** Stage view, evidence/report export, deck (6 slides), copy pass with native-speaker check on Hindi and Kannada.
+- **C:** Stage view, evidence/report export, deck (7 slides, one of them the legal-alignment slide), copy pass with native-speaker check on Hindi and Kannada. Legal alignment (L-01, L-02): `dpdp-mapping.md` and its claims review; hand the VERIFY checklist (§7 there) to someone who can check it against the official Act and Rules text.
 - **Gate H18:** feature freeze. Only fixes after this.
 
 ### Confidential processing (V-01 to V-06): after the hero moments
@@ -82,6 +82,7 @@ If time runs short, cut from the bottom, never from the top:
 - Works on the real phone (for wallet features) or in the Stage view (for web)
 - Appears in `pnpm e2e` if it is on the golden path or a hero moment
 - No console errors, no placeholder text
+- Any wording about the law follows `dpdp-mapping.md` §6: "aligned with the principles of", never "compliant", "certified" or "approved", and no section or rule number that is not recorded as checked
 
 ### Integration contracts (do not change without telling the others)
 - EIP-712 types and domain: `shared/eip712.ts` (and the Dart copy in `wallet/lib/core/eip712.dart`)

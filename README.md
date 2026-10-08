@@ -102,7 +102,7 @@ Build a consent manager where users grant, view and withdraw purpose-specific co
 |---|---|---|---|
 | 1 | **Sammati Wallet** (Flutter APK) | Citizen (Data Principal) | The hero. GPay-style app: scan, consent, withdraw, see who touched your data |
 | 2 | **Sammati Gateway + Company Console** (SDK + web) | Companies (Data Fiduciaries) | The enforcement. Every data request is ALLOWED or BLOCKED in real time |
-| 3 | **Sammati Auditor** (web) | Regulator (Data Protection Board) | The proof. Verify compliance and detect tampering without trusting the company |
+| 3 | **Sammati Auditor** (web) | Regulator (Data Protection Board) | The proof. Check the consent and access record and detect tampering without trusting the company |
 | 4 | **ConsentRegistry + AccessAnchor** (Solidity) | Everyone | The shared source of truth |
 | 5 | **Sammati Processor** (Node, port 4200) | Companies, via a decision API | Use without reading: the customer's data is encrypted on the phone, stored as ciphertext, opened only here, and a company gets a decision back. A simulated enclave in this build (`architecture.md` §5.5) |
 
@@ -131,11 +131,12 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 | `ui.md` | Design system, every screen, copy, motion, i18n |
 | `demo.md` | The 4-minute demo script, stage setup, fallbacks, judge Q&A |
 | `tasks.md` | Work split for 3 people, 24-hour plan, cut lines, definition of done |
+| `dpdp-mapping.md` | DPDP obligations mapped to Sammati features with the evidence and an honest status; gaps and limitations; the claims review; and the VERIFY checklist for a human to check against the official Act and Rules. Wording is "aligned with the principles of", never "compliant" |
 | `AGENTS.md` | Rules for AI coding tools working in this repo |
 
 ## Assumptions to confirm
 1. **"DRD"** is interpreted as **Data Requirements Document**. If your team means Design Requirements, `ui.md` already covers it.
-2. DPDP Act section numbers in these docs are from memory. **Verify them against the official Act and Rules text before they go on a slide.**
+2. DPDP Act section numbers in these docs are from memory. **Verify them against the official Act and Rules text before they go on a slide.** `docs/dpdp-mapping.md` cites none: it lists every uncertain legal point as a numbered VERIFY item (its §7) for a human to check.
 3. Product name, colours and fonts are proposals.
 
 ## Spec-driven workflow
