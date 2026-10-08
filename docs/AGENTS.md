@@ -40,7 +40,7 @@ If the spec and the code disagree, **update the spec first** (small edit), then 
 ## Commands
 ```
 pnpm install
-pnpm demo:up        # chain, core, 3 companies, web
+pnpm demo:up        # chain, core (real mode), 3 companies, web; `demo:up:stub` for fixtures instead of a chain
 pnpm demo:reset     # reset DB, redeploy seed
 pnpm e2e            # grant → allowed → withdraw → blocked → tamper → verify fails
 pnpm --filter contracts test

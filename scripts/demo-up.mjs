@@ -1,4 +1,5 @@
-// `pnpm demo:up` (Core in stub mode) and `pnpm demo:up:real` (Core backed by the chain and SQLite).
+// `pnpm demo:up`: the whole stack, with Core in real mode (backed by the chain and SQLite). `pnpm demo:up:stub`
+// serves fixtures instead, with no chain, for building clients without one. `demo:up:real` is an alias of `demo:up`.
 // A failing process takes the rest down; the one-shot seed process exiting cleanly does not.
 import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -30,7 +31,7 @@ try {
 const qr = describeQrUrl({ port: process.env.PORT ?? "4000", env: process.env });
 console.log(qr.banner);
 
-const real = process.argv.includes("--real");
+const real = !process.argv.includes("--stub");
 const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;

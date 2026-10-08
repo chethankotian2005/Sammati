@@ -6,7 +6,8 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "demo:up": "node scripts/demo-up.mjs",
-    "demo:up:real": "node scripts/demo-up.mjs --real",
+    "demo:up:real": "node scripts/demo-up.mjs",
+    "demo:up:stub": "node scripts/demo-up.mjs --stub",
     "demo:reset": "node scripts/demo-reset.mjs",
     "deploy:local": "pnpm --filter @sammati/contracts run deploy:local",
     "deploy:amoy": "pnpm --filter @sammati/contracts run deploy:amoy",

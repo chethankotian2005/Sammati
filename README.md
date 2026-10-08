@@ -12,18 +12,15 @@ pnpm install
 pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
 ```
 
-`demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`.
+`demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Core runs in **real mode** (`docs/trd.md` §6.6): the same routes as the stub, backed by SQLite, the chain and a relayer wallet.
 
-Core starts in **stub mode** by default (`STUB_MODE=true`): it serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state, and no chain is touched. Build wallet and web against it.
+**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks (its Wi-Fi and the hotspot the phone joined) the banner lists every address: pick the phone's network by setting `CORE_PUBLIC_URL=http://<that address>:4000` in the environment or `.env`, which always wins over detection.
 
-**Real mode** is the same routes backed by SQLite, the chain and a relayer wallet (`docs/trd.md` §6.6). Switch with no client change:
+**Reset between runs with `pnpm demo:reset`.** It resets Core's database, then the chain, redeploys, reseeds, and resets Core again, in that order on purpose (see the comment at the top of `scripts/demo-reset.mjs`). Core also keeps a record of which chain its database describes and wipes itself if it is started against a different one, and `demo:up` clears the old database file, so a restart can never mix one run's log with another run's chain. The chain's clock is put back on the wall clock after every reset and at start.
 
-```
-pnpm demo:up:real   # same stack, Core with STUB_MODE=false; waits for the chain and the seed
-```
+To build a client without a chain, `pnpm demo:up:stub` serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state. (`pnpm demo:up:real` is an alias of `demo:up`.)
 
 Real mode needs nothing but the chain (config in `.env.example`, all optional). What it does not build yet answers `501 NOT_IMPLEMENTED`: console purpose/processor registration (the seed registers them).
-
 The tamper demo, in real mode (every 10 s, or after 20 entries, Core anchors each company's access log on chain):
 
 ```
@@ -42,7 +39,7 @@ pnpm e2e            # starts the stack itself if none is running, and stops it a
 
 It plays the demo once, against real services: reset → a company creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → tamper with one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step. It prints each step with its time and exits non-zero, naming the step, if anything is off.
 
-- With `pnpm demo:up:real` already running it reuses that stack and resets it first (about 6 s); with nothing running it starts one (about 12 s more). The 30 s budget (`E2E_BUDGET_MS`) covers the story, not starting the stack. A typical run takes 8 to 10 s.
+- With `pnpm demo:up` already running it reuses that stack and resets it first (about 6 s); with nothing running it starts one (about 12 s more). The 30 s budget (`E2E_BUDGET_MS`) covers the story, not starting the stack. A typical run takes 8 to 10 s.
 - It refuses a Core in stub mode, and `--no-start` makes it fail instead of starting a stack.
 - It ends with the QuickLoan log deliberately tampered with, so run `pnpm demo:reset` before rehearsing.
 - Set `E2E_CORE_URL` to point it at another Core.

@@ -229,7 +229,7 @@ Same paths, shapes and error codes as the stub, backed by SQLite (`drd.md` §3),
 - **`/v1/gateway/consent-state`** reads the chain directly (the cache can lag), and answers 503 `LEDGER_UNAVAILABLE` when it cannot, which the SDK treats as BLOCKED (fail closed).
 - **Request notices:** `GET /v1/requests/:id` expires a request after `REQUEST_TTL_SECONDS` (default 1800) with 410 `REQUEST_EXPIRED`. The seeded `req_demo_quickloan` never expires.
 - **Not built yet in real mode (501 `NOT_IMPLEMENTED`):** `POST /v1/fiduciaries/:fid/purposes` and `/processors` (the seed registers them). The cascade engine (§9) is also not built: `GET .../cascade/:purposeId` lists processors with null timestamps until a `WithdrawalAcknowledged` event arrives, and until then every withdrawal older than 30 s counts as an unacknowledged cascade in the scorecard. The audit report is not signed (A-04 asks for it); `reportHash` and signing are future work.
-- **Config:** `STUB_MODE=false`, `CHAIN_RPC` (default `http://127.0.0.1:8545`), `CHAIN_NETWORK` (the key in `shared/deployments.json`, default `localhost`), `RELAYER_KEY` (default the demo relayer), `DB_PATH` (default `./data/sammati.sqlite`). Core waits for the chain and contracts at startup rather than exiting. Start it with `pnpm demo:up:real`.
+- **Config:** `STUB_MODE=false`, `CHAIN_RPC` (default `http://127.0.0.1:8545`), `CHAIN_NETWORK` (the key in `shared/deployments.json`, default `localhost`), `RELAYER_KEY` (default the demo relayer), `DB_PATH` (default `./data/sammati.sqlite`). Core waits for the chain and contracts at startup rather than exiting. Start it with `pnpm demo:up` (real mode is its default).
 
 ## 7. Gateway SDK
 
@@ -278,7 +278,7 @@ Real mode, in detail (`core/src/real/cascade.ts`):
 | Deployments | `shared/deployments.json`, keyed by network name: `{ "<network>": { chainId, admin, consentRegistry, accessAnchor, startBlock, [explorerUrl, links] } }`. `pnpm deploy:local` writes `localhost`, which is deterministic on a fresh node and has no explorer; `pnpm deploy:amoy` writes `amoy` with `explorerUrl` and `links { consentRegistry, accessAnchor, consentRegistryDeployTx, accessAnchorDeployTx }` |
 | Explorer links | Proof responses (`/v1/proof/consent/:txHash`, `/v1/proof/access/:entryId`) and the ledger explorer carry `explorerUrl`: `<explorer>/tx/<hash>` when the deployment has an explorer (Amoy) or `CHAIN_EXPLORER_URL` is set, otherwise `null` (the local chain has none). Stub mode returns fixture links to Amoy's explorer |
 | Reset | `pnpm demo:reset` wipes the chain (`hardhat_reset`), redeploys, reseeds, then resets Core's DB |
-| One command | `pnpm demo:up` starts everything; `pnpm demo:reset` resets state |
+| One command | `pnpm demo:up` starts everything with Core in real mode (`pnpm demo:up:stub`: Core serves fixtures, no chain; `demo:up:real` is an alias of `demo:up`); `pnpm demo:reset` resets state. It prints the address the QR code will give the phone: the laptop's LAN IPv4, or `CORE_PUBLIC_URL` if set |
 
 ## 11. Quality gates
 - Contract tests green (§3.3).

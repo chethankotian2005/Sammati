@@ -3,7 +3,7 @@
 //   reset → company creates a request → user signs and grants → ALLOWED → unconsented purpose BLOCKED
 //   → withdraw → BLOCKED → processor acknowledges → verify (clean) → tamper → verify (mismatch pinpointed)
 //
-// Uses a running `pnpm demo:up:real` if there is one (and resets it first); otherwise starts the stack
+// Uses a running `pnpm demo:up` if there is one (and resets it first); otherwise starts the stack
 // itself and stops it afterwards. Exits non-zero, naming the step, if anything is not as expected.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, readFileSync, rmSync } from "node:fs";
@@ -135,18 +135,18 @@ function stopStack(): void {
 async function ensureStack(): Promise<"reused" | "started"> {
   const found = await health();
   if (found) {
-    if (found.mode !== "live") fail(`Core at ${CORE} is in ${found.mode} mode; the e2e needs the real one. Stop it and run \`pnpm demo:up:real\` (or let this script start the stack).`);
-    check(await companyUp(), `Core is up but QuickLoan's backend (port ${QUICKLOAN.port}) is not: is the whole \`pnpm demo:up:real\` stack running?`);
+    if (found.mode !== "live") fail(`Core at ${CORE} is in ${found.mode} mode; the e2e needs the real one. Stop it and run \`pnpm demo:up\` (or let this script start the stack).`);
+    check(await companyUp(), `Core is up but QuickLoan's backend (port ${QUICKLOAN.port}) is not: is the whole \`pnpm demo:up\` stack running?`);
     return "reused";
   }
-  if (process.argv.includes("--no-start")) fail(`No Core at ${CORE}, and --no-start was given. Run \`pnpm demo:up:real\` first.`);
+  if (process.argv.includes("--no-start")) fail(`No Core at ${CORE}, and --no-start was given. Run \`pnpm demo:up\` first.`);
 
-  console.log(`No stack running: starting \`pnpm demo:up:real\` (log: ${stack.logFile})`);
+  console.log(`No stack running: starting \`pnpm demo:up\` (log: ${stack.logFile})`);
   const log = createWriteStream(stack.logFile);
   // A stack started here gets a database of its own. The default one persists between runs, and would
   // bring back the previous run's deliberately tampered log against this run's brand-new chain.
   removeDb();
-  stack.child = spawn(process.execPath, [join(repoRoot, "scripts/demo-up.mjs"), "--real"], {
+  stack.child = spawn(process.execPath, [join(repoRoot, "scripts/demo-up.mjs")], {
     cwd: repoRoot,
     env: { ...process.env, DB_PATH: stack.dbFile },
     detached: process.platform !== "win32",

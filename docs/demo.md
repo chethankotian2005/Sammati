@@ -25,8 +25,8 @@ Total ≈ 3:50, leaving ~10 seconds slack. Judges' questions come after.
 - Memorise the two hero moments: **blocked after withdraw** and **tamper detected**.
 
 ## 4. Stage setup checklist
-- [ ] Laptop on charger, Hardhat node, Core, 3 companies, web all up (`pnpm demo:up`)
-- [ ] Phone on the same hotspot, wallet pointing to the laptop LAN IP, relayer funded
+- [ ] Laptop on charger, Hardhat node, Core, 3 companies, web all up (`pnpm demo:up`: real mode is the default; `pnpm e2e` must pass first)
+- [ ] Phone on the same hotspot, and the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (if the laptop is on two networks the banner lists both: set `CORE_PUBLIC_URL` to the right one), relayer funded
 - [ ] Phone mirrored with `scrcpy` on the projector, brightness and Do Not Disturb set
 - [ ] Browser tabs preloaded: Stage view, QuickLoan console, Auditor, Amoy explorer
 - [ ] Wallet language set to English, Kannada one tap away
