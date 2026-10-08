@@ -10,6 +10,7 @@ import 'package:sammati/core/processor_api.dart';
 
 import 'support/fake_core.dart';
 import 'support/fakes.dart';
+import 'support/finders.dart';
 import 'support/pump_app.dart';
 
 const _now = 1760000000;
@@ -33,7 +34,7 @@ Future<void> openPass(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Finder sendButton() => find.widgetWithText(TextButton, 'Send securely');
+Finder sendButton() => textButtonWithText('Send securely');
 
 /// The pass's button opens W10; there the customer fills the demo details and sends. Comes back to the pass when it worked.
 Future<void> shareDemo(WidgetTester tester) async {
@@ -97,7 +98,7 @@ void main() {
 
       expect(processor.submissions, hasLength(1));
       expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Send again'), findsOneWidget);
+      expect(textButtonWithText('Send again'), findsOneWidget);
       expect(sendButton(), findsNothing);
       // the handle is shown shortened, like every hash
       expect(find.textContaining('…'), findsWidgets);
@@ -115,7 +116,7 @@ void main() {
       live.emitVault(notice(VaultNoticeKind.erased, handle));
       await tester.pumpAndSettle();
       expect(find.text('Your encrypted details were erased.'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Send again'), findsNothing);
+      expect(textButtonWithText('Send again'), findsNothing);
     });
 
     testWidgets('an erase of an older copy changes nothing', (tester) async {
@@ -156,7 +157,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Your encrypted details were erased.'), findsOneWidget);
       expect(sendButton(), findsNothing);
-      expect(find.widgetWithText(TextButton, 'Send again'), findsNothing);
+      expect(textButtonWithText('Send again'), findsNothing);
     });
 
     testWidgets('no button, and nothing said, for a purpose that was never sent and is withdrawn', (tester) async {
@@ -211,7 +212,7 @@ void main() {
       await pumpApp(tester, core: seeded(), stored: {'locale': 'hi'});
       await tester.tap(find.text('QuickLoan'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextButton, 'सुरक्षित रूप से भेजें'), findsOneWidget);
+      expect(textButtonWithText('सुरक्षित रूप से भेजें'), findsOneWidget);
     });
   });
 }
