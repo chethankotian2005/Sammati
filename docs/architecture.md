@@ -60,8 +60,9 @@
 |---|---|---|
 | Citizen | Grant/withdraw by signing | Be impersonated; the contract verifies the signature |
 | Company | Register purposes, query data through the gateway, anchor logs | Forge or edit a consent, delete a withdrawal, hide a log without breaking the anchor. Read the customer's vault data: it gets handles and decisions only |
+| Applicant (not yet a company) | Submit an application, follow its status | Have a fiduciary id, an API key or a single request until approved |
 | Relayer | Submit signed messages, pay gas | Create consent on a user's behalf (no signature, no effect) |
-| Regulator | Read everything, verify independently | Alter state |
+| Regulator | Read everything, verify independently; **decide who may join** (approve or reject a registration, promote a company out of the sandbox, name the test customers, reissue a key) | Alter consent state, read a company's API key (it is shown once, to the company) |
 | Sammati Core | Relay, index, cache, anchor, fan out events | Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
 | Sammati Processor | Open an envelope in memory when the chain shows valid consent for that purpose, return a decision | Return plaintext to anyone, use data for another purpose (the envelope is bound to one purpose and the check is per purpose), keep data after consent ends, or hide a use (every evaluation is a hash-chained, anchored log entry). **In this build it is also the one component you must trust** (see the limitation below) |
 
@@ -126,6 +127,30 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 
 Trust: Core is trusted to apply the rules above (it holds the handle map). It cannot grant consent for anyone (no signature, no effect). The honest limit is in `trd.md` §6.11: a company may still infer registration by other means.
 
+### 5.7 A company joins Sammati (R-01 to R-04)
+```
+ /join (public)         Core                         Regulator (Auditor > Registrations)         Chain
+ application  ──POST /v1/registrations──►  fiduciary_applications: pending
+                                              │  ◄── GET list ── review ── Approve + note
+                                              │  generate company + processor keys (demo shortcut)
+                                              │  fund them from the admin account ───────────────────► ETH
+                                              │  registerFiduciary (admin key)  ────────────────────► FiduciaryRegistered
+                                              │  registerPurpose / registerProcessor (company key) ─► PurposeRegistered, ProcessorRegistered
+                                              │  directory rows + API key hash, application: approved
+ status page ◄── GET /v1/registrations/:id ── result (address, API key ONCE)
+ company server ──x-sammati-api-key──► /v1/gateway/*  (log, consent-state)   sandbox: test customers only
+```
+1. **Apply.** Anyone can post an application. It is data only: no fiduciary exists, nothing is on chain, no key is issued. Core limits applications per client address and in total.
+2. **Review.** Only a holder of the regulator access code can list, approve or reject. The regulator sees the contact email; Core erases it as soon as the decision is made.
+3. **Approve.** Core does the registration the seed script used to do, for one company: it generates a key pair for the company and each declared processor, funds them from the admin account (the admin key never leaves Core), registers the company, its purposes and processors on the ledger from the right accounts, writes the directory and issues the API key. Each step that has already happened on chain is skipped on a retry, so a failure half-way is repaired by pressing Approve again. The indexer then shows every registration in the ledger explorer like any other event.
+4. **Run in the sandbox.** The new company's server uses its API key with the gateway SDK. While in sandbox it can ask, and receive consent from, only the regulator's test customers; everything else works as for any company (enforcement, logs, anchoring, cascade, Processor).
+5. **Promote.** The regulator moves the company to live; the sandbox checks stop applying.
+6. **Reject.** The company stays outside: no id, no key, no directory entry. Anything it tries finds no company.
+
+**Authentication of company servers.** The API key (32 random bytes) identifies one company. Core stores its SHA-256 only. Every gateway call carries it; a key used for another company's id is refused; each company has its own rate limit; a missing or unknown key makes the SDK fail closed (451 `LEDGER_UNAVAILABLE` with a message that says why). Honest limits, said out loud: Core generates and holds the company and processor keys in the demo (production: the company holds its own and only its address is registered); the regulator's access code is a shared demo secret, not an identity system; the company console has no login in this build; the sandbox is Core's policy at the relayer and the request routes, not a contract rule, so a signed grant sent straight to the chain would bypass it (the gateway still has to be told, and the regulator can see it in the audit).
+
+**No hard-coded companies.** Consoles, the Stage view, the Auditor and the wallet read the approved companies from Core's directory (`GET /v1/fiduciaries`) and refresh on `fiduciary.registered`. The three demo companies exist as seed data and as demo-only screens (the QuickLoan portal, the Data Flow Inspector, the simulator buttons).
+
 ## 6. Why blockchain here (the answer to "why not a database?")
 - **Consent is a dispute between a user and a company.** The company cannot be the one holding the evidence.
 - **User-signed state** gives non-repudiation both ways.
@@ -150,6 +175,10 @@ Trust: Core is trusted to apply the rules above (it holds the handle map). It ca
 | Relayer out of funds | Alert in console; demo wallet topped up at start |
 | Clock skew | Expiry uses block timestamp on chain; cache re-validates |
 | Processor cannot read the chain | Submit and evaluate answer `451 LEDGER_UNAVAILABLE`, nothing is decrypted, **nothing is erased** (an outage must not destroy data) |
+| Registration fails half-way (chain error, Core restart) | The application stays `pending`, the directory is untouched, the company key is kept on the row; Approve can be repeated and skips what is already on chain. Nothing is half-visible to companies or the wallet |
+| Core restarts before the applicant reads their API key | The key lived only in memory, so the status page says it can no longer be shown; the regulator reissues it (the old one is revoked) |
+| Admin or company account out of test ether | Approval fails at the funding or registration step with `REGISTRATION_FAILED` naming the step |
+| Company server has a wrong, revoked or another company's key | Every gateway call fails closed with a clear error, and the SDK logs the cause once; consent is never assumed |
 | Processor down | The wallet's secure-send fails with a retry; QuickLoan's apply answers an error (502), never a decision from anywhere else. Vault rows survive a restart; the key does not unless `PROCESSOR_KEY` is set, so after a restart without it old ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again |
 | Ciphertext edited in storage | AES-GCM authentication fails; evaluate answers 422 `CIPHERTEXT_INVALID`, never a guess |
 | Core down | The Processor keeps working (it reads the chain itself); its log entries queue in the SDK and events are dropped with a warning, never blocking a response |

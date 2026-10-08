@@ -12,6 +12,10 @@
 | Personal data | Name, phone, income, health record | **Never** | Company's own system (fake data in demo) |
 | Sammati ID (handle) | `asha@sammati` mapped to a principal address | **Never** | Core DB (`identities`). Pseudonymous: it names no one, and no phone or email is stored |
 | Request target | Which wallet a targeted request is addressed to | **Never** | Core DB (`request_targets`). Never returned to the company: it sees an opaque request id and a status |
+| Company application | Name, sector, purposes, processors a company asks to register | **Never** | Core DB (`fiduciary_applications`). Company data, not customer data; the purposes later go on chain as hashes only |
+| Contact email (demo) | The applicant's email address | **Never** | The application row only, until the regulator decides, then erased. Never in a log, event or response to anyone but the regulator |
+| API key | The secret a company's server sends to Core | **Never** | Only `SHA-256(key)` in Core DB (`fiduciary_credentials`). The key itself is held in memory once, for the applicant's single read |
+| Company and processor private keys (demo shortcut) | Keys Core generates for approved companies and their processors | **Never** | Core DB (`fiduciary_keys`, `processor_keys`), disclosed in `demo.md`. Production: the company holds its own key and Core stores only the address |
 | Company-side alias | "Customer #4821" mapped to a principal address | **Never** | Company's system only |
 | Vault ciphertext | An AES-GCM envelope of PAN, income band and score | **Never** | The Processor's own database only (§3, `vault`) |
 | Vault handle and ciphertext hash | `keccak256(envelope)`, `keccak256(ciphertext ‖ tag)` | No (they could be anchored, but are not) | Processor DB, the company's system, WebSocket events |
@@ -39,7 +43,10 @@ CREATE TABLE fiduciaries (
   name TEXT NOT NULL,
   sector TEXT NOT NULL,
   color TEXT,
-  registered_tx TEXT
+  registered_tx TEXT,
+  slug TEXT NOT NULL UNIQUE,           -- console route /company/<slug> (R-04)
+  sandbox INTEGER NOT NULL DEFAULT 0,  -- 1: only test customers may be asked (R-03). Seed companies are 0
+  demo INTEGER NOT NULL DEFAULT 0      -- 1 for the seed companies, which have a simulator backend
 );
 
 CREATE TABLE purposes (
@@ -160,6 +167,44 @@ CREATE TABLE rights_requests (
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
 ```
+
+Onboarding tables (R-01 to R-03), all in Core's database:
+
+```sql
+CREATE TABLE fiduciary_applications (   -- R-01
+  id TEXT PRIMARY KEY,                 -- 16 random bytes, hex: also the applicant's bearer secret
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,                  -- unique among fiduciaries and pending applications
+  sector TEXT NOT NULL,
+  contact_email TEXT,                  -- demo only; set to NULL when the regulator decides
+  purposes TEXT NOT NULL,              -- JSON array, trd.md §6.12 ApplicationInput.purposes
+  processors TEXT NOT NULL,            -- JSON array
+  status TEXT NOT NULL,                -- pending | approved | rejected
+  note TEXT,                           -- the regulator's note
+  fiduciary TEXT,                      -- set when approval starts; the company's address
+  sandbox INTEGER,                     -- the choice made at approval
+  created_at INTEGER NOT NULL, decided_at INTEGER
+);
+
+CREATE TABLE fiduciary_credentials (    -- R-03: one API key per approved company
+  fiduciary TEXT PRIMARY KEY REFERENCES fiduciaries(address),
+  api_key_hash TEXT NOT NULL UNIQUE,   -- SHA-256 of the key, hex. The key is never stored
+  issued_at INTEGER NOT NULL
+);
+
+CREATE TABLE fiduciary_keys (           -- demo shortcut: Core holds the company's key (trd.md §12)
+  address TEXT PRIMARY KEY, private_key TEXT NOT NULL, created_at INTEGER NOT NULL
+);
+CREATE TABLE processor_keys (           -- demo shortcut: Core signs the processor's acknowledgements
+  address TEXT PRIMARY KEY, private_key TEXT NOT NULL, created_at INTEGER NOT NULL
+);
+
+CREATE TABLE sandbox_testers (          -- R-03: customers a sandbox company may ask
+  principal TEXT PRIMARY KEY, added_at INTEGER NOT NULL
+);
+```
+
+Rules: `fiduciary_credentials` of the seed companies is filled at seed time from `demoApiKey(slug)`. A reset (`clearAll`) empties every table above, because the chain they describe is gone. Private keys and API keys never appear in a response, event, log line or error message; the only place a key is ever returned is the applicant's one read of their own status.
 
 The vault lives in the **Processor's own SQLite file** (`processor/data/processor.sqlite`), never in Core's:
 
