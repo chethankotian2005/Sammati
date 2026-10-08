@@ -6,4 +6,5 @@ packages:
   - web
   - processor
   - test
+  - companies/*
   - 'examples/*'

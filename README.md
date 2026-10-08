@@ -42,6 +42,16 @@ It plays the story once, against real services, with a headless wallet client an
 
 A new user creates an account in the wallet: choose a Sammati ID (checked with Core), secure the phone with a fingerprint or PIN, then optionally fill in a profile (name, contact, financial, health and preference details, all optional, `docs/trd.md` §4.6). The profile lives **only on the phone**, encrypted, and opens only after the device check; Core, the chain and every server never receive it. A company gets a detail only through a consent that needs it, as a per-purpose ciphertext for the Processor, and the wallet asks for a missing field only then. Edit it under **Me > My details**. **There is no account recovery in this build** (`docs/architecture.md` §5.9); use made-up details.
 
+### QuickLoan (`companies/quickloan`, prd.md Q-01 to Q-04)
+
+A believable loan product that uses Sammati only through its public APIs. Register a company at `/join`, approve it in the Auditor, then:
+
+```
+FIDUCIARY=<address> SAMMATI_API_KEY=<key> STAFF_USER=staff STAFF_PASSWORD=<choose one> pnpm --filter @sammati/company-quickloan start
+```
+
+Open http://localhost:4101: landing page and EMI calculator, `/signup` (username only, then the Sammati checkbox and QR), `/dashboard`, and the back-office at `/staff`. Staff see applications and "protected by Sammati" metadata, never personal details. Sign-in challenge ("Confirm in Sammati") is specified in `docs/trd.md` §6.14 and not built; the rights inbox waits for R6.
+
 ### Customer portal (`/portal/<company>`)
 
 A company's customer page, run by the sample lender (`examples/lender`): sign in with a customer id, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
