@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/core_api.dart';
 import '../core/wallet_providers.dart';
 import '../features/activity/activity_screen.dart';
+import '../features/alerts/alerts_screen.dart';
 import '../features/consent/notice_screen.dart';
 import '../features/consent/receipt_data.dart';
 import '../features/consent/receipt_screen.dart';
@@ -31,6 +32,7 @@ abstract final class Routes {
   static const createWallet = '/create-wallet';
   static const consents = '/consents';
   static const activity = '/activity';
+  static const alerts = '/alerts';
   static const rights = '/rights';
   static const me = '/me';
   static const devSettings = '/dev-settings';
@@ -83,6 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: Routes.consents, builder: (_, _) => const ConsentsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.activity, builder: (_, _) => const ActivityScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.alerts, builder: (_, _) => const AlertsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.rights, builder: (_, _) => const RightsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.me, builder: (_, _) => const MeScreen())]),
         ],

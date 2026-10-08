@@ -46,6 +46,16 @@ export interface Config {
   processorUrl: string;
   /** Shared secret the Processor sends with the events it reports: a disclosed demo secret (trd.md §10). */
   processorEventKey: string;
+  /** DEMO_FAST_EXPIRY: expiry thresholds, ticks and windows in seconds instead of days, so the demo can show them live (trd.md §6.12). */
+  demoFastExpiry: boolean;
+  /** How often the expiry scheduler looks at every consent. */
+  expiryTickMs: number;
+  /** Seconds before expiry at which `consent.expiring` fires (descending: 3 days, 1 day). */
+  expiryThresholdsSeconds: number[];
+  /** The console's Expiring table looks this far ahead of expiry, and back. */
+  expiringWindowSeconds: number;
+  /** A consent that expired longer ago than this is no longer announced (an old database must not flood a wallet). */
+  expiredNotifySeconds: number;
 }
 
 /** Loads the repo-root .env if there is one; real environment variables win. */
@@ -68,6 +78,12 @@ function parseRange(value: string | undefined, fallback: [number, number]): [num
   return Number.isFinite(min) && Number.isFinite(max) && min! >= 0 && max! >= min! ? [min!, max!] : fallback;
 }
 
+/** "259200,86400" -> [259200, 86400] (largest first); anything unusable falls back. */
+function parseSeconds(value: string | undefined, fallback: number[]): number[] {
+  const list = (value ?? "").split(",").map((x) => Number(x.trim()));
+  return list.length > 0 && list.every((n) => Number.isFinite(n) && n > 0) ? [...new Set(list)].sort((a, b) => b - a) : fallback;
+}
+
 /** `{ "0xaddress": "0xkey" }` -> keys by lower-case address; null when unset or unusable (the default applies). */
 function parseKeys(value: string | undefined): Record<string, string> | null {
   if (!value) return null;
@@ -81,6 +97,7 @@ function parseKeys(value: string | undefined): Record<string, string> | null {
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = Number(env.PORT ?? 4000);
+  const fast = env.DEMO_FAST_EXPIRY === "1" || env.DEMO_FAST_EXPIRY === "true";
   return {
     port,
     stubMode: env.STUB_MODE !== "false",
@@ -106,5 +123,10 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     demoPrincipalKeys: parseKeys(env.DEMO_PRINCIPAL_KEYS) ?? { [DEMO_PRINCIPAL.toLowerCase()]: DEMO_PRINCIPAL_KEY },
     processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
     processorEventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
+    demoFastExpiry: fast,
+    expiryTickMs: Number(env.EXPIRY_TICK_MS ?? (fast ? 2000 : 30_000)),
+    expiryThresholdsSeconds: parseSeconds(env.EXPIRY_THRESHOLDS_SECONDS, fast ? [60, 30] : [259_200, 86_400]),
+    expiringWindowSeconds: Number(env.EXPIRING_WINDOW_SECONDS ?? (fast ? 600 : 2_592_000)),
+    expiredNotifySeconds: Number(env.EXPIRED_NOTIFY_SECONDS ?? 604_800),
   };
 }

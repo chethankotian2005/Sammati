@@ -1,13 +1,16 @@
 import { formatEther, parseEther } from "ethers";
-import type { WsEvent } from "@sammati/shared";
+import type { VaultEvent, WsEvent } from "@sammati/shared";
 import type { Config } from "../config";
 import { AnchorJob } from "./anchor";
 import { CascadeEngine } from "./cascade";
 import { waitForChain, Relayer, type Chain } from "./chain";
 import { clearAll, openDb, type Db } from "./db";
 import { FINGERPRINT_KEY, chainFingerprint, storedFingerprint } from "./fingerprint";
+import { ExpiryScheduler } from "./expiry";
 import { Indexer } from "./indexer";
+import { Notifications } from "./notifications";
 import { reconcile, type ReconcileResult } from "./reconcile";
+import { Renewals } from "./renewals";
 import { Repo } from "./repo";
 import { TargetedRequests } from "./targeted";
 
@@ -45,6 +48,14 @@ export interface RealCore {
   cascade: CascadeEngine;
   /** Sammati IDs and targeted consent requests (trd.md §6.11). */
   targeted: TargetedRequests;
+  /** The wallet's Alerts (trd.md §6.12). */
+  notifications: Notifications;
+  /** Renewal requests, from a company or from the customer pressing Renew. */
+  renewals: Renewals;
+  /** Tells customers a consent is about to expire, and that it has. */
+  expiry: ExpiryScheduler;
+  /** The Processor reported a vault event: erasures become "data erased" alerts. */
+  onVaultEvent(event: VaultEvent): void;
   publish: (event: WsEvent) => void;
   /** Wipes Core's database back to the seed and re-reads the chain (the chain itself is untouched). */
   reset(): Promise<void>;
@@ -85,6 +96,11 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
   const anchors = new AnchorJob(config, repo, chain, indexer);
   const cascade = new CascadeEngine(config, repo, chain, indexer, publish);
   indexer.onWithdrawn = (w) => cascade.onWithdrawn(w);
+  const targeted = new TargetedRequests(db, repo, publish, config);
+  const notifications = new Notifications(db, repo, publish, config);
+  indexer.onAcknowledged = (a) => notifications.onAcknowledged(a);
+  const renewals = new Renewals(db, repo, targeted, notifications, (r) => targeted.publishRequested(r), config);
+  const expiry = new ExpiryScheduler(db, notifications, config);
 
   // `pnpm demo:up` starts Core while the seed is still registering companies; funding the relayer is
   // the seed's last step, so wait for it rather than answer requests the chain cannot serve yet.
@@ -104,7 +120,11 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     indexer,
     anchors,
     cascade,
-    targeted: new TargetedRequests(db, repo, publish, config),
+    targeted,
+    notifications,
+    renewals,
+    expiry,
+    onVaultEvent: (event) => notifications.onVaultEvent(event),
     publish,
     async reset() {
       clearAll(db);
@@ -116,6 +136,7 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     start() {
       indexer.start(config.indexerIntervalMs);
       anchors.start();
+      expiry.start();
       cascade.catchUp();
       reconcileTimer = setInterval(() => {
         cascade.catchUp();
@@ -126,6 +147,7 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     stop() {
       indexer.stop();
       anchors.stop();
+      expiry.stop();
       cascade.stop();
       if (reconcileTimer) clearInterval(reconcileTimer);
       db.close();

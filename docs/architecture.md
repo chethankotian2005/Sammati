@@ -126,6 +126,12 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 
 Trust: Core is trusted to apply the rules above (it holds the handle map). It cannot grant consent for anyone (no signature, no effect). The honest limit is in `trd.md` §6.11: a company may still infer registration by other means.
 
+### 5.7 Expiry, renewal and alerts
+1. Core's scheduler (every 30 s; seconds in `DEMO_FAST_EXPIRY`) looks at every Active consent in its cache. As expiry approaches it records `consent.expiring` once per threshold, and when it passes `consent.expired` once, in `notifications`, and pushes each to the customer's socket. Enforcement does not wait for it: the gateway and the Processor read the chain, so the consent stops working at the second it expires and the scheduler only tells the customer.
+2. The Processor refuses use on expiry at once, keeps the ciphertext for a short grace period so a renewal needs no resend, then erases it and reports `vault.erased`; Core turns that into **data erased** for the wallet. Cascade acknowledgements become notifications the same way.
+3. A company may ask a customer to renew (console, **Request renewal**). That is an ordinary request for one purpose: it appears in the wallet's inbox and Alerts, goes through the same notice and EIP-712 grant, and the company hears Sent, Seen, Granted by request id. Pressing **Renew** on a reminder does the same with a request Core opens on the customer's behalf.
+4. The phone: a live event raises a local notification; reminders for consents the wallet knows are also scheduled on the device from the expiry time, so they fire with the app closed. Closed-app delivery of company-initiated alerts needs Firebase and is not built (`trd.md` §6.12).
+
 ## 6. Why blockchain here (the answer to "why not a database?")
 - **Consent is a dispute between a user and a company.** The company cannot be the one holding the evidence.
 - **User-signed state** gives non-repudiation both ways.

@@ -23,6 +23,12 @@ export function topicsFor(e: WsEvent): WsTopic[] {
       return [principalTopic(e.principal)];
     case "request.updated":
       return [fiduciaryTopic(e.fiduciary)];
+    case "consent.expiring":
+    case "consent.expired":
+    case "consent.renewal_requested":
+    case "data.erased":
+    case "cascade.acknowledged":
+      return [principalTopic(e.principal)];
     case "vault.encrypted":
     case "vault.stored":
     case "vault.erased":

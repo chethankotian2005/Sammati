@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:web_socket_channel/io.dart';
 
 import 'activity.dart';
+import 'alerts.dart';
 import 'consents.dart';
 import 'requests.dart';
 
@@ -106,6 +107,9 @@ abstract interface class LiveEvents {
   /// `consent.requested`: a company asked this wallet for consent (trd.md §6.5).
   Stream<ConsentRequested> get requestEvents;
 
+  /// `consent.expiring`, `consent.expired`, `consent.renewal_requested`, `data.erased` and `cascade.acknowledged`: one alert each (trd.md §6.12).
+  Stream<AlertItem> get alertEvents;
+
   /// True each time the socket (re)connects, false each time it drops.
   Stream<bool> get connection;
 
@@ -137,6 +141,7 @@ class WsLiveEvents implements LiveEvents {
   final _cascade = StreamController<CascadeAck>.broadcast();
   final _vault = StreamController<VaultNotice>.broadcast();
   final _requests = StreamController<ConsentRequested>.broadcast();
+  final _alerts = StreamController<AlertItem>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   bool _disposed = false;
   IOWebSocketChannel? _channel;
@@ -155,6 +160,9 @@ class WsLiveEvents implements LiveEvents {
 
   @override
   Stream<ConsentRequested> get requestEvents => _requests.stream;
+
+  @override
+  Stream<AlertItem> get alertEvents => _alerts.stream;
 
   @override
   Stream<bool> get connection => _connection.stream;
@@ -201,6 +209,8 @@ class WsLiveEvents implements LiveEvents {
       if (vault != null) _emit(_vault, vault);
       final requested = ConsentRequested.tryParse(decoded);
       if (requested != null) _emit(_requests, requested);
+      final alert = AlertItem.tryParseEvent(decoded);
+      if (alert != null) _emit(_alerts, alert);
     } on FormatException {
       // A malformed frame must not take the socket down.
     }
@@ -221,6 +231,7 @@ class WsLiveEvents implements LiveEvents {
     unawaited(_cascade.close());
     unawaited(_vault.close());
     unawaited(_requests.close());
+    unawaited(_alerts.close());
     unawaited(_connection.close());
   }
 }

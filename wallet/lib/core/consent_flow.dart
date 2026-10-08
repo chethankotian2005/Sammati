@@ -11,7 +11,10 @@ import 'wallet_service.dart';
 enum ConsentExpiry {
   days30(Duration(days: 30)),
   months6(Duration(days: 182)),
-  year1(Duration(days: 365));
+  year1(Duration(days: 365)),
+
+  /// Only offered when Core is in DEMO_FAST_EXPIRY, so a consent can be seen to expire on stage.
+  demo2m(Duration(minutes: 2));
 
   const ConsentExpiry(this.duration);
   final Duration duration;

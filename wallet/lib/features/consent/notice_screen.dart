@@ -39,13 +39,14 @@ class _NoticeScreenState extends ConsumerState<NoticeScreen> {
   bool _submitting = false;
   _SubmitError? _error;
 
-  ConsentExpiry _expiryOf(String id) => _expiry[id] ?? ConsentExpiry.months6;
+  /// With DEMO_FAST_EXPIRY the 2-minute choice is the default, so the first grant on stage is already the one that expires.
+  ConsentExpiry _expiryOf(String id, {bool fast = false}) => _expiry[id] ?? (fast ? ConsentExpiry.demo2m : ConsentExpiry.months6);
 
   Future<void> _submit(ConsentNotice notice) async {
     final t = AppLocalizations.of(context);
     final choices = [
       for (final p in notice.purposes)
-        if (_selected.contains(p.id) && !_recorded.containsKey(p.id)) PurposeChoice(p.id, _expiryOf(p.id)),
+        if (_selected.contains(p.id) && !_recorded.containsKey(p.id)) PurposeChoice(p.id, _expiryOf(p.id, fast: notice.fastExpiry)),
     ];
     setState(() {
       _submitting = true;
@@ -153,7 +154,8 @@ class _NoticeScreenState extends ConsumerState<NoticeScreen> {
                   language: language,
                   enabled: !_submitting && !_recorded.containsKey(p.id),
                   selected: _selected.contains(p.id),
-                  expiry: _expiryOf(p.id),
+                  expiry: _expiryOf(p.id, fast: notice.fastExpiry),
+                  fastExpiry: notice.fastExpiry,
                   onSelected: (on) => setState(() => on ? _selected.add(p.id) : _selected.remove(p.id)),
                   onExpiry: (e) => setState(() => _expiry[p.id] = e),
                 ),
@@ -213,6 +215,7 @@ class _PurposeCard extends StatelessWidget {
     required this.enabled,
     required this.selected,
     required this.expiry,
+    required this.fastExpiry,
     required this.onSelected,
     required this.onExpiry,
   });
@@ -223,6 +226,9 @@ class _PurposeCard extends StatelessWidget {
   final bool enabled;
   final bool selected;
   final ConsentExpiry expiry;
+
+  /// Core is in DEMO_FAST_EXPIRY: the 2-minute choice is offered too.
+  final bool fastExpiry;
   final ValueChanged<bool> onSelected;
   final ValueChanged<ConsentExpiry> onExpiry;
 
@@ -236,6 +242,7 @@ class _PurposeCard extends StatelessWidget {
         ConsentExpiry.days30 => t.expiry_30d,
         ConsentExpiry.months6 => t.expiry_6m,
         ConsentExpiry.year1 => t.expiry_1y,
+        ConsentExpiry.demo2m => t.expiry_demo,
       };
 
   @override
@@ -311,7 +318,8 @@ class _PurposeCard extends StatelessWidget {
                 itemHeight: 56,
                 onChanged: enabled ? (e) => onExpiry(e!) : null,
                 items: [
-                  for (final e in ConsentExpiry.values) DropdownMenuItem(value: e, child: Text(_expiryLabel(t, e))),
+                  for (final e in ConsentExpiry.values)
+                    if (e != ConsentExpiry.demo2m || fastExpiry) DropdownMenuItem(value: e, child: Text(_expiryLabel(t, e))),
                 ],
               ),
             ],

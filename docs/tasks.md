@@ -54,6 +54,9 @@ Built after the Inspector. Order: (1) spec commit; (2) Processor rules for emplo
 ### Sammati ID and targeted requests (N-01, N-02, W-14)
 Built after the portal. Order: (1) spec commit; (2) Core: tables, signed-message checks, targeted send with the anti-enumeration rule and abuse controls, with tests; (3) wallet: ID registration, inbox, Decline and Block; (4) console tab; (5) e2e. Gate: send from the console, inbox within 2 s, grant, Granted in the console; an unknown handle gives the same answer and no push.
 
+### Expiry, renewal and notification centre (N-03, N-04, N-05, W-11)
+Built after the inbox. Order: (1) spec commit; (2) Core: `notifications`, the scheduler, renewal requests and routes, with tests; (3) the Processor's erasure grace; (4) wallet: Alerts tab, actions, local notifications, strings; (5) console Expiring table; (6) e2e with a few seconds of expiry. Gate: with `DEMO_FAST_EXPIRY`, grant 2 minutes, see expiring then expired, 451 `CONSENT_EXPIRED`, Renew, ALLOWED again.
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.

@@ -8,6 +8,7 @@
     "demo:up": "node scripts/demo-up.mjs",
     "demo:up:real": "node scripts/demo-up.mjs",
     "demo:up:stub": "node scripts/demo-up.mjs --stub",
+    "demo:up:fast": "node scripts/demo-up.mjs --fast-expiry",
     "demo:reset": "node scripts/demo-reset.mjs",
     "deploy:local": "pnpm --filter @sammati/contracts run deploy:local",
     "deploy:amoy": "pnpm --filter @sammati/contracts run deploy:amoy",

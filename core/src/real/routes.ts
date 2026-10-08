@@ -122,17 +122,16 @@ export function realRoutes(core: RealCore): Router {
     const request = repo.request(param(req, "requestId"), targeted ? Number.MAX_SAFE_INTEGER : config.requestTtlSeconds);
     const f = repo.fiduciary(request.fiduciary);
     const nonce = principal ? String(await onChain(() => chain.registry.nonces(principal))) : "0";
-    res.json(
-      buildNotice({
-        requestId: request.id,
-        fiduciary: { address: f.address, name: f.name, color: f.color },
-        purposes: request.purposeIds.map((id) => repo.purpose(f, id)),
-        version: NOTICE_VERSION,
-        domain: domain(),
-        principal,
-        nonce,
-      }),
-    );
+    const notice = buildNotice({
+      requestId: request.id,
+      fiduciary: { address: f.address, name: f.name, color: f.color },
+      purposes: request.purposeIds.map((id) => repo.purpose(f, id)),
+      version: NOTICE_VERSION,
+      domain: domain(),
+      principal,
+      nonce,
+    });
+    res.json(config.demoFastExpiry ? { ...notice, fastExpiry: true } : notice);
   }));
 
   const signatureOf = (body: Record<string, unknown>): string => {
@@ -147,6 +146,7 @@ export function realRoutes(core: RealCore): Router {
     const receipt = await relayer.send("grantConsent", [grant, signatureOf(body)]);
     await settle(receipt);
     core.targeted.onGrant(grant.principal, grant.fiduciary, grant.noticeHash); // a request addressed to this customer is now Granted
+    core.notifications.markRenewed(grant.principal, grant.fiduciary, grant.purposeId); // its reminders are answered
     res.json({ txHash: receipt.hash, status: "confirmed" } satisfies GrantResponse);
   }));
 
