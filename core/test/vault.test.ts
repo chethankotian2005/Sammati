@@ -36,10 +36,10 @@ const post = (body: unknown, key: string | null = KEY) =>
 
 const valid: Record<string, Record<string, unknown>> = {
   "vault.encrypted": { ciphertextHash: HASH, sizeBytes: 300 },
-  "vault.stored": { ciphertextHash: HASH, sizeBytes: 300 },
+  "vault.stored": { ciphertextHash: HASH, sizeBytes: 300, version: 1 },
   "processor.requested": { action: "loan_decision", requestedAt: 1760000000123 },
   "processor.decrypting": { decryptingAt: 1760000000150 },
-  "processor.decided": { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: "0b4e6c3a-1111-4222-8333-444455556666", durationMs: 9 },
+  "processor.decided": { decision: "approved", limit: 300000, rateBps: 1400, dataCategories: ["financial.pan", "financial.income_band"], reasonCodes: ["SCORE_FAIR"], entryId: "0b4e6c3a-1111-4222-8333-444455556666", durationMs: 9 },
   "vault.erased": { cause: "withdrawn" },
 };
 
@@ -71,13 +71,13 @@ describe("POST /v1/events/vault", () => {
     published.length = 0;
     await post({ event: "vault.stored", ...base, ...valid["vault.stored"], plaintext: "ABCDE1234F", envelope: { ciphertext: "0x00" }, pan: "ABCDE1234F" });
     expect(JSON.stringify(published)).not.toContain("ABCDE1234F");
-    expect(Object.keys(published[0]!).sort()).toEqual(["at", "atMs", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes"]);
+    expect(Object.keys(published[0]!).sort()).toEqual(["at", "atMs", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes", "version"]);
   });
 
   it.each([
     ["an unknown event", { event: "vault.leaked", ...base }],
     ["a missing field", { event: "vault.stored", ...base, ciphertextHash: HASH }],
-    ["free text where a hash belongs", { event: "vault.stored", ...base, ciphertextHash: "ABCDE1234F", sizeBytes: 1 }],
+    ["free text where a hash belongs", { event: "vault.stored", ...base, ciphertextHash: "ABCDE1234F", sizeBytes: 1, version: 1 }],
     ["free text as an entry id", { event: "processor.decided", ...base, ...valid["processor.decided"], entryId: "ABCDE1234F" }],
     ["free text as a decision code", { event: "processor.decided", ...base, ...valid["processor.decided"], reasonCodes: ["PAN is ABCDE1234F"] }],
     ["an unknown erase cause", { event: "vault.erased", ...base, cause: "because" }],

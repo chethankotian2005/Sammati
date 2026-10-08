@@ -6,6 +6,8 @@ import {
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
+  entryFormat,
+  expectedPrevHash,
   checksumAddress,
   purposeIdOf,
   type AccessLogEntry,
@@ -52,6 +54,10 @@ export interface LogAccessInput {
   reason: AccessReason;
   endpoint: string;
   latencyMs: number;
+  /** Registry ids of the data the use read (the Processor's usage record, drd.md §4.1a). */
+  dataCategories?: string[];
+  /** The decision label only: approved, declined, blocked or error. */
+  outcome?: string;
 }
 
 export interface SammatiGate {
@@ -166,6 +172,9 @@ export function sammati(rawOptions: SammatiOptions): SammatiGate {
           principal: principal ?? NO_PRINCIPAL_ADDRESS,
           purposeCode: purpose,
           reason: denied ?? ("OK" as const),
+          // Every entry is format 2 (drd.md §4.1a): a chain never mixes the two formats.
+          dataCategories: [] as string[],
+          outcome: "",
         };
 
         res.setHeader(ENTRY_ID_HEADER, id);
@@ -189,6 +198,8 @@ export function sammati(rawOptions: SammatiOptions): SammatiGate {
         principal: ADDRESS.test(input.principal) ? checksumAddress(input.principal) : NO_PRINCIPAL_ADDRESS,
         purposeCode: input.purpose,
         reason: input.reason,
+        dataCategories: input.dataCategories ?? [],
+        outcome: input.outcome ?? "",
       });
       return id;
     },
@@ -210,7 +221,7 @@ type PendingEntry = Omit<AccessLogEntry, "seq" | "fiduciary">;
  */
 class LogChain {
   private tail: Promise<void> = Promise.resolve();
-  private head: { seq: number; hash: Hex } | null = null;
+  private head: { seq: number; hash: Hex; format: 1 | 2 } | null = null;
   private queued = 0;
   private dropped = 0;
 
@@ -249,7 +260,8 @@ class LogChain {
     for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt++) {
       const head = this.head ?? (await this.resume());
       const full: AccessLogEntry = { ...entry, fiduciary: this.fiduciary, seq: head.seq + 1 };
-      const chained = chainEntry(head.hash, full);
+      // The first format-2 entry after format-1 entries starts a new epoch at the zero hash (drd.md §4.1a).
+      const chained = chainEntry(expectedPrevHash(head, entryFormat(full)), full);
       const row: StoredAccessLogEntry = { ...full, prevHash: chained.prevHash, hash: chained.hash, batchIndex: null };
       const res = await fetch(`${this.core}/v1/gateway/log`, {
         method: "POST",
@@ -258,7 +270,7 @@ class LogChain {
         signal: AbortSignal.timeout(this.timeout),
       });
       if (res.ok) {
-        this.head = { seq: row.seq, hash: row.hash };
+        this.head = { seq: row.seq, hash: row.hash, format: entryFormat(row) };
         return;
       }
       this.head = null; // out of sync: resume from Core and retry
@@ -268,7 +280,7 @@ class LogChain {
     throw new Error("Core kept rejecting the log entry");
   }
 
-  private async resume(): Promise<{ seq: number; hash: Hex }> {
+  private async resume(): Promise<{ seq: number; hash: Hex; format: 1 | 2 }> {
     const res = await fetch(`${this.core}/v1/fiduciaries/${this.fiduciary}/access?limit=1`, {
       headers: this.auth,
       signal: AbortSignal.timeout(this.timeout),
@@ -276,6 +288,6 @@ class LogChain {
     if (!res.ok) throw new Error(`Could not read log head: ${res.status}`);
     const { items } = (await res.json()) as { items: StoredAccessLogEntry[] };
     const last = items[0];
-    return last ? { seq: last.seq, hash: last.hash } : { seq: 0, hash: ZERO_HASH };
+    return last ? { seq: last.seq, hash: last.hash, format: entryFormat(last) } : { seq: 0, hash: ZERO_HASH, format: 2 };
   }
 }

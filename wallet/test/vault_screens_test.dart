@@ -85,7 +85,7 @@ void main() {
 
       live.emitVault(notice(VaultNoticeKind.erased, handle));
       await tester.pumpAndSettle();
-      expect(find.text('Your encrypted details were erased.'), findsOneWidget);
+      expect(find.text('QuickLoan no longer holds your PAN, yearly income and type of work.'), findsOneWidget);
       expect(textButtonWithText('Send again'), findsNothing);
     });
 
@@ -125,7 +125,7 @@ void main() {
         txHash: '0xdd',
       ));
       await tester.pumpAndSettle();
-      expect(find.text('Your encrypted details were erased.'), findsOneWidget);
+      expect(find.text('QuickLoan no longer holds your PAN, yearly income and type of work.'), findsOneWidget);
       expect(sendButton(), findsNothing);
       expect(textButtonWithText('Send again'), findsNothing);
     });
@@ -135,7 +135,7 @@ void main() {
       await pumpApp(tester, profile: _loan, core: core);
       await openPass(tester);
       expect(sendButton(), findsNothing);
-      expect(find.text('Your encrypted details were erased.'), findsNothing);
+      expect(find.text('QuickLoan no longer holds your PAN, yearly income and type of work.'), findsNothing);
     });
 
     testWidgets('says what went wrong, and offers to try again', (tester) async {

@@ -16,6 +16,10 @@ export interface VaultRow {
   createdAt: number;
   erasedAt: number | null;
   eraseCause: VaultEraseCause | null;
+  /** V-08: increases per (principal, fiduciary, purpose); a correction is a new version. */
+  version: number;
+  /** The notice hash the submission was bound to, if the wallet gave one. */
+  consentRef: string | null;
 }
 
 interface Raw {
@@ -29,6 +33,8 @@ interface Raw {
   created_at: number;
   erased_at: number | null;
   erase_cause: string | null;
+  version: number;
+  consent_ref: string | null;
 }
 
 const toRow = (r: Raw): VaultRow => ({
@@ -42,6 +48,8 @@ const toRow = (r: Raw): VaultRow => ({
   createdAt: r.created_at,
   erasedAt: r.erased_at,
   eraseCause: r.erase_cause as VaultEraseCause | null,
+  version: r.version,
+  consentRef: r.consent_ref,
 });
 
 export class Vault {
@@ -66,6 +74,10 @@ export class Vault {
       );
       CREATE INDEX IF NOT EXISTS vault_live ON vault (principal, fiduciary, purpose_code) WHERE erased_at IS NULL;
     `);
+    // A vault made before versions existed keeps its rows as version 1.
+    const have = new Set((this.db.prepare("PRAGMA table_info(vault)").all() as Array<{ name: string }>).map((c) => c.name));
+    if (!have.has("version")) this.db.exec("ALTER TABLE vault ADD COLUMN version INTEGER NOT NULL DEFAULT 1");
+    if (!have.has("consent_ref")) this.db.exec("ALTER TABLE vault ADD COLUMN consent_ref TEXT");
   }
 
   get(handle: string): VaultRow | undefined {
@@ -85,12 +97,20 @@ export class Vault {
     return (this.db.prepare("SELECT * FROM vault WHERE erased_at IS NULL").all() as Raw[]).map(toRow);
   }
 
+  /** The highest version ever stored for this triple, live or erased; 0 when none. */
+  maxVersion(principal: string, fiduciary: string, purposeCode: string): number {
+    const r = this.db
+      .prepare("SELECT MAX(version) AS v FROM vault WHERE principal = ? AND fiduciary = ? AND purpose_code = ?")
+      .get(principal.toLowerCase(), fiduciary.toLowerCase(), purposeCode) as { v: number | null };
+    return r.v ?? 0;
+  }
+
   insert(row: Omit<VaultRow, "erasedAt" | "eraseCause" | "ciphertext"> & { ciphertext: Buffer }): void {
     this.db
       .prepare(
-        "INSERT INTO vault (handle, principal, fiduciary, purpose_code, ciphertext_hash, ciphertext, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO vault (handle, principal, fiduciary, purpose_code, ciphertext_hash, ciphertext, request_id, created_at, version, consent_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(row.handle, row.principal.toLowerCase(), row.fiduciary.toLowerCase(), row.purposeCode, row.ciphertextHash, row.ciphertext, row.requestId, row.createdAt);
+      .run(row.handle, row.principal.toLowerCase(), row.fiduciary.toLowerCase(), row.purposeCode, row.ciphertextHash, row.ciphertext, row.requestId, row.createdAt, row.version, row.consentRef);
   }
 
   /** Overwrites the ciphertext with NULL and keeps the metadata. Returns false if it was already erased. */

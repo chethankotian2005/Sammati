@@ -10,9 +10,10 @@ import {
   submitMessage,
   type Envelope,
 } from "@sammati/shared/src/envelope";
-import type { Hex, LoanDecision, ReasonCode, VaultEraseCause, VaultEvent } from "@sammati/shared";
+import { categoriesOfFields, type Hex, type LoanDecision, type ProcessorOutcome, type ReasonCode, type VaultEraseCause, type VaultEvent } from "@sammati/shared";
 import type { ConsentReader, ConsentVerdict } from "./consent";
 import type { Enclave } from "./enclave";
+import type { Application, Scored } from "./rules";
 import type { ProcessorConfig } from "./config";
 import type { Vault, VaultRow } from "./vault";
 
@@ -25,7 +26,10 @@ export interface CompanyNotifier {
 }
 export interface AccessLogger {
   /** Appends to the company's hash-chained access log and returns the entry id (trd.md §7, `logAccess`). */
-  logAccess(fiduciary: Hex, entry: { purpose: string; principal: Hex; decision: "ALLOWED" | "BLOCKED"; reason: "OK" | ReasonCode; latencyMs: number }): string;
+  logAccess(
+    fiduciary: Hex,
+    entry: { purpose: string; principal: Hex; decision: "ALLOWED" | "BLOCKED"; reason: "OK" | ReasonCode; latencyMs: number; dataCategories: string[]; outcome: string },
+  ): string;
 }
 
 /** An answer that is not a 200. 451 carries `code` as the consent reason, like the gateway. */
@@ -54,6 +58,21 @@ const ERASE_CAUSE: Partial<Record<ReasonCode, VaultEraseCause>> = {
 };
 const CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const HANDLE = /^0x[0-9a-f]{64}$/;
+const MAX_HANDLES = 4;
+const MAX_VERSION = 1_000_000;
+
+/** The customer's request (trd.md §6.13): whole INR 10,000 to 5,000,000 over whole months 6 to 60, or none. */
+function parseApplication(v: unknown): Application | undefined {
+  if (v === undefined) return undefined;
+  const a = record(v);
+  const { amount, tenureMonths } = a;
+  const ok = (n: unknown, lo: number, hi: number): n is number => typeof n === "number" && Number.isInteger(n) && n >= lo && n <= hi;
+  if ((amount !== undefined && !ok(amount, 10_000, 5_000_000)) || (tenureMonths !== undefined && !ok(tenureMonths, 6, 60))) {
+    throw new ApiFailure(400, "BAD_APPLICATION", "amount is 10,000 to 5,000,000 INR and tenureMonths is 6 to 60, both whole numbers");
+  }
+  return { amount: amount as number | undefined, tenureMonths: tenureMonths as number | undefined };
+}
 
 const refusal = (reason: ReasonCode, entryId?: string): ApiFailure => new ApiFailure(451, reason, REFUSAL_MESSAGES[reason], entryId);
 const record = (v: unknown): Record<string, unknown> => {
@@ -69,6 +88,7 @@ export interface SubmitResult {
   created: boolean;
   handle: Hex;
   ciphertextHash: Hex;
+  version: number;
 }
 
 export interface EvaluateResult extends LoanDecision {
@@ -82,6 +102,7 @@ export interface VaultView {
   purposeCode: string;
   ciphertextHash: Hex;
   status: "stored" | "erased";
+  version: number;
   createdAt: number;
   erasedAt: number | null;
   /** The stored envelope: ciphertext, never plaintext. Null once erased. */
@@ -123,6 +144,12 @@ export class ProcessorService {
     const requestId = typeof o.requestId === "string" && REQUEST_ID.test(o.requestId) ? o.requestId : null;
     if (!purposeCode) throw new ApiFailure(400, "BAD_REQUEST", '"purposeCode" must be a short code such as credit_check');
     if (!requestId) throw new ApiFailure(400, "BAD_REQUEST", '"requestId" must be 8 to 64 letters, digits, - or _');
+    const version = typeof o.version === "number" && Number.isInteger(o.version) && o.version >= 1 && o.version <= MAX_VERSION ? o.version : null;
+    if (version === null) throw new ApiFailure(400, "BAD_REQUEST", `"version" must be a whole number from 1 to ${MAX_VERSION}`);
+    if (o.consentRef !== undefined && !(typeof o.consentRef === "string" && /^0x[0-9a-fA-F]{64}$/.test(o.consentRef))) {
+      throw new ApiFailure(400, "BAD_REQUEST", '"consentRef" must be a 32-byte hex notice hash');
+    }
+    const consentRef = typeof o.consentRef === "string" ? o.consentRef.toLowerCase() : null;
 
     let envelope: Envelope;
     try {
@@ -134,7 +161,7 @@ export class ProcessorService {
 
     let signer: string;
     try {
-      signer = verifyMessage(submitMessage(handle, requestId), String(o.signature)).toLowerCase();
+      signer = verifyMessage(submitMessage(handle, requestId, version), String(o.signature)).toLowerCase();
     } catch {
       throw new ApiFailure(400, "BAD_SIGNATURE", "The signature is not valid");
     }
@@ -145,26 +172,31 @@ export class ProcessorService {
 
     // A replay of an earlier submission, even one since erased, must not resurrect data.
     const existing = this.vault.get(handle);
-    if (existing) return { created: false, handle, ciphertextHash: existing.ciphertextHash };
+    if (existing) return { created: false, handle, ciphertextHash: existing.ciphertextHash, version: existing.version };
+
+    // A correction is a newer version; an equal or lower one is a stale client (V-08).
+    if (version <= this.vault.maxVersion(principal, fiduciary, purposeCode)) throw new ApiFailure(409, "STALE_VERSION", "A newer version of these details was already sent");
 
     const verdict = await this.consent.check(principal, fiduciary, purposeCode);
     if (!verdict.valid) throw refusal(verdict.reason);
+    // Bound to the notice the customer signed: a different notice means this is not the consent they agreed to.
+    if (consentRef && verdict.noticeHash && verdict.noticeHash.toLowerCase() !== consentRef) throw new ApiFailure(409, "CONSENT_MISMATCH", "The consent on the ledger is for a different notice");
 
     const blob = Buffer.from(envelopeBytes(envelope));
     const ciphertextHash = ciphertextHashOf(envelope);
     const older = this.vault.live(principal, fiduciary, purposeCode);
     try {
-      this.vault.insert({ handle, principal, fiduciary, purposeCode, ciphertextHash, ciphertext: blob, requestId, createdAt: this.seconds() });
+      this.vault.insert({ handle, principal, fiduciary, purposeCode, ciphertextHash, ciphertext: blob, requestId, createdAt: this.seconds(), version, consentRef });
     } catch {
       // A concurrent identical submission won the race: same handle, same answer.
       const winner = this.vault.get(handle);
-      if (winner) return { created: false, handle, ciphertextHash: winner.ciphertextHash };
+      if (winner) return { created: false, handle, ciphertextHash: winner.ciphertextHash, version: winner.version };
       throw new ApiFailure(500, "INTERNAL", "Could not store the envelope");
     }
     for (const row of older) this.erase(row, "superseded");
-    this.events.emit({ event: "vault.stored", ...this.base(ctx), ciphertextHash, sizeBytes: blob.length });
+    this.events.emit({ event: "vault.stored", ...this.base(ctx), ciphertextHash, sizeBytes: blob.length, version });
     this.companies.notify(fiduciary, { event: "stored", handle, principal, purposeCode, ciphertextHash });
-    return { created: true, handle, ciphertextHash };
+    return { created: true, handle, ciphertextHash, version };
   }
 
   /** Metadata and ciphertext for a handle. There is no way to ask for plaintext. */
@@ -178,6 +210,7 @@ export class ProcessorService {
       purposeCode: row.purposeCode,
       ciphertextHash: row.ciphertextHash,
       status: row.erasedAt === null ? "stored" : "erased",
+      version: row.version,
       createdAt: row.createdAt,
       erasedAt: row.erasedAt,
       envelope: row.ciphertext ? (JSON.parse(row.ciphertext.toString("utf8")) as Envelope) : null,
@@ -223,51 +256,65 @@ export class ProcessorService {
     if (o.action !== "loan_decision") throw new ApiFailure(400, "UNSUPPORTED_ACTION", 'Only "loan_decision" is supported');
     if (typeof o.purposeCode !== "string" || !CODE.test(o.purposeCode)) throw new ApiFailure(400, "BAD_REQUEST", '"purposeCode" must be a short code such as credit_check');
     const purposeCode = o.purposeCode;
+    const application = parseApplication(o.application);
+    const wanted = o.handles !== undefined ? o.handles : o.handle !== undefined ? [o.handle] : undefined;
+    if (!Array.isArray(wanted) || wanted.length < 1 || wanted.length > MAX_HANDLES || !wanted.every((h) => typeof h === "string" && HANDLE.test(h))) {
+      throw new ApiFailure(400, "BAD_REQUEST", `"handle" or "handles" must name 1 to ${MAX_HANDLES} vault handles`);
+    }
 
-    const row = typeof o.handle === "string" && /^0x[0-9a-f]{64}$/.test(o.handle) ? this.vault.get(o.handle) : undefined;
-    // Another company's handle and a made-up one look the same on purpose.
-    if (!row || row.fiduciary !== company) throw new ApiFailure(404, "HANDLE_NOT_FOUND", "No vault entry has that handle");
+    const rows = [...new Set(wanted as string[])].map((h) => this.vault.get(h));
+    // Another company's handle, a made-up one and one of another customer look the same on purpose.
+    if (rows.some((r) => !r || r.fiduciary !== company) || new Set(rows.map((r) => r!.principal)).size !== 1) {
+      throw new ApiFailure(404, "HANDLE_NOT_FOUND", "No vault entry has that handle");
+    }
+    const held = rows as VaultRow[];
+    const row = held[0]!;
 
     const ctx = { principal: row.principal, fiduciary: row.fiduciary, purposeCode: row.purposeCode, handle: row.handle };
     this.events.emit({ event: "processor.requested", ...this.base(ctx), action: "loan_decision", requestedAt: this.clock() });
 
-    const log = (decision: "ALLOWED" | "BLOCKED", reason: "OK" | ReasonCode): string =>
-      this.logger.logAccess(company, { purpose: purposeCode, principal: row.principal, decision, reason, latencyMs: this.clock() - started });
-    const decided = (outcome: "approved" | "declined" | "blocked" | "error", limit: number | null, reasonCodes: string[], entryId: string) =>
-      this.events.emit({ event: "processor.decided", ...this.base(ctx), decision: outcome, limit, reasonCodes, entryId, durationMs: this.clock() - started });
+    const log = (decision: "ALLOWED" | "BLOCKED", reason: "OK" | ReasonCode, outcome: ProcessorOutcome, dataCategories: string[] = []): string =>
+      this.logger.logAccess(company, { purpose: purposeCode, principal: row.principal, decision, reason, latencyMs: this.clock() - started, dataCategories, outcome });
+    const decided = (outcome: ProcessorOutcome, limit: number | null, rateBps: number | null, dataCategories: string[], reasonCodes: string[], entryId: string) =>
+      this.events.emit({ event: "processor.decided", ...this.base(ctx), decision: outcome, limit, rateBps, dataCategories, reasonCodes, entryId, durationMs: this.clock() - started });
 
     // Consent for the purpose the company names, read from the chain now. An envelope submitted for one purpose
     // is refused for another: it is also bound to it cryptographically (AAD), so this is the second lock.
     const verdict = await this.consent.check(row.principal, row.fiduciary, purposeCode);
-    const reason: ReasonCode | null = !verdict.valid ? verdict.reason : purposeCode !== row.purposeCode ? "NO_CONSENT" : null;
+    const reason: ReasonCode | null = !verdict.valid ? verdict.reason : held.some((r) => r.purposeCode !== purposeCode) ? "NO_CONSENT" : null;
     if (reason) {
-      const entryId = log("BLOCKED", reason);
-      decided("blocked", null, [reason], entryId);
+      const entryId = log("BLOCKED", reason, "blocked");
+      decided("blocked", null, null, [], [reason], entryId);
       // Only the consent behind this very data decides erasure, and never an outage.
-      const cause = !verdict.valid && purposeCode === row.purposeCode ? this.eraseCauseFor(verdict) : undefined;
-      if (cause) this.erase(row, cause);
+      const cause = !verdict.valid && held.every((r) => r.purposeCode === purposeCode) ? this.eraseCauseFor(verdict) : undefined;
+      if (cause) for (const r of held) this.erase(r, cause);
       throw refusal(reason, entryId);
     }
 
-    if (row.erasedAt !== null || !row.ciphertext) {
-      const entryId = log("ALLOWED", "OK");
-      decided("error", null, ["VAULT_ERASED"], entryId);
+    if (held.some((r) => r.erasedAt !== null || !r.ciphertext)) {
+      const entryId = log("ALLOWED", "OK", "error");
+      decided("error", null, null, [], ["VAULT_ERASED"], entryId);
       throw new ApiFailure(410, "VAULT_ERASED", "The stored data was erased; the customer must send it again", entryId);
     }
 
     this.events.emit({ event: "processor.decrypting", ...this.base(ctx), decryptingAt: this.clock() });
-    let decision: LoanDecision;
+    let scored: Scored;
     try {
-      decision = this.enclave.decide(JSON.parse(row.ciphertext.toString("utf8")) as Envelope, { principal: row.principal, fiduciary: row.fiduciary, purposeCode: row.purposeCode });
+      scored = this.enclave.decide(
+        held.map((r) => ({ envelope: JSON.parse(r.ciphertext!.toString("utf8")) as Envelope, ctx: { principal: r.principal, fiduciary: r.fiduciary, purposeCode: r.purposeCode } })),
+        application,
+      );
     } catch {
       // Authentication failed (edited ciphertext, another key) or the payload was not a profile: an error, never a guess.
-      const entryId = log("ALLOWED", "OK");
-      decided("error", null, ["CIPHERTEXT_INVALID"], entryId);
+      const entryId = log("ALLOWED", "OK", "error");
+      decided("error", null, null, [], ["CIPHERTEXT_INVALID"], entryId);
       throw new ApiFailure(422, "CIPHERTEXT_INVALID", "The stored data could not be opened", entryId);
     }
-    const entryId = log("ALLOWED", "OK");
-    decided(decision.decision, decision.limit, decision.reasonCodes, entryId);
-    return { ...decision, entryId };
+    // The usage record names the categories the rules read, not everything that was opened (drd.md §4.5).
+    const dataCategories = categoriesOfFields(scored.used);
+    const entryId = log("ALLOWED", "OK", scored.decision.decision, dataCategories);
+    decided(scored.decision.decision, scored.decision.limit, scored.decision.rateBps, dataCategories, scored.decision.reasonCodes, entryId);
+    return { ...scored.decision, entryId };
   }
 
   // --- erasure (V-04) ---

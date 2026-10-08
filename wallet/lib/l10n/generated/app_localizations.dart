@@ -1652,6 +1652,101 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'If you lose this phone or clear the app\'s data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release.'**
   String get about_no_recovery_body;
+
+  /// No description provided for @activity_used.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} used your {data} for {purpose}. Decision shared: {outcome}.'**
+  String activity_used(
+    String company,
+    String data,
+    String purpose,
+    String outcome,
+  );
+
+  /// No description provided for @activity_used_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} tried to use your data for {purpose}. Blocked.'**
+  String activity_used_blocked(String company, String purpose);
+
+  /// No description provided for @outcome_approved.
+  ///
+  /// In en, this message translates to:
+  /// **'approved'**
+  String get outcome_approved;
+
+  /// No description provided for @outcome_declined.
+  ///
+  /// In en, this message translates to:
+  /// **'declined'**
+  String get outcome_declined;
+
+  /// No description provided for @list_and.
+  ///
+  /// In en, this message translates to:
+  /// **'{rest} and {last}'**
+  String list_and(String rest, String last);
+
+  /// No description provided for @use_title.
+  ///
+  /// In en, this message translates to:
+  /// **'How your data was used'**
+  String get use_title;
+
+  /// No description provided for @use_what.
+  ///
+  /// In en, this message translates to:
+  /// **'What was used'**
+  String get use_what;
+
+  /// No description provided for @use_stored.
+  ///
+  /// In en, this message translates to:
+  /// **'Where it was stored'**
+  String get use_stored;
+
+  /// No description provided for @use_stored_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted at rest on the Processor. Ciphertext hash:'**
+  String get use_stored_value;
+
+  /// No description provided for @use_stored_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded on this phone'**
+  String get use_stored_unknown;
+
+  /// No description provided for @use_where.
+  ///
+  /// In en, this message translates to:
+  /// **'Where it was processed'**
+  String get use_where;
+
+  /// No description provided for @use_where_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Sammati Processor (simulated enclave)'**
+  String get use_where_value;
+
+  /// No description provided for @use_left.
+  ///
+  /// In en, this message translates to:
+  /// **'What left the Processor'**
+  String get use_left;
+
+  /// No description provided for @use_left_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision only: {outcome}. No details.'**
+  String use_left_value(String outcome);
+
+  /// No description provided for @erased_named.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} no longer holds your {data}.'**
+  String erased_named(String company, String data);
 }
 
 class _AppLocalizationsDelegate

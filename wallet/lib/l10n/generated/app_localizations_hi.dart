@@ -984,4 +984,65 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get about_no_recovery_body =>
       'यह फ़ोन खो जाए या ऐप का डेटा मिट जाए, तो आपका वॉलेट, आपकी Sammati ID और सहेजी हुई जानकारी चली जाती है और आपको नया खाता बनाना पड़ता है। असली संस्करण में बैकअप और पुनर्प्राप्ति की योजना है।';
+
+  @override
+  String activity_used(
+    String company,
+    String data,
+    String purpose,
+    String outcome,
+  ) {
+    return '$company ने $purpose के लिए आपका $data इस्तेमाल किया। साझा किया गया फ़ैसला: $outcome।';
+  }
+
+  @override
+  String activity_used_blocked(String company, String purpose) {
+    return '$company ने $purpose के लिए आपका डेटा इस्तेमाल करने की कोशिश की। रोका गया।';
+  }
+
+  @override
+  String get outcome_approved => 'मंज़ूर';
+
+  @override
+  String get outcome_declined => 'अस्वीकृत';
+
+  @override
+  String list_and(String rest, String last) {
+    return '$rest और $last';
+  }
+
+  @override
+  String get use_title => 'आपके डेटा का उपयोग कैसे हुआ';
+
+  @override
+  String get use_what => 'क्या इस्तेमाल हुआ';
+
+  @override
+  String get use_stored => 'कहाँ रखा गया';
+
+  @override
+  String get use_stored_value =>
+      'प्रोसेसर पर एन्क्रिप्टेड रूप में। सिफरटेक्स्ट हैश:';
+
+  @override
+  String get use_stored_unknown => 'इस फ़ोन पर दर्ज नहीं';
+
+  @override
+  String get use_where => 'कहाँ प्रोसेस हुआ';
+
+  @override
+  String get use_where_value => 'Sammati प्रोसेसर (सिम्युलेटेड एन्क्लेव)';
+
+  @override
+  String get use_left => 'प्रोसेसर से क्या बाहर गया';
+
+  @override
+  String use_left_value(String outcome) {
+    return 'सिर्फ़ फ़ैसला: $outcome। कोई जानकारी नहीं।';
+  }
+
+  @override
+  String erased_named(String company, String data) {
+    return '$company के पास अब आपका $data नहीं है।';
+  }
 }

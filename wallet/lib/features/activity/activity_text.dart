@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/activity.dart';
 import '../../core/consents.dart';
+import '../../core/data_categories.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 
@@ -36,6 +37,41 @@ String purposeTitle(ConsentsSnapshot? snapshot, ActivityItem item, String langua
   }
   final words = item.purposeCode.replaceAll('_', ' ');
   return words.isEmpty ? words : words[0].toUpperCase() + words.substring(1);
+}
+
+/// A category's name inside a sentence: lower case, except an acronym like PAN (W-18).
+String _categoryName(String language, String id) {
+  final c = categoryById(id);
+  if (c == null) return id;
+  final label = c.label.forLanguage(language);
+  return RegExp('[A-Z]{2}').hasMatch(label) ? label : label.toLowerCase();
+}
+
+/// "PAN and yearly income", "PAN, yearly income and type of work", in the app's language (W-18).
+String categoriesText(BuildContext context, List<String> ids) {
+  final t = AppLocalizations.of(context);
+  final language = Localizations.localeOf(context).languageCode;
+  final names = [for (final id in ids) _categoryName(language, id)];
+  if (names.length < 2) return names.join();
+  return t.list_and(names.sublist(0, names.length - 1).join(', '), names.last);
+}
+
+/// The decision label that left the Processor, in the app's language; anything else is shown as it is.
+String outcomeText(AppLocalizations t, String outcome) => switch (outcome) {
+      'approved' => t.outcome_approved,
+      'declined' => t.outcome_declined,
+      _ => outcome,
+    };
+
+/// "QuickLoan used your PAN and yearly income for the credit check. Decision shared: approved." (W-18). Null when the
+/// entry says nothing about data, so the row keeps its ordinary wording.
+String? dataUseSentence(BuildContext context, ActivityItem item, String purpose) {
+  final t = AppLocalizations.of(context);
+  if (!item.isDataUse) return null;
+  if (item.decision == Decision.blocked) return t.activity_used_blocked(item.fiduciaryName, purpose);
+  final ids = item.dataCategories ?? const <String>[];
+  if (ids.isEmpty) return null;
+  return t.activity_used(item.fiduciaryName, categoriesText(context, ids), purpose, outcomeText(t, item.outcome!));
 }
 
 /// ALLOWED or BLOCKED: text and icon as well as colour (ui.md §7).

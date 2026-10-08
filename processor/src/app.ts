@@ -47,7 +47,7 @@ export function createApp(service: ProcessorService, config: ProcessorConfig, lo
     "/v1/vault/submit",
     handle(async (req, res) => {
       const result = await service.submit(req.body);
-      res.status(result.created ? 201 : 200).json({ handle: result.handle, ciphertextHash: result.ciphertextHash });
+      res.status(result.created ? 201 : 200).json({ handle: result.handle, ciphertextHash: result.ciphertextHash, version: result.version });
     }),
   );
 

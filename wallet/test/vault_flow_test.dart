@@ -52,7 +52,7 @@ void main() {
   });
 
   Future<VaultSent> send({String purposeCode = 'credit_check'}) =>
-      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason, profile: _payload);
+      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason, profile: _payload, version: 1);
 
   test('sends only ciphertext, bound to this customer, company and purpose, and the Processor can open it', () async {
     final sent = await send();
@@ -84,7 +84,7 @@ void main() {
     expect(presence.prompts, [_reason]);
     final submission = processor.submissions.single;
     final handle = Envelope.fromJson((submission['envelope'] as Map).cast<String, dynamic>()).handle;
-    final message = submitMessage(handle, submission['requestId'] as String);
+    final message = submitMessage(handle, submission['requestId'] as String, submission['version'] as int);
     final recovered = EthSigUtil.recoverPersonalSignature(
       signature: submission['signature'] as String,
       message: Uint8List.fromList(utf8.encode(message)),
@@ -134,7 +134,7 @@ void main() {
       processorFor: (_) => processor,
     );
     await expectLater(
-      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason, profile: _payload),
+      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason, profile: _payload, version: 1),
       throwsA(isA<WalletException>().having((e) => e.failure, 'failure', WalletFailure.notCreated)),
     );
   });

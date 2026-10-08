@@ -171,7 +171,7 @@ class _PassCard extends StatelessWidget {
                     ),
                   for (final consent in company.consents)
                     if (vaultPurposes.contains(consent.code) && consent.stateAt(now) == ConsentState.active)
-                      StaleDetailsNote(fiduciary: company.fiduciary.address, company: company.fiduciary.name, purposeCode: consent.code, categories: consent.dataCategories),
+                      StaleDetailsNote(fiduciary: company.fiduciary.address, company: company.fiduciary.name, purposeCode: consent.code, categories: consent.dataCategories, noticeHash: consent.noticeHash),
                   if (expiry != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),

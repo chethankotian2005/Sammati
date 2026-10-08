@@ -1,6 +1,8 @@
 import {
   ZERO_HASH,
   explorerTxUrl,
+  entryFormat,
+  expectedPrevHash,
   hashEntry,
   merkleProof,
   merkleRoot,
@@ -23,7 +25,7 @@ const ACK_GRACE_SECONDS = 30;
 const RECENT_EVENTS = 20;
 
 interface RowProblem {
-  kind: "HASH_MISMATCH" | "BROKEN_LINK" | "MISSING_ENTRY";
+  kind: "HASH_MISMATCH" | "BROKEN_LINK" | "MISSING_ENTRY" | "FORMAT_MIXED";
   seq: number;
   entryId: string | null;
 }
@@ -66,7 +68,7 @@ export async function verifyFiduciary(core: RealCore, fiduciary: Hex): Promise<V
   const gaps: number[] = [];
   const recomputed = new Map<number, Hex>();
   let expectedSeq = 1;
-  let previousHash: Hex = ZERO_HASH;
+  let previous: { hash: Hex; format: 1 | 2 } | null = null;
   for (const row of rows) {
     for (; expectedSeq < row.seq; expectedSeq++) {
       gaps.push(expectedSeq);
@@ -76,9 +78,12 @@ export async function verifyFiduciary(core: RealCore, fiduciary: Hex): Promise<V
 
     const hash = hashEntry(row.prevHash, toHashedEntry(row)) as Hex;
     recomputed.set(row.seq, hash);
-    if (row.prevHash !== previousHash) problems.push({ kind: "BROKEN_LINK", seq: row.seq, entryId: row.id });
+    const format = entryFormat(row);
+    // A format-1 entry after a format-2 one is a mix; the first format-2 entry starts an epoch at the zero hash (drd.md §4.1a).
+    if (format === 1 && previous?.format === 2) problems.push({ kind: "FORMAT_MIXED", seq: row.seq, entryId: row.id });
+    else if (row.prevHash !== expectedPrevHash(previous, format)) problems.push({ kind: "BROKEN_LINK", seq: row.seq, entryId: row.id });
     if (hash !== row.hash) problems.push({ kind: "HASH_MISMATCH", seq: row.seq, entryId: row.id });
-    previousHash = row.hash;
+    previous = { hash: row.hash, format };
   }
   problems.sort((a, b) => a.seq - b.seq);
 
@@ -167,6 +172,11 @@ export function scorecard(core: RealCore, fiduciary: Hex): Scorecard {
     });
   }
 
+  const rights = repo.fiduciaryRights(f.address);
+  const erasureRequests = rights.filter(r => r.type === "erasure").length;
+  const grievanceRequests = rights.filter(r => r.type === "grievance").length;
+  const openGrievances = rights.filter(r => r.type === "grievance" && r.status !== "resolved").length;
+
   return {
     fiduciary: f.address,
     slug: f.slug,
@@ -183,6 +193,9 @@ export function scorecard(core: RealCore, fiduciary: Hex): Scorecard {
     violations: violations.length,
     avgWithdrawalToBlockSeconds: lags.length ? Math.round((lags.reduce((a, b) => a + b, 0) / lags.length) * 10) / 10 : null,
     unacknowledgedCascades: repo.unacknowledgedCascades(f.address, now() - ACK_GRACE_SECONDS),
+    erasureRequests,
+    grievanceRequests,
+    openGrievances,
   };
 }
 

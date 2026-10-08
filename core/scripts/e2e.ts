@@ -373,6 +373,17 @@ async function main(): Promise<void> {
       expectEqual([filed.status, filed.json.status], [201, "open"], "filing a rights request");
       const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
       expectEqual(mine.rights.map((r) => [r.id, r.fiduciaryName, r.type]), [[filed.json.id, "QuickLoan", "erasure"]], "the wallet's rights list");
+
+      const resolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${filed.json.id}`, { status: "resolved", reply: "Data deleted" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(resolved.status, "resolved", "resolved erasure request");
+
+      const corr = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "correction", note: "Address changed" });
+      const corrResolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${corr.json.id}`, { status: "resolved", reply: "Updated" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(corrResolved.status, "resolved", "resolved correction request");
+
+      const griev = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "grievance", note: "Spam emails" });
+      const grievResolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${griev.json.id}`, { status: "resolved", reply: "Opted out" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(grievResolved.status, "resolved", "resolved grievance request");
     });
     const fire = (purposeCode: string, action?: "loan_decision") => fireAt(user.address, purposeCode, action);
     const entries: { label: string; id: string; expected: string }[] = [];
@@ -459,8 +470,8 @@ async function main(): Promise<void> {
       // Seal on the "phone" (here: this script), bound to this customer, company and purpose, and sign the submission.
       const envelope = seal(TEST_PROFILE, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
       const requestId = `e2e-${Date.now()}`;
-      const submitSignature = await user.signMessage(submitMessage(handleOf(envelope), requestId));
-      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature: submitSignature });
+      const submitSignature = await user.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 1, signature: submitSignature });
       expectEqual(submit.status, 201, "submit status");
       profile.handle = submit.json.handle!;
       profile.ciphertextHash = submit.json.ciphertextHash!;
@@ -495,8 +506,15 @@ async function main(): Promise<void> {
     await step("apply: the Processor decrypts, QuickLoan gets only a decision", async () => {
       const fired = await fire("credit_check", "loan_decision");
       expectEqual([fired.decision, fired.reason], ["ALLOWED", "OK"], "the apply request");
-      expectEqual(fired.result, { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] }, "the loan decision");
+      expectEqual(fired.result, { decision: "approved", limit: 300000, rateBps: 1400, reasonCodes: ["SCORE_FAIR"] }, "the loan decision");
       record("loan decision", fired, "ALLOWED");
+      // the wallet's Activity feed names the categories the rules read and the decision label, nothing else (W-18)
+      const used = await until(
+        "the usage record in the wallet's Activity",
+        async () => (await call<{ items: Array<{ id: string; outcome?: string; dataCategories?: string[] }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`)).items.find((i) => i.outcome === "approved"),
+        5000,
+      );
+      expectEqual(used.dataCategories, ["financial.pan", "financial.income_band", "financial.employment"], "the categories the loan decision read");
     });
 
     await step("user withdraws credit_check; apply is refused with 451 CONSENT_WITHDRAWN", async () => {
@@ -506,6 +524,12 @@ async function main(): Promise<void> {
       const fired = await fire("credit_check", "loan_decision");
       expectEqual([fired.decision, fired.reason, fired.result], ["BLOCKED", "CONSENT_WITHDRAWN", undefined], "the apply request after withdrawal");
       record("loan decision after withdrawal", fired, "BLOCKED");
+      const refused = await until(
+        "the refusal in the wallet's Activity",
+        async () => (await call<{ items: Array<{ outcome?: string; dataCategories?: string[] }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`)).items.find((i) => i.outcome === "blocked"),
+        5000,
+      );
+      expectEqual(refused.dataCategories, [], "a refusal reads no category");
     });
 
     await step("the vault entry is erased: metadata stays, ciphertext is gone", async () => {
@@ -619,8 +643,8 @@ async function main(): Promise<void> {
       const typed = { employment: "salaried", incomeBand: TEST_PROFILE.incomeBand, pan: TEST_PROFILE.pan };
       const envelope = seal(typed, key.publicKey!, { fiduciary: FID, principal: shopper.address, purposeCode: "credit_check" });
       const requestId = `e2e-portal-${Date.now()}`;
-      const signature = await shopper.signMessage(submitMessage(handleOf(envelope), requestId));
-      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: shopper.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature });
+      const signature = await shopper.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: shopper.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 1, signature });
       expectEqual(submit.status, 201, "submit status");
       await portalStage("data-submitted", "the portal to show \"Data submitted securely\"");
       expectEqual(portalUser.journey!.state.vault, { handle: handleOf(envelope), ciphertextHash: ciphertextHashOf(envelope) }, "what the portal holds");
@@ -992,8 +1016,8 @@ async function main(): Promise<void> {
           const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
           const envelope = seal(TEST_PROFILE, key.publicKey!, { fiduciary: FID, principal: cy.address, purposeCode: GRANTED_LOAN });
           const requestId = `e2e-cy-${Date.now()}`;
-          const signature = await cy.signMessage(submitMessage(handleOf(envelope), requestId));
-          const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: cy.address, fiduciary: FID, purposeCode: GRANTED_LOAN, envelope, requestId, signature });
+          const signature = await cy.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+          const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: cy.address, fiduciary: FID, purposeCode: GRANTED_LOAN, envelope, requestId, version: 1, signature });
           expectEqual(submit.status, 201, "submit status");
           cyHandle = submit.json.handle!;
 

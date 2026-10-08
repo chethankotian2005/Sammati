@@ -80,6 +80,20 @@ export interface ChainedEntry {
   hash: string;
 }
 
+/** Entry format (drd.md §4.1a): 1 has no `outcome` key, 2 has `outcome` and `dataCategories`. */
+export function entryFormat(entry: Pick<AccessLogEntry, "outcome">): 1 | 2 {
+  return entry.outcome === undefined ? 1 : 2;
+}
+
+/**
+ * The prevHash an entry must carry given the entry before it (drd.md §4.1a). The first format-2 entry starts a new epoch
+ * and links to the zero hash; everything else links to its predecessor.
+ */
+export function expectedPrevHash(previous: { hash: string; format: 1 | 2 } | null, format: 1 | 2): string {
+  if (!previous) return ZERO_HASH;
+  return format === 2 && previous.format === 1 ? ZERO_HASH : previous.hash;
+}
+
 /** Appends one entry to a per-fiduciary chain; first entry uses ZERO_HASH. */
 export function chainEntry(prevHash: string | null, entry: AccessLogEntry): ChainedEntry {
   const prev = prevHash ?? ZERO_HASH;

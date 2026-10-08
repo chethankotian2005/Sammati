@@ -11,12 +11,13 @@ import '../../theme/tokens.dart';
 /// touched a field that was sent for an active consent. One tap re-encrypts only that purpose's fields and submits them
 /// again; the Processor replaces the old copy. Shows nothing when nothing is stale.
 class StaleDetailsNote extends ConsumerWidget {
-  const StaleDetailsNote({super.key, required this.fiduciary, required this.company, required this.purposeCode, required this.categories});
+  const StaleDetailsNote({super.key, required this.fiduciary, required this.company, required this.purposeCode, required this.categories, this.noticeHash});
 
   final String fiduciary;
   final String company;
   final String purposeCode;
   final List<String> categories;
+  final String? noticeHash;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +32,7 @@ class StaleDetailsNote extends ConsumerWidget {
       if (!await notifier.unlock(reason: t.auth_reason_profile)) return;
       final fields = ref.read(profileProvider).doc.fields;
       final payload = profilePayload(fields, categories);
-      await ref.read(vaultProvider(VaultKey(fiduciary, purposeCode)).notifier).send(reason: t.auth_reason_vault, payload: payload);
+      await ref.read(vaultProvider(VaultKey(fiduciary, purposeCode)).notifier).send(reason: t.auth_reason_vault, payload: payload, consentRef: noticeHash);
     }
 
     return Container(

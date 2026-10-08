@@ -13,6 +13,8 @@ class ShareRecord {
     required this.handle,
     required this.sentAt,
     this.stale = false,
+    this.ciphertextHash,
+    this.version,
   });
 
   factory ShareRecord.fromJson(Map<String, dynamic> json) => ShareRecord(
@@ -22,6 +24,8 @@ class ShareRecord {
         handle: json['handle'] as String,
         sentAt: json['sentAt'] as int,
         stale: json['stale'] == true,
+        ciphertextHash: json['ciphertextHash'] as String?,
+        version: json['version'] as int?,
       );
 
   final String fiduciary;
@@ -35,6 +39,10 @@ class ShareRecord {
   /// A sent field was edited since: the company's copy is out of date.
   final bool stale;
 
+  /// Hash of the ciphertext the Processor holds and its version (W-18, drd.md §3b): a hash and a number, no values.
+  final String? ciphertextHash;
+  final int? version;
+
   bool matches(String fiduciary, String purposeCode) =>
       this.fiduciary.toLowerCase() == fiduciary.toLowerCase() && this.purposeCode == purposeCode;
 
@@ -45,6 +53,8 @@ class ShareRecord {
         handle: handle,
         sentAt: sentAt,
         stale: stale ?? this.stale,
+        ciphertextHash: ciphertextHash,
+        version: version,
       );
 
   Map<String, Object> toJson() => {
@@ -54,6 +64,8 @@ class ShareRecord {
         'handle': handle,
         'sentAt': sentAt,
         'stale': stale,
+        'ciphertextHash': ?ciphertextHash,
+        'version': ?version,
       };
 }
 

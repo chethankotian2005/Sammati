@@ -235,6 +235,7 @@ class _PurposeRow extends ConsumerWidget {
                     purposeCode: consent.code,
                     consentActive: state == ConsentState.active,
                     categories: consent.dataCategories,
+                    noticeHash: consent.noticeHash,
                   ),
                 // After a withdrawal this is the "who else was told" list (W-08); empty, it takes no room.
                 _CascadeList(purposeId: consent.purposeId, now: now),

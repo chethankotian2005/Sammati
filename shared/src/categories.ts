@@ -111,6 +111,15 @@ export function isCategoryId(id: string): boolean {
   return BY_ID.has(id);
 }
 
+export function categoryIdForField(field: string): string | undefined {
+  return BY_FIELD.get(field)?.id;
+}
+
+/** The category ids of a set of profile fields, in registry order (the usage record, drd.md §4.1a). */
+export function categoriesOfFields(fields: readonly string[]): string[] {
+  return normalizeCategories(fields.flatMap((f) => categoryIdForField(f) ?? []));
+}
+
 export function categoryById(id: string): DataCategory | undefined {
   return BY_ID.get(id)?.category;
 }

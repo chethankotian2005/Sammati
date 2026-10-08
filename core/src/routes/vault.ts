@@ -7,6 +7,7 @@ import { Router } from "express";
 import { getAddress, isAddress } from "ethers";
 import {
   VAULT_EVENT_FIELDS,
+  isCategoryId,
   type Hex,
   type ProcessorOutcome,
   type VaultEraseCause,
@@ -38,6 +39,10 @@ const FIELD_PARSERS: Record<string, (v: unknown) => unknown> = {
   decryptingAt: (v) => int(v, "decryptingAt"),
   decision: (v) => (OUTCOMES.includes(v as ProcessorOutcome) ? v : bad("decision")),
   limit: (v) => (v === null ? null : int(v, "limit")),
+  version: (v) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 1 ? v : bad("version")),
+  rateBps: (v) => (v === null ? null : int(v, "rateBps")),
+  // Registry ids only: a category is a name from the fixed list, never a value (trd.md §4.6).
+  dataCategories: (v) => (Array.isArray(v) && v.length <= 8 && v.every((c) => typeof c === "string" && isCategoryId(c)) ? v : bad("dataCategories")),
   reasonCodes: (v) =>
     Array.isArray(v) && v.length <= 8 && v.every((c) => typeof c === "string" && DECISION_CODE.test(c)) ? v : bad("reasonCodes"),
   entryId: (v) => (typeof v === "string" && ENTRY_ID.test(v) ? v : bad("entryId")),

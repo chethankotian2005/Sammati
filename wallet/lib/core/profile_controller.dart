@@ -1,6 +1,8 @@
 // The open profile for the foreground session (W-16, W-17). Locked until the person passes the device check, dropped
 // again when the app goes to the background. Edits are saved at once, on the phone only.
 
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data_categories.dart';
@@ -12,7 +14,7 @@ import 'wallet_providers.dart';
 enum ProfileStage { locked, unlocked, lost }
 
 class ProfileState {
-  const ProfileState({this.stage = ProfileStage.locked, this.doc = const ProfileDoc(), this.failure, this.stale = const {}});
+  const ProfileState({this.stage = ProfileStage.locked, this.doc = const ProfileDoc(), this.failure, this.stale = const {}, this.hashes = const {}});
 
   final ProfileStage stage;
   final ProfileDoc doc;
@@ -24,10 +26,24 @@ class ProfileState {
   /// W5 and W1 shows without opening the profile: it holds company and purpose codes only, never a value.
   final Set<String> stale;
 
+  /// Ciphertext hash of the copy the Processor holds, by `fiduciary|purposeCode` (W-18). A hash is not a value, and
+  /// the Activity detail shows it without opening the profile.
+  final Map<String, String> hashes;
+
   bool get isUnlocked => stage == ProfileStage.unlocked;
 }
 
 const _staleKey = 'stale_shares';
+const _hashesKey = 'share_hashes';
+
+Map<String, String> _readHashes(String? raw) {
+  if (raw == null) return const {};
+  try {
+    return (jsonDecode(raw) as Map<String, dynamic>).cast<String, String>();
+  } catch (_) {
+    return const {};
+  }
+}
 
 String shareKey(String fiduciary, String purposeCode) => '${fiduciary.toLowerCase()}|$purposeCode';
 
@@ -40,7 +56,10 @@ class ProfileController extends Notifier<ProfileState> {
   ProfileSession? _session;
 
   @override
-  ProfileState build() => ProfileState(stale: (ref.read(sharedPreferencesProvider).getStringList(_staleKey) ?? const []).toSet());
+  ProfileState build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return ProfileState(stale: (prefs.getStringList(_staleKey) ?? const []).toSet(), hashes: _readHashes(prefs.getString(_hashesKey)));
+  }
 
   /// Asks for the device check and opens the profile. True when it is open afterwards.
   Future<bool> unlock({required String reason}) async {
@@ -51,7 +70,7 @@ class ProfileController extends Notifier<ProfileState> {
       return true;
     } on ProfileException catch (e) {
       _session = null;
-      state = ProfileState(stage: e.failure == ProfileFailure.lost ? ProfileStage.lost : ProfileStage.locked, failure: e.failure, stale: state.stale);
+      state = ProfileState(stage: e.failure == ProfileFailure.lost ? ProfileStage.lost : ProfileStage.locked, failure: e.failure, stale: state.stale, hashes: state.hashes);
       return false;
     }
   }
@@ -83,19 +102,22 @@ class ProfileController extends Notifier<ProfileState> {
     await ref.read(profileStoreProvider).save(next);
     _session = next;
     state = _with(ProfileStage.unlocked, next.doc);
-    await ref.read(sharedPreferencesProvider).setStringList(_staleKey, state.stale.toList());
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setStringList(_staleKey, state.stale.toList());
+    await prefs.setString(_hashesKey, jsonEncode(state.hashes));
   }
 
   ProfileState _with(ProfileStage stage, ProfileDoc doc) => ProfileState(
         stage: stage,
         doc: doc,
+        hashes: {...state.hashes, for (final s in doc.shares) if (s.ciphertextHash != null) shareKey(s.fiduciary, s.purposeCode): s.ciphertextHash!},
         stale: {...state.stale.where((k) => !doc.shares.any((s) => shareKey(s.fiduciary, s.purposeCode) == k)), for (final s in doc.shares) if (s.stale) shareKey(s.fiduciary, s.purposeCode)},
       );
 
   /// Forgets the decrypted profile and the key. Called when the app goes to the background.
   void lock() {
     _session = null;
-    if (state.stage != ProfileStage.locked) state = ProfileState(stale: state.stale);
+    if (state.stage != ProfileStage.locked) state = ProfileState(stale: state.stale, hashes: state.hashes);
   }
 }
 

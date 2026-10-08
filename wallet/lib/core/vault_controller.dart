@@ -14,6 +14,7 @@ import 'preferences.dart';
 import 'profile.dart';
 import 'profile_controller.dart';
 import 'processor_api.dart';
+import 'vault_flow.dart' show VaultSent;
 import 'wallet_service.dart';
 
 enum VaultStage { idle, sending, sent, erased, failed }
@@ -62,7 +63,7 @@ class VaultController extends Notifier<VaultState> {
 
   /// [payload] is what is encrypted: the profile entries this purpose's categories name (W10, W-13). On success the
   /// send is recorded in the profile (field names and the handle, no values) so a later edit can mark it (W-17).
-  Future<void> send({required String reason, required Map<String, String> payload}) async {
+  Future<void> send({required String reason, required Map<String, String> payload, String? consentRef}) async {
     if (state.stage == VaultStage.sending) return;
     state = const VaultState(stage: VaultStage.sending);
     try {
@@ -72,8 +73,10 @@ class VaultController extends Notifier<VaultState> {
             purposeCode: _key.purposeCode,
             reason: reason,
             profile: payload,
+            version: _nextVersion(),
+            consentRef: consentRef,
           );
-      await _remember(sent.handle, payload.keys.toList());
+      await _remember(sent, payload.keys.toList());
       // The live frame may already have set the same state; this keeps it correct without a socket.
       state = VaultState(stage: VaultStage.sent, handle: sent.handle);
     } on WalletException {
@@ -85,13 +88,18 @@ class VaultController extends Notifier<VaultState> {
     }
   }
 
-  Future<void> _remember(String handle, List<String> fields) async {
+  /// The next version of what this phone sent for this company and purpose (V-08): a correction supersedes the old one.
+  int _nextVersion() => (ref.read(profileProvider).doc.shareFor(_key.fiduciary, _key.purposeCode)?.version ?? 0) + 1;
+
+  Future<void> _remember(VaultSent sent, List<String> fields) async {
     try {
       await ref.read(profileProvider.notifier).recordShare(ShareRecord(
             fiduciary: _key.fiduciary,
             purposeCode: _key.purposeCode,
             fields: fields,
-            handle: handle,
+            handle: sent.handle,
+            ciphertextHash: sent.ciphertextHash,
+            version: sent.version,
             sentAt: ref.read(clockProvider)().millisecondsSinceEpoch ~/ 1000,
           ));
     } on Object {

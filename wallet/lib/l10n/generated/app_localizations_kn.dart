@@ -989,4 +989,65 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get about_no_recovery_body =>
       'ಈ ಫೋನ್ ಕಳೆದುಹೋದರೆ ಅಥವಾ ಆ್ಯಪ್‌ನ ಡೇಟಾ ಅಳಿಸಿದರೆ, ನಿಮ್ಮ ವಾಲೆಟ್, ನಿಮ್ಮ Sammati ID ಮತ್ತು ಉಳಿಸಿದ ವಿವರಗಳು ಹೋಗುತ್ತವೆ, ಮತ್ತು ನೀವು ಹೊಸ ಖಾತೆಯೊಂದಿಗೆ ಮತ್ತೆ ಆರಂಭಿಸಬೇಕು. ನಿಜವಾದ ಬಿಡುಗಡೆಯಲ್ಲಿ ಬ್ಯಾಕಪ್ ಮತ್ತು ಮರುಪಡೆಯುವಿಕೆಗೆ ಯೋಜನೆ ಇದೆ.';
+
+  @override
+  String activity_used(
+    String company,
+    String data,
+    String purpose,
+    String outcome,
+  ) {
+    return '$company $purpose ಗಾಗಿ ನಿಮ್ಮ $data ಬಳಸಿದೆ. ಹಂಚಿಕೊಂಡ ನಿರ್ಧಾರ: $outcome.';
+  }
+
+  @override
+  String activity_used_blocked(String company, String purpose) {
+    return '$company $purpose ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾ ಬಳಸಲು ಪ್ರಯತ್ನಿಸಿದೆ. ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ.';
+  }
+
+  @override
+  String get outcome_approved => 'ಅನುಮೋದಿಸಲಾಗಿದೆ';
+
+  @override
+  String get outcome_declined => 'ತಿರಸ್ಕರಿಸಲಾಗಿದೆ';
+
+  @override
+  String list_and(String rest, String last) {
+    return '$rest ಮತ್ತು $last';
+  }
+
+  @override
+  String get use_title => 'ನಿಮ್ಮ ಡೇಟಾ ಹೇಗೆ ಬಳಕೆಯಾಯಿತು';
+
+  @override
+  String get use_what => 'ಏನು ಬಳಕೆಯಾಯಿತು';
+
+  @override
+  String get use_stored => 'ಎಲ್ಲಿ ಸಂಗ್ರಹಿಸಲಾಗಿದೆ';
+
+  @override
+  String get use_stored_value =>
+      'ಪ್ರೊಸೆಸರ್‌ನಲ್ಲಿ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗಿ. ಸೈಫರ್‌ಟೆಕ್ಸ್ಟ್ ಹ್ಯಾಶ್:';
+
+  @override
+  String get use_stored_unknown => 'ಈ ಫೋನ್‌ನಲ್ಲಿ ದಾಖಲಾಗಿಲ್ಲ';
+
+  @override
+  String get use_where => 'ಎಲ್ಲಿ ಸಂಸ್ಕರಿಸಲಾಯಿತು';
+
+  @override
+  String get use_where_value => 'Sammati ಪ್ರೊಸೆಸರ್ (ಅನುಕರಣೆ ಎನ್‌ಕ್ಲೇವ್)';
+
+  @override
+  String get use_left => 'ಪ್ರೊಸೆಸರ್‌ನಿಂದ ಹೊರಬಂದದ್ದು';
+
+  @override
+  String use_left_value(String outcome) {
+    return 'ನಿರ್ಧಾರ ಮಾತ್ರ: $outcome. ವಿವರಗಳಿಲ್ಲ.';
+  }
+
+  @override
+  String erased_named(String company, String data) {
+    return '$company ಬಳಿ ಇನ್ನು ನಿಮ್ಮ $data ಇಲ್ಲ.';
+  }
 }

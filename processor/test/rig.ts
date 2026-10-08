@@ -23,8 +23,8 @@ export class ScriptedConsent implements ConsentReader {
   calls = 0;
 
   private key = (p: string, f: string, c: string) => `${p.toLowerCase()}|${f.toLowerCase()}|${c}`;
-  allow(p: string, f: string, c: string): void {
-    this.verdicts.set(this.key(p, f, c), { valid: true });
+  allow(p: string, f: string, c: string, noticeHash?: Hex): void {
+    this.verdicts.set(this.key(p, f, c), { valid: true, ...(noticeHash ? { noticeHash } : {}) });
   }
   deny(p: string, f: string, c: string, reason: ReasonCode, expiresAt?: number): void {
     this.verdicts.set(this.key(p, f, c), { valid: false, reason, ...(expiresAt === undefined ? {} : { expiresAt }) });
@@ -43,6 +43,8 @@ export interface LogRecord {
   decision: "ALLOWED" | "BLOCKED";
   reason: string;
   id: string;
+  dataCategories: string[];
+  outcome: string;
 }
 
 export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8Array | null = null, clock?: () => number) {
@@ -60,7 +62,7 @@ export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8A
   const logger: AccessLogger = {
     logAccess: (fiduciary, entry) => {
       const id = `00000000-0000-4000-8000-${String(logs.length).padStart(12, "0")}`;
-      logs.push({ fiduciary, id, purpose: entry.purpose, principal: entry.principal, decision: entry.decision, reason: entry.reason });
+      logs.push({ fiduciary, id, purpose: entry.purpose, principal: entry.principal, decision: entry.decision, reason: entry.reason, dataCategories: entry.dataCategories, outcome: entry.outcome });
       return id;
     },
   };
@@ -68,11 +70,16 @@ export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8A
   const wallet = Wallet.createRandom();
   const principal = wallet.address.toLowerCase() as Hex;
 
+  const versions = new Map<string, number>();
   /** What the wallet does: seal the profile for this purpose, sign the submission. */
-  async function walletSubmission(purposeCode = "credit_check", fiduciary: Hex = QUICKLOAN, payload: unknown = PROFILE, requestId = `req-${Math.random().toString(36).slice(2, 12)}`) {
+  async function walletSubmission(purposeCode = "credit_check", fiduciary: Hex = QUICKLOAN, payload: unknown = PROFILE, requestId = `req-${Math.random().toString(36).slice(2, 12)}`, version?: number, consentRef?: Hex) {
     const envelope: Envelope = seal(payload, enclave.publicKey, { fiduciary, principal, purposeCode });
-    const signature = await wallet.signMessage(submitMessage(handleOf(envelope), requestId));
-    return { principal, fiduciary, purposeCode, envelope, requestId, signature };
+    // Each send is the next version unless the test says otherwise, like the wallet.
+    const key = `${fiduciary}|${purposeCode}`;
+    const v = version ?? (versions.get(key) ?? 0) + 1;
+    versions.set(key, Math.max(versions.get(key) ?? 0, v));
+    const signature = await wallet.signMessage(submitMessage(handleOf(envelope), requestId, v));
+    return { principal, fiduciary, purposeCode, envelope, requestId, version: v, ...(consentRef ? { consentRef } : {}), signature };
   }
 
   async function submitted(purposeCode = "credit_check", fiduciary: Hex = QUICKLOAN) {

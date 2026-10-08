@@ -119,4 +119,8 @@ export const TEST_CUSTOMER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 export const TEST_CUSTOMER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 /** A throwaway profile with made-up values; the e2e searches the whole run for the PAN. */
-export const TEST_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
+const randomLetters = (n: number): string => Array.from({ length: n }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("");
+const randomDigits = (n: number): string => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
+
+/** The PAN is random on every run (a valid shape), so a leak search cannot match something that was already in the repository. */
+export const TEST_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: `${randomLetters(5)}${randomDigits(4)}${randomLetters(1)}`, score: 742 } as const;

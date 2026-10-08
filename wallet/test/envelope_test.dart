@@ -98,7 +98,7 @@ void main() {
     });
 
     test('the submit message is the one the Processor verifies', () {
-      expect(submitMessage('0xabc', 'req-1'), 'sammati-vault-submit:v1:0xabc:req-1');
+      expect(submitMessage('0xabc', 'req-1', 3), 'sammati-vault-submit:v2:0xabc:req-1:3');
     });
   });
 }

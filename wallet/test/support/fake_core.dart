@@ -479,7 +479,7 @@ class FakeProcessorApi implements ProcessorApi {
   /// Answer with a handle other than the one of the envelope that was sent.
   bool wrongHandle = false;
   int keyFetches = 0;
-  final List<Map<String, Object>> submissions = [];
+  final List<Map<String, Object?>> submissions = [];
 
   @override
   Future<ProcessorKey> getPublicKey() async {
@@ -496,6 +496,8 @@ class FakeProcessorApi implements ProcessorApi {
     required String purposeCode,
     required Envelope envelope,
     required String requestId,
+    required int version,
+    String? consentRef,
     required String signature,
   }) async {
     final error = submitError;
@@ -506,6 +508,8 @@ class FakeProcessorApi implements ProcessorApi {
       'purposeCode': purposeCode,
       'envelope': envelope.toJson(),
       'requestId': requestId,
+      'version': version,
+      'consentRef': consentRef,
       'signature': signature,
     });
     return VaultReceipt(handle: wrongHandle ? '0x${'00' * 32}' : envelope.handle, ciphertextHash: envelope.ciphertextHash);

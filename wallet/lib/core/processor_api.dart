@@ -17,9 +17,10 @@ class ProcessorKey {
 }
 
 class VaultReceipt {
-  const VaultReceipt({required this.handle, required this.ciphertextHash});
+  const VaultReceipt({required this.handle, required this.ciphertextHash, this.version});
   final String handle;
   final String ciphertextHash;
+  final int? version;
 }
 
 /// The Processor refused to store the envelope because consent is not valid: [code] is one of the five reason codes.
@@ -40,6 +41,8 @@ abstract interface class ProcessorApi {
     required String purposeCode,
     required Envelope envelope,
     required String requestId,
+    required int version,
+    String? consentRef,
     required String signature,
   });
 }
@@ -76,6 +79,8 @@ class DioProcessorApi implements ProcessorApi {
     required String purposeCode,
     required Envelope envelope,
     required String requestId,
+    required int version,
+    String? consentRef,
     required String signature,
   }) async {
     final json = await _send(() => _dio.post<Map<String, dynamic>>('/v1/vault/submit', data: {
@@ -84,12 +89,15 @@ class DioProcessorApi implements ProcessorApi {
           'purposeCode': purposeCode,
           'envelope': envelope.toJson(),
           'requestId': requestId,
+          'version': version,
+          'consentRef': ?consentRef,
           'signature': signature,
         }));
     final handle = json['handle'];
     final hash = json['ciphertextHash'];
     if (handle is! String || hash is! String) throw const CoreException(CoreFailure.server, message: 'Malformed vault receipt');
-    return VaultReceipt(handle: handle, ciphertextHash: hash);
+    final v = json['version'];
+    return VaultReceipt(handle: handle, ciphertextHash: hash, version: v is int ? v : null);
   }
 
   Future<Map<String, dynamic>> _send(Future<Response<Map<String, dynamic>>> Function() call) async {

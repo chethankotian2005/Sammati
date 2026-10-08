@@ -296,6 +296,7 @@ void main() {
           purposeCode: 'credit_check',
           envelope: envelope,
           requestId: 'request-1-0000',
+          version: 1,
           signature: '0xsig',
         );
 
@@ -316,7 +317,7 @@ void main() {
       expect([got.handle, got.ciphertextHash], ['0xaa', '0xbb']);
       expect(adapter.last!.path, '/v1/vault/submit');
       final sent = jsonDecode(adapter.lastBody!) as Map<String, dynamic>;
-      expect(sent.keys.toSet(), {'principal', 'fiduciary', 'purposeCode', 'envelope', 'requestId', 'signature'});
+      expect(sent.keys.toSet(), {'principal', 'fiduciary', 'purposeCode', 'envelope', 'requestId', 'version', 'signature'});
       expect(sent['envelope'], envelope.toJson());
     });
 

@@ -59,6 +59,12 @@ class _ShareDetailsScreenState extends ConsumerState<ShareDetailsScreen> {
     return consent == null || consent.isEmpty ? const [] : consent.first.dataCategories;
   }
 
+  /// The notice hash the customer signed for this purpose, quoted so the Processor can check it against the ledger.
+  String? _consentRef() {
+    final matches = ref.read(consentsProvider).snapshot?.company(widget.fiduciary)?.consents.where((c) => c.code == widget.purposeCode);
+    return matches == null || matches.isEmpty ? null : matches.first.noticeHash;
+  }
+
   /// The value to send for a field: what was typed this visit, else what the profile holds.
   String? _valueOf(String field, ProfileFields profile) => _typed.containsKey(field) ? _typed[field] : profile[field];
 
@@ -77,7 +83,7 @@ class _ShareDetailsScreenState extends ConsumerState<ShareDetailsScreen> {
     // Saved first: a value typed here is kept for next time even if this send fails.
     final changed = {for (final e in payload.entries) if (profile[e.key] != e.value) e.key: e.value};
     if (changed.isNotEmpty) await ref.read(profileProvider.notifier).setFields(changed);
-    await ref.read(vaultProvider(key).notifier).send(reason: reason, payload: payload);
+    await ref.read(vaultProvider(key).notifier).send(reason: reason, payload: payload, consentRef: _consentRef());
     if (mounted && ref.read(vaultProvider(key)).stage == VaultStage.sent) {
       setState(() {
         _typed.clear();

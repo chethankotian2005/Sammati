@@ -76,6 +76,14 @@ app.post("/vault/events", (req: Request, res: Response) => {
 // Apply: the decision is computed inside the Processor from data this company never sees. Not wrapped in
 // requireConsent on purpose: the Processor checks consent on chain and writes the access-log entry, so the use is
 // logged once, by the party that touched the data. A refusal is passed through unchanged (451 and its reason).
+/** What the customer asked for (amount in INR, tenure in months), passed to the Processor as it is; it validates it (trd.md §6.13). */
+function application(body: unknown): { amount?: number; tenureMonths?: number } | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const { amount, tenureMonths } = body as Record<string, unknown>;
+  if (amount === undefined && tenureMonths === undefined) return undefined;
+  return { amount: amount as number | undefined, tenureMonths: tenureMonths as number | undefined };
+}
+
 app.post("/customers/:id/apply", async (req: Request, res: Response) => {
   const principal = getPrincipal(req);
   if (!principal || !/^0x[0-9a-fA-F]{40}$/.test(principal)) {
@@ -93,7 +101,7 @@ app.post("/customers/:id/apply", async (req: Request, res: Response) => {
     answer = await fetch(`${processorUrl}/v1/processor/evaluate`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-sammati-api-key": apiKey },
-      body: JSON.stringify({ handle: held.handle, fiduciary, purposeCode: loanPurpose, action: "loan_decision" }),
+      body: JSON.stringify({ handle: held.handle, fiduciary, purposeCode: loanPurpose, action: "loan_decision", application: application(req.body) }),
       signal: AbortSignal.timeout(5000),
     });
   } catch {

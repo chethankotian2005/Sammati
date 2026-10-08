@@ -65,7 +65,7 @@ describe("HTTP surface", () => {
 
     const view = await call("GET", `/v1/vault/${handle}`);
     expect(view.json).toMatchObject({ status: "stored", purposeCode: "credit_check", envelope: body.envelope });
-    expect(Object.keys(view.json).sort()).toEqual(["ciphertextHash", "createdAt", "envelope", "erasedAt", "fiduciary", "handle", "principal", "purposeCode", "status"]);
+    expect(Object.keys(view.json).sort()).toEqual(["ciphertextHash", "createdAt", "envelope", "erasedAt", "fiduciary", "handle", "principal", "purposeCode", "status", "version"]);
 
     const decision = await evaluate(handle);
     expect(decision.status).toBe(200);

@@ -624,5 +624,73 @@
   "about_title": "About Sammati",
   "about_prototype": "Sammati is a prototype. Use made-up details.",
   "about_no_recovery_title": "No account recovery in this build",
-  "about_no_recovery_body": "If you lose this phone or clear the app's data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release."
+  "about_no_recovery_body": "If you lose this phone or clear the app's data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release.",
+  "activity_used": "{company} used your {data} for {purpose}. Decision shared: {outcome}.",
+  "@activity_used": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "data": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "activity_used_blocked": "{company} tried to use your data for {purpose}. Blocked.",
+  "@activity_used_blocked": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "outcome_approved": "approved",
+  "outcome_declined": "declined",
+  "list_and": "{rest} and {last}",
+  "@list_and": {
+    "placeholders": {
+      "rest": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "use_title": "How your data was used",
+  "use_what": "What was used",
+  "use_stored": "Where it was stored",
+  "use_stored_value": "Encrypted at rest on the Processor. Ciphertext hash:",
+  "use_stored_unknown": "Not recorded on this phone",
+  "use_where": "Where it was processed",
+  "use_where_value": "Sammati Processor (simulated enclave)",
+  "use_left": "What left the Processor",
+  "use_left_value": "Decision only: {outcome}. No details.",
+  "@use_left_value": {
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "erased_named": "{company} no longer holds your {data}.",
+  "@erased_named": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "data": {
+        "type": "String"
+      }
+    }
+  }
 }

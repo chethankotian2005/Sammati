@@ -8,7 +8,7 @@ import { purposeIdOf, type Deployment, type Deployments, type Hex, type ReasonCo
 import type { ProcessorConfig } from "./config";
 
 /** `expiresAt` (unix seconds) is given for CONSENT_EXPIRED, so the erasure grace period can be counted from it. */
-export type ConsentVerdict = { valid: true } | { valid: false; reason: ReasonCode; expiresAt?: number };
+export type ConsentVerdict = { valid: true; noticeHash?: Hex } | { valid: false; reason: ReasonCode; expiresAt?: number };
 
 export interface ConsentReader {
   check(principal: string, fiduciary: string, purposeCode: string): Promise<ConsentVerdict>;
@@ -28,7 +28,7 @@ function readDeployment(config: ProcessorConfig): Deployment | null {
 
 interface RegistryReads {
   hasValidConsent(principal: string, fiduciary: string, purposeId: string): Promise<boolean>;
-  getConsent(principal: string, fiduciary: string, purposeId: string): Promise<{ status: bigint; expiresAt: bigint }>;
+  getConsent(principal: string, fiduciary: string, purposeId: string): Promise<{ status: bigint; expiresAt: bigint; noticeHash: string }>;
 }
 
 export class ChainConsentReader implements ConsentReader {
@@ -54,9 +54,9 @@ export class ChainConsentReader implements ConsentReader {
       const registry = this.connect();
       if (!registry) return UNAVAILABLE;
       const purposeId: Hex = purposeIdOf(fiduciary, purposeCode);
-      if (await registry.hasValidConsent(principal, fiduciary, purposeId)) return { valid: true };
+      const { status, expiresAt, noticeHash } = await registry.getConsent(principal, fiduciary, purposeId);
+      if (await registry.hasValidConsent(principal, fiduciary, purposeId)) return { valid: true, noticeHash: noticeHash as Hex };
       // Not valid: say why, like the gateway does (drd.md §3).
-      const { status, expiresAt } = await registry.getConsent(principal, fiduciary, purposeId);
       if (status === STATUS_ACTIVE) return { valid: false, reason: "CONSENT_EXPIRED", expiresAt: Number(expiresAt) };
       if (status === STATUS_WITHDRAWN) return { valid: false, reason: "CONSENT_WITHDRAWN" };
       return { valid: false, reason: "NO_CONSENT" };

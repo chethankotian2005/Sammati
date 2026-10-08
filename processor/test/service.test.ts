@@ -41,7 +41,7 @@ describe("loan rules", () => {
     [{ pan: PAN, incomeBand: "9+ LPA", employment: "salaried" }, { decision: "approved", limit: 600000, reasonCodes: ["SCORE_FAIR", "SCORE_ASSUMED"] }],
     [{ pan: PAN, incomeBand: "6-9 LPA", employment: "salaried", score: "high" }, { decision: "declined", limit: null, reasonCodes: ["SCORE_LOW"] }],
   ])("%j", (profile, expected) => {
-    expect(decideLoan(profile)).toEqual(expected);
+    expect(decideLoan(profile).decision).toMatchObject(expected);
   });
 });
 
@@ -66,7 +66,7 @@ describe("submit (V-02)", () => {
     r.consent.allow(r.principal, QUICKLOAN, "credit_check");
     const body = await r.walletSubmission();
     const stranger = Wallet.createRandom();
-    const signature = await stranger.signMessage(submitMessage(handleOf(body.envelope), body.requestId));
+    const signature = await stranger.signMessage(submitMessage(handleOf(body.envelope), body.requestId, body.version));
     expect((await fails(r.service.submit({ ...body, signature }))).code).toBe("BAD_SIGNATURE");
     expect((await fails(r.service.submit({ ...body, signature: "0x1234" }))).code).toBe("BAD_SIGNATURE");
     expect((await fails(r.service.submit({ ...body, requestId: "another-request-id" }))).code).toBe("BAD_SIGNATURE");
@@ -133,8 +133,9 @@ describe("evaluate (V-03)", () => {
     r.events.length = 0;
     const result = await r.service.evaluate(QL_KEY, r.evaluateBody(handle));
 
-    expect(result).toEqual({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: r.logs[0]!.id });
-    expect(r.logs).toEqual([{ fiduciary: QUICKLOAN, id: result.entryId, purpose: "credit_check", principal: r.principal, decision: "ALLOWED", reason: "OK" }]);
+    expect(result).toEqual({ decision: "approved", limit: 300000, rateBps: 1400, reasonCodes: ["SCORE_FAIR"], entryId: r.logs[0]!.id });
+    // the usage record names the categories the rules read (PAN, income band) and the decision label only
+    expect(r.logs).toEqual([{ fiduciary: QUICKLOAN, id: result.entryId, purpose: "credit_check", principal: r.principal, decision: "ALLOWED", reason: "OK", dataCategories: ["financial.pan", "financial.income_band"], outcome: "approved" }]);
     expect(r.events.map((e) => e.event)).toEqual(["processor.requested", "processor.decrypting", "processor.decided"]);
     expect(r.events[2]).toMatchObject({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: result.entryId, handle });
     expect(JSON.stringify([result, r.events, r.logs])).not.toContain(PAN);

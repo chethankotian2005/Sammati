@@ -365,6 +365,9 @@ export interface Scorecard {
   avgWithdrawalToBlockSeconds: number | null;
   /** Processors that have not acknowledged a withdrawal older than 30 s. */
   unacknowledgedCascades: number;
+  erasureRequests: number;
+  grievanceRequests: number;
+  openGrievances: number;
 }
 export interface AuditFiduciariesResponse {
   fiduciaries: Scorecard[];
