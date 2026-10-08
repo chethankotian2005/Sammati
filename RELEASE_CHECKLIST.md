@@ -53,3 +53,11 @@ Record on a **clean** `pnpm dev:reset` run, screen mirrored so both the phone an
 - [ ] Phone brightness up, notifications set as decided, mirroring running
 - [ ] Tabs open: console on **Send to user**, customer page signed out, Auditor, explorer
 - [ ] One person owns the recovery: the recording, the spare phone, and the sentence "let me show you the recording of this step"
+
+## Notifications on a real phone (N-03 to N-05, W-11): fill in after testing
+- [ ] Register two more companies with `scripts/register-company.mjs` (CareFirst, TiffinBox) and start their sites.
+- [ ] Foreground: send a request by Sammati ID from a second company; it reaches the inbox within 2 s.
+- [ ] Turn on **Short expiry for testing** (Developer settings), grant 2 minutes: expiring and expired alerts arrive; the company's next call is 451 `CONSENT_EXPIRED`; **Request renewal** arrives; **Renew** makes the call ALLOWED again.
+- [ ] Decline, then **Block this company**: further requests from it never arrive.
+- [ ] A company marks a rights request resolved with a reply: an Alerts item appears.
+- [ ] **Screen off / app closed**: record exactly what arrived and what did not. Until this box is ticked with a result, the documented position is that background delivery is not built and not tested.

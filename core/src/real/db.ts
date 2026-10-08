@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS access_logs (
   prev_hash TEXT NOT NULL,
   hash TEXT NOT NULL,
   batch_index INTEGER,
+  data_categories TEXT,
+  outcome TEXT,
   PRIMARY KEY (fiduciary, seq)
 );
 
@@ -148,7 +150,8 @@ CREATE TABLE IF NOT EXISTS rights_requests (
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL,
   type TEXT NOT NULL,
   note TEXT, status TEXT NOT NULL,
-  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+  reply TEXT
 );
 
 CREATE TABLE IF NOT EXISTS fiduciary_applications (
@@ -249,7 +252,13 @@ function migrate(db: Db): void {
   const have = new Set((db.prepare("PRAGMA table_info(fiduciaries)").all() as Array<{ name: string }>).map((c) => c.name));
   if (!have.has("slug")) db.exec("ALTER TABLE fiduciaries ADD COLUMN slug TEXT");
   if (!have.has("sandbox")) db.exec("ALTER TABLE fiduciaries ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0");
+  const rights = new Set((db.prepare("PRAGMA table_info(rights_requests)").all() as Array<{ name: string }>).map((c) => c.name));
+  if (!rights.has("reply")) db.exec("ALTER TABLE rights_requests ADD COLUMN reply TEXT");
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_fiduciaries_slug ON fiduciaries (slug)");
+  // A database made before usage records (V-09) has format-1 rows: both columns stay NULL for them (drd.md §4.1a).
+  const logs = new Set((db.prepare("PRAGMA table_info(access_logs)").all() as Array<{ name: string }>).map((c) => c.name));
+  if (!logs.has("data_categories")) db.exec("ALTER TABLE access_logs ADD COLUMN data_categories TEXT");
+  if (!logs.has("outcome")) db.exec("ALTER TABLE access_logs ADD COLUMN outcome TEXT");
 }
 
 export function clearChainDerived(db: Db): void {

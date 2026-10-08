@@ -69,6 +69,18 @@ export class Notifications {
     };
   }
 
+  /** A company changed the status of a customer's rights request, or replied to a grievance. */
+  onRightsUpdated(r: { id: string; principal: Hex; fiduciary: Hex; type: "access" | "erasure" | "grievance"; status: "open" | "in_progress" | "resolved"; reply: string | null; updatedAt: number }): void {
+    this.raise({
+      type: "rights.updated",
+      key: `rights:${r.id}:${r.status}:${r.updatedAt}`,
+      principal: r.principal,
+      fiduciary: r.fiduciary,
+      purposeId: null,
+      payload: { rightsId: r.id, rightsType: r.type, rightsStatus: r.status, reply: r.reply },
+    });
+  }
+
   // ------------------------------------------------------------ reading and answering
 
   list(principal: Hex, limitRaw: unknown): NotificationsResponse {

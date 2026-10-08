@@ -51,6 +51,12 @@ Cut, in this order, until it fits: **Act 7** (−15 s), the optional new-company
 - [ ] A second phone with the APK installed as a spare
 - [ ] **Do not restart the Processor between rehearsal and stage without `pnpm dev:reset`**: its key is in memory, so old ciphertext becomes unreadable (`CIPHERTEXT_INVALID`) until the phone sends again
 
+### Delivery status of notifications (honest)
+- **Built and tested in code:** the WebSocket path (foreground), the expiry scheduler, renewal requests, rights replies (`rights.updated`) and the Alerts tab. Core's tests and `pnpm e2e` cover them.
+- **Not built:** Firebase push (needs a Firebase project and a real phone) and an Android foreground service that keeps the socket alive.
+- **Not tested on a real phone with the screen off.** Nothing here claims background delivery. Local reminders for consents the phone already knows are scheduled on the device; that is the only thing expected to fire with the app closed, and it is untested on hardware.
+- **Test companies** come from the real onboarding flow: `node scripts/register-company.mjs companies/template/sites/carefirst.json` and `.../tiffinbox.json`, then start each site with the command it prints. Nothing is written to a database by hand.
+
 ### What the phone can and cannot do with the app closed (say it if asked)
 - **Reminders for consents the phone already knows** (3 days and 1 day before expiry, and at expiry) are scheduled on the phone, so they fire with the app closed.
 - **Everything a company sends** (a renewal request, "your data was erased", a processor's confirmation) reaches the phone over the live connection. So **the app must be open, or the phone awake with the app still running**. Anything missed waits on the Alerts tab.

@@ -3,6 +3,8 @@ import { getAddress } from "ethers";
 import {
   DEFAULT_COMPANY_COLOR,
   ZERO_HASH,
+  entryFormat,
+  expectedPrevHash,
   explorerTxUrl,
   hashEntry,
   type AccessReason,
@@ -352,6 +354,8 @@ export class Repo {
       prevHash: r.prev_hash as Hex,
       hash: r.hash as Hex,
       batchIndex: (r.batch_index as number | null) ?? null,
+      // Format 2 only (drd.md §4.1a): a format-1 row has neither key, so it hashes exactly as it was written.
+      ...(r.outcome === null || r.outcome === undefined ? {} : { dataCategories: JSON.parse((r.data_categories as string | null) ?? "[]") as string[], outcome: r.outcome as string }),
     };
   }
 
@@ -377,15 +381,17 @@ export class Repo {
         endpoint: e.endpoint,
         at: e.at,
         anchored: e.batchIndex !== null,
+        ...(e.outcome === undefined ? {} : { dataCategories: e.dataCategories, outcome: e.outcome }),
       };
     });
   }
 
-  nextLogPosition(fiduciary: Hex): { seq: number; prevHash: Hex } {
-    const last = this.db.prepare("SELECT seq, hash FROM access_logs WHERE fiduciary = ? ORDER BY seq DESC LIMIT 1").get(fiduciary) as
-      | { seq: number; hash: Hex }
+  /** Where the next entry goes. `lastFormat` is 0 for an empty chain; the prevHash depends on the entry's own format (drd.md §4.1a). */
+  nextLogPosition(fiduciary: Hex): { seq: number; head: { hash: Hex; format: 1 | 2 } | null } {
+    const last = this.db.prepare("SELECT seq, hash, outcome FROM access_logs WHERE fiduciary = ? ORDER BY seq DESC LIMIT 1").get(fiduciary) as
+      | { seq: number; hash: Hex; outcome: string | null }
       | undefined;
-    return { seq: (last?.seq ?? 0) + 1, prevHash: last?.hash ?? ZERO_HASH };
+    return { seq: (last?.seq ?? 0) + 1, head: last ? { hash: last.hash, format: last.outcome === null ? 1 : 2 } : null };
   }
 
   /** Validates seq, prevHash and hash exactly as the Auditor will later (drd.md §7). */
@@ -393,16 +399,19 @@ export class Repo {
     this.fiduciary(row.fiduciary);
     const expected = this.nextLogPosition(row.fiduciary);
     if (row.seq !== expected.seq) throw new HttpError(409, "SEQ_MISMATCH", `Expected seq ${expected.seq}, got ${row.seq}`);
-    if (row.prevHash !== expected.prevHash) throw new HttpError(409, "PREV_HASH_MISMATCH", "prevHash does not match the chain head");
+    const format = entryFormat(row);
+    // Once the chain is in the new format, an old-format entry is refused: the two never mix (drd.md §4.1a).
+    if (format === 1 && expected.head?.format === 2) throw new HttpError(409, "FORMAT_OUTDATED", "This chain uses the usage-record format; update the Sammati SDK");
+    if (row.prevHash !== expectedPrevHash(expected.head, format)) throw new HttpError(409, "PREV_HASH_MISMATCH", "prevHash does not match the chain head");
     if (row.hash !== hashEntry(row.prevHash, toHashedEntry(row))) {
       throw new HttpError(400, "BAD_HASH", "hash does not match keccak256(prevHash || canonical entry)");
     }
     this.db
       .prepare(
-        `INSERT INTO access_logs (seq, fiduciary, id, principal, purpose_code, decision, reason, endpoint, latency_ms, at, prev_hash, hash, batch_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        `INSERT INTO access_logs (seq, fiduciary, id, principal, purpose_code, decision, reason, endpoint, latency_ms, at, prev_hash, hash, batch_index, data_categories, outcome)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
       )
-      .run(row.seq, row.fiduciary, row.id, row.principal, row.purposeCode, row.decision, row.reason, row.endpoint, row.latencyMs, row.at, row.prevHash, row.hash);
+      .run(row.seq, row.fiduciary, row.id, row.principal, row.purposeCode, row.decision, row.reason, row.endpoint, row.latencyMs, row.at, row.prevHash, row.hash, format === 2 ? JSON.stringify(row.dataCategories ?? []) : null, format === 2 ? row.outcome : null);
   }
 
   // --- cascade ---
@@ -673,8 +682,32 @@ export class Repo {
   }
 
   /** Oldest first. */
+  /** A company moves a rights request along and may say why (W-10). Returns the updated view, or undefined if it is not this company's. */
+  updateRightsRequest(fiduciary: Hex, id: string, status: RightsStatus, reply: string | null): (RightsRequestView & { reply: string | null }) | undefined {
+    const row = this.db.prepare("SELECT * FROM rights_requests WHERE id = ? AND fiduciary = ?").get(id, fiduciary) as Row | undefined;
+    if (!row) return undefined;
+    this.db.prepare("UPDATE rights_requests SET status = ?, reply = ?, updated_at = ? WHERE id = ?").run(status, reply, now(), id);
+    const view = this.rightsFor(row.principal as Hex).find((r) => r.id === id)!;
+    return { ...view, reply };
+  }
+
   rightsFor(principal: Hex): RightsRequestView[] {
     const rows = this.db.prepare("SELECT * FROM rights_requests WHERE principal = ? ORDER BY created_at, rowid").all(principal) as Row[];
+    return rows.map((r) => ({
+      id: r.id as string,
+      principal: r.principal as Hex,
+      fiduciary: r.fiduciary as Hex,
+      fiduciaryName: this.fiduciary(r.fiduciary as string).name,
+      type: r.type as RightsType,
+      note: (r.note as string | null) ?? "",
+      status: r.status as RightsStatus,
+      createdAt: r.created_at as number,
+      updatedAt: r.updated_at as number,
+    }));
+  }
+
+  fiduciaryRights(fiduciary: Hex): RightsRequestView[] {
+    const rows = this.db.prepare("SELECT * FROM rights_requests WHERE fiduciary = ? ORDER BY created_at DESC, rowid").all(fiduciary) as Row[];
     return rows.map((r) => ({
       id: r.id as string,
       principal: r.principal as Hex,

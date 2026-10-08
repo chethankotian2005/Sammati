@@ -56,6 +56,10 @@ export interface AccessLogEntry {
   purposeCode: string;
   reason: AccessReason;
   seq: number;
+  /** Format 2 (drd.md §4.1a): registry ids of the data a Processor evaluation read, in registry order; [] when none. Absent in format 1. */
+  dataCategories?: string[];
+  /** Format 2: the decision label only (approved, declined, blocked, error) or "" for an entry that has none. Absent in format 1. */
+  outcome?: string;
 }
 
 export interface StoredAccessLogEntry extends AccessLogEntry {
@@ -172,6 +176,9 @@ export interface ActivityItem {
   endpoint: string;
   at: UnixSeconds;
   anchored: boolean;
+  /** Registry ids the use read; absent for an entry written before format 2. */
+  dataCategories?: string[];
+  outcome?: string;
 }
 export interface ActivityResponse {
   principal: Hex;
@@ -218,7 +225,7 @@ export interface AccessProofResponse {
 
 // --- Data rights (W-10; trd.md §6.1) ---
 
-export const RIGHTS_TYPES = ["access", "erasure", "grievance"] as const;
+export const RIGHTS_TYPES = ["access", "correction", "erasure", "grievance"] as const;
 export type RightsType = (typeof RIGHTS_TYPES)[number];
 export type RightsStatus = "open" | "in_progress" | "resolved";
 
@@ -403,7 +410,7 @@ export interface BatchVerification {
   firstBadSeq: number | null;
 }
 /** What kind of evidence of tampering the Auditor found (trd.md §6.3). */
-export type MismatchKind = "HASH_MISMATCH" | "BROKEN_LINK" | "MISSING_ENTRY" | "ROOT_MISMATCH";
+export type MismatchKind = "HASH_MISMATCH" | "BROKEN_LINK" | "MISSING_ENTRY" | "ROOT_MISMATCH" | "FORMAT_MIXED";
 
 /** The first record that does not check out. seq/entryId are null when no single row can be blamed. */
 export interface Mismatch {
@@ -469,6 +476,8 @@ export interface AccessLoggedEvent {
   reason: AccessReason;
   endpoint: string;
   at: UnixSeconds;
+  dataCategories?: string[];
+  outcome?: string;
 }
 export interface CascadeUpdatedEvent {
   event: "cascade.updated";
@@ -512,7 +521,9 @@ export interface LoanDecision {
   decision: LoanDecisionKind;
   /** Integer INR; null when declined. */
   limit: number | null;
-  /** Decision codes (PAN_INVALID, INCOME_UNKNOWN, SCORE_LOW, SCORE_FAIR, SCORE_GOOD): not consent reason codes. */
+  /** Yearly rate in basis points; null when declined at steps 1 to 4 or above the limit (drd.md §4.5). */
+  rateBps: number | null;
+  /** Decision codes (PAN_INVALID, INCOME_UNKNOWN, SCORE_LOW, SCORE_FAIR, SCORE_GOOD, AMOUNT_ABOVE_LIMIT): not consent reason codes. */
   reasonCodes: string[];
 }
 export type VaultEraseCause = "withdrawn" | "expired" | "no_consent" | "superseded";
@@ -536,6 +547,7 @@ export interface VaultStoredEvent extends VaultEventBase {
   event: "vault.stored";
   ciphertextHash: Hex;
   sizeBytes: number;
+  version: number;
 }
 export interface ProcessorRequestedEvent extends VaultEventBase {
   event: "processor.requested";
@@ -550,6 +562,9 @@ export interface ProcessorDecidedEvent extends VaultEventBase {
   event: "processor.decided";
   decision: ProcessorOutcome;
   limit: number | null;
+  rateBps: number | null;
+  /** Registry ids the rules read (drd.md §4.5); [] when nothing was opened. */
+  dataCategories: string[];
   reasonCodes: string[];
   entryId: string;
   durationMs: number;
@@ -569,10 +584,10 @@ export type VaultEventName = VaultEvent["event"];
 /** The extra fields each vault event carries beyond VaultEventBase: Core copies exactly these and nothing else. */
 export const VAULT_EVENT_FIELDS: Readonly<Record<VaultEventName, readonly string[]>> = {
   "vault.encrypted": ["ciphertextHash", "sizeBytes"],
-  "vault.stored": ["ciphertextHash", "sizeBytes"],
+  "vault.stored": ["ciphertextHash", "sizeBytes", "version"],
   "processor.requested": ["action", "requestedAt"],
   "processor.decrypting": ["decryptingAt"],
-  "processor.decided": ["decision", "limit", "reasonCodes", "entryId", "durationMs"],
+  "processor.decided": ["decision", "limit", "rateBps", "dataCategories", "reasonCodes", "entryId", "durationMs"],
   "vault.erased": ["cause"],
 };
 export const VAULT_EVENT_BASE_FIELDS = ["principal", "fiduciary", "purposeCode", "handle", "at"] as const;
@@ -660,7 +675,7 @@ export interface BlocksResponse {
 
 // --- Expiry, renewal and notifications (trd.md §6.12) ---
 
-export type NotificationType = "consent.expiring" | "consent.expired" | "consent.renewal_requested" | "data.erased" | "cascade.acknowledged";
+export type NotificationType = "consent.expiring" | "consent.expired" | "consent.renewal_requested" | "data.erased" | "cascade.acknowledged" | "rights.updated";
 export type NotificationAction = "renewed" | "let_expire" | "viewed_proof";
 
 /** A notification's body is data: the wallet writes the sentence. No personal data is ever in `payload`. */
@@ -679,6 +694,11 @@ export interface NotificationItem {
     cause?: "withdrawn" | "expired";
     processor?: Hex;
     processorName?: string;
+    /** rights.updated: which request, what became of it, and the company's short reply (company-written, no personal data). */
+    rightsId?: string;
+    rightsType?: "access" | "correction" | "erasure" | "grievance";
+    rightsStatus?: "open" | "in_progress" | "resolved";
+    reply?: string | null;
   };
   createdAt: UnixSeconds;
   readAt: UnixSeconds | null;

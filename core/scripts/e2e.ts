@@ -40,6 +40,7 @@ const QUICKLOAN = TEST_COMPANIES[0]!;
 const LENDER_PORT = Number(process.env.E2E_LENDER_PORT ?? 4310);
 /** Set by the registration step, before anything uses them. */
 let FID = "" as Hex;
+let API_KEY = "";
 let MARKETING_ID = "" as Hex;
 let CREDIT_ID = "" as Hex; // the purpose behind the confidential-processing acts
 const GRANTED = "marketing"; // has a downstream processor, so the cascade has someone to tell
@@ -64,7 +65,10 @@ async function fireAt(principal: string, purposeCode: string, action?: "loan_dec
     : await fetch(`${base}/${purposeCode === GRANTED_LOAN ? "customers/1/credit-profile" : `guarded/${purposeCode}`}`, { headers: { "x-sammati-principal": principal } });
   const body = (await res.json().catch(() => ({}))) as { code?: string };
   const entryId = res.headers.get("x-sammati-entry-id") ?? "";
-  if (res.status === 200) return { decision: "ALLOWED", reason: "OK", entryId, result: body };
+  if (res.status === 200) {
+    const { entryId: _ignored, ...result } = body as Record<string, unknown>; // the entry id is the log's business, not part of the answer
+    return { decision: "ALLOWED", reason: "OK", entryId, result };
+  }
   return { decision: "BLOCKED", reason: String(body.code), entryId };
 }
 
@@ -93,7 +97,8 @@ const traffic: string[] = [];
 async function api<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: T }> {
   const res = await fetch(CORE + path, {
     method,
-    headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
+    // The company's own console reads need its key (trd.md §6.2a); the headless client plays the company there.
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...(API_KEY && FID && path.startsWith(`/v1/fiduciaries/${FID}`) ? { [API_KEY_HEADER]: API_KEY } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -240,14 +245,14 @@ async function registerCompany(): Promise<void> {
   MARKETING_ID = purposeIdOf(FID, GRANTED);
   CREDIT_ID = purposeIdOf(FID, GRANTED_LOAN);
   const status = await call<{ result: { apiKey: string | null } }>("GET", `/v1/registrations/${sent.applicationId}`);
-  const apiKey = status.result.apiKey;
-  check(apiKey, "the approved company was not given an API key");
+  API_KEY = status.result.apiKey || "";
+  check(API_KEY, "the approved company was not given an API key");
 
   const log = createWriteStream(stack.logFile, { flags: "a" });
   stack.lender = spawn("pnpm", ["--filter", "@sammati/example-lender", "start"], {
     cwd: repoRoot,
     shell: true,
-    env: { ...process.env, FIDUCIARY: FID, SAMMATI_API_KEY: apiKey!, CORE_URL: CORE, PROCESSOR_URL: PROCESSOR, PORT: String(LENDER_PORT) },
+    env: { ...process.env, FIDUCIARY: FID, SAMMATI_API_KEY: API_KEY, CORE_URL: CORE, PROCESSOR_URL: PROCESSOR, PORT: String(LENDER_PORT) },
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -539,11 +544,11 @@ async function main(): Promise<void> {
       const deps: JourneyDeps = {
         company: { address: FID, name: QUICKLOAN.name, loanPurpose: GRANTED_LOAN, optionalPurposes: [] },
         createRequest: async (alias, purposes) => {
-          const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes, customerAlias: alias });
+          const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes, customerAlias: alias }, { [API_KEY_HEADER]: API_KEY });
           portalUser.purposes = purposes;
           return { requestId: created.requestId, qrPayload: created.qrPayload };
         },
-        consentRows: async () => (await call<{ rows: Array<{ principal: string; customerAlias: string | null }> }>("GET", `/v1/fiduciaries/${FID}/consents`)).rows,
+        consentRows: async () => (await call<{ rows: Array<{ principal: string; customerAlias: string | null }> }>("GET", `/v1/fiduciaries/${FID}/consents`, undefined, { [API_KEY_HEADER]: API_KEY })).rows,
         apply: async (alias, principal) => {
           const answered = await raw("POST", `http://localhost:${LENDER_PORT}/customers/${encodeURIComponent(alias)}/apply`, undefined, { "x-sammati-principal": principal });
           const entryId = answered.headers.get("x-sammati-entry-id");

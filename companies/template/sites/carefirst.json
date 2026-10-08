@@ -1,0 +1,13 @@
+{
+  "name": "CareFirst Clinics",
+  "sector": "Health",
+  "color": "#0E7C86",
+  "tagline": "Primary care, closer to home.",
+  "port": 4102,
+  "purposes": [
+    { "code": "treatment", "title": { "en": "Treatment", "hi": "उपचार", "kn": "ಚಿಕಿತ್ಸೆ" }, "description": { "en": "Use your records for your treatment", "hi": "आपके उपचार के लिए आपके रिकॉर्ड का उपयोग", "kn": "ನಿಮ್ಮ ಚಿಕಿತ್ಸೆಗಾಗಿ ನಿಮ್ಮ ದಾಖಲೆಗಳ ಬಳಕೆ" }, "dataCategories": ["identity.name", "health.allergies"], "retentionDays": 3650, "sharesThirdParty": false, "required": true },
+    { "code": "appointment_reminders", "title": { "en": "Appointment reminders", "hi": "अपॉइंटमेंट रिमाइंडर", "kn": "ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ನೆನಪುಗಳು" }, "description": { "en": "Text you before an appointment", "hi": "अपॉइंटमेंट से पहले आपको संदेश भेजना", "kn": "ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಮೊದಲು ನಿಮಗೆ ಸಂದೇಶ" }, "dataCategories": ["contact.mobile"], "retentionDays": 180, "sharesThirdParty": false, "required": false },
+    { "code": "insurance_claim", "title": { "en": "Insurance claims", "hi": "बीमा दावे", "kn": "ವಿಮಾ ಕ್ಲೈಮ್‌ಗಳು" }, "description": { "en": "Share records with your insurer for claims", "hi": "दावों के लिए बीमाकर्ता के साथ रिकॉर्ड साझा करना", "kn": "ಕ್ಲೈಮ್‌ಗಳಿಗಾಗಿ ವಿಮಾದಾರರೊಂದಿಗೆ ದಾಖಲೆ ಹಂಚಿಕೆ" }, "dataCategories": ["identity.name", "health.allergies"], "retentionDays": 730, "sharesThirdParty": true, "required": false }
+  ],
+  "processors": [{ "name": "ClaimsDesk", "purposeCode": "insurance_claim" }]
+}

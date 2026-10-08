@@ -30,6 +30,7 @@ export function topicsFor(e: WsEvent): WsTopic[] {
     case "consent.expired":
     case "consent.renewal_requested":
     case "data.erased":
+    case "rights.updated":
     case "cascade.acknowledged":
       return [principalTopic(e.principal)];
     case "vault.encrypted":

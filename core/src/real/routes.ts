@@ -196,6 +196,21 @@ export function realRoutes(core: RealCore): Router {
     res.json({ principal, rights: repo.rightsFor(principal) } satisfies RightsResponse);
   }));
 
+  // A company moves a customer's rights request along; the customer is told in the wallet (W-10, N-05).
+  r.post("/fiduciaries/:fid/rights/:id", companyKey(core, true), handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
+    const body = requireBody(req.body);
+    const status = body.status;
+    if (status !== "in_progress" && status !== "resolved") throw badRequest('"status" must be "in_progress" or "resolved"');
+    // eslint-disable-next-line no-control-regex
+    const reply = typeof body.reply === "string" ? body.reply.replace(/[ -]/g, " ").trim().slice(0, 280) || null : null;
+    const updated = repo.updateRightsRequest(f.address, param(req, "id"), status, reply);
+    if (!updated) throw new HttpError(404, "RIGHTS_REQUEST_NOT_FOUND", "No such request for this company");
+    core.notifications.onRightsUpdated({ ...updated, reply });
+    res.json({ id: updated.id, status: updated.status, reply });
+  }));
+
   // --- 6.2 company and gateway ---
 
   const consoleAuth = (req: Request, res: Response, next: import("express").NextFunction) => {
@@ -216,6 +231,10 @@ export function realRoutes(core: RealCore): Router {
       next();
     } catch (e) { next(e); }
   };
+
+  r.get("/fiduciaries/:fid/rights", consoleAuth, handle((req, res) => {
+    res.json({ rights: repo.fiduciaryRights(param(req, "fid")) });
+  }));
 
   r.get("/fiduciaries/:fid/purposes", consoleAuth, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
@@ -255,6 +274,7 @@ export function realRoutes(core: RealCore): Router {
       reason: row.reason,
       endpoint: row.endpoint,
       at: row.at,
+      ...(row.outcome === undefined ? {} : { dataCategories: row.dataCategories, outcome: row.outcome }),
     });
     res.status(201).json({ accepted: true, seq: row.seq } satisfies GatewayLogResponse);
     core.anchors.notify(repo.fiduciary(row.fiduciary).address);

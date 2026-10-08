@@ -1,0 +1,13 @@
+{
+  "name": "TiffinBox",
+  "sector": "Food delivery",
+  "color": "#E4572E",
+  "tagline": "Home-style meals, at your door.",
+  "port": 4103,
+  "purposes": [
+    { "code": "delivery", "title": { "en": "Delivery", "hi": "डिलीवरी", "kn": "ವಿತರಣೆ" }, "description": { "en": "Use your address to deliver orders", "hi": "ऑर्डर पहुँचाने के लिए आपका पता", "kn": "ಆರ್ಡರ್ ತಲುಪಿಸಲು ನಿಮ್ಮ ವಿಳಾಸ" }, "dataCategories": ["contact.address", "contact.mobile"], "retentionDays": 30, "sharesThirdParty": false, "required": true },
+    { "code": "recommendations", "title": { "en": "Meal suggestions", "hi": "भोजन सुझाव", "kn": "ಊಟದ ಸಲಹೆಗಳು" }, "description": { "en": "Suggest meals from your food preferences", "hi": "आपकी खान-पान पसंद से भोजन सुझाव", "kn": "ನಿಮ್ಮ ಆಹಾರ ಆದ್ಯತೆಗಳಿಂದ ಸಲಹೆ" }, "dataCategories": ["prefs.food"], "retentionDays": 180, "sharesThirdParty": false, "required": false },
+    { "code": "partner_share", "title": { "en": "Restaurant partners", "hi": "रेस्तरां साझेदार", "kn": "ರೆಸ್ಟೋರೆಂಟ್ ಪಾಲುದಾರರು" }, "description": { "en": "Share your food preferences with partner kitchens", "hi": "साझेदार रसोई के साथ आपकी पसंद साझा करना", "kn": "ಪಾಲುದಾರ ಅಡುಗೆಮನೆಗಳೊಂದಿಗೆ ಆದ್ಯತೆ ಹಂಚಿಕೆ" }, "dataCategories": ["prefs.food"], "retentionDays": 90, "sharesThirdParty": true, "required": false }
+  ],
+  "processors": [{ "name": "KitchenNet", "purposeCode": "partner_share" }]
+}
