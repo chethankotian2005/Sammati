@@ -9,12 +9,12 @@
 | Integrity artefacts | Ledger head, Merkle roots | Yes | Chain |
 | Access log entries | Who requested what, decision, time | **Hash only** (via Merkle root) | Core DB (full entry) |
 | Notice text | Plain-language purpose descriptions | **Hash only** | Core DB / console |
-| Personal data | Name, phone, income, health record | **Never** | Company's own system (fake data in demo) |
+| Personal data | Name, phone, income, health record | **Never** | Company's own system. Never in Sammati's databases; a tester types made-up values |
 | Sammati ID (handle) | `asha@sammati` mapped to a principal address | **Never** | Core DB (`identities`). Pseudonymous: it names no one, and no phone or email is stored |
 | Notification | "Your consent for credit check expires in 3 days" as a type, times and codes | **Never** | Core DB (`notifications`). The words are written on the phone from the type and payload; no personal data is in a row |
 | Request target | Which wallet a targeted request is addressed to | **Never** | Core DB (`request_targets`). Never returned to the company: it sees an opaque request id and a status |
 | Company application | Name, sector, purposes, processors a company asks to register | **Never** | Core DB (`fiduciary_applications`). Company data, not customer data; the purposes later go on chain as hashes only |
-| Contact email (demo) | The applicant's email address | **Never** | The application row only, until the regulator decides, then erased. Never in a log, event or response to anyone but the regulator |
+| Contact email | The applicant's email address | **Never** | The application row only, until the regulator decides, then erased. Never in a log, event or response to anyone but the regulator |
 | API key | The secret a company's server sends to Core | **Never** | Only `SHA-256(key)` in Core DB (`fiduciary_credentials`). The key itself is held in memory once, for the applicant's single read |
 | Company and processor private keys (demo shortcut) | Keys Core generates for approved companies and their processors | **Never** | Core DB (`fiduciary_keys`, `processor_keys`), disclosed in `demo.md`. Production: the company holds its own key and Core stores only the address |
 | Company-side alias | "Customer #4821" mapped to a principal address | **Never** | Company's system only |
@@ -45,9 +45,8 @@ CREATE TABLE fiduciaries (
   sector TEXT NOT NULL,
   color TEXT,
   registered_tx TEXT,
-  slug TEXT UNIQUE,                    -- console route /company/<slug> (R-04). Always set; nullable only because a database created before R-01 gets the column by migration and the seed fills it
-  sandbox INTEGER NOT NULL DEFAULT 0,  -- 1: only test customers may be asked (R-03). Seed companies are 0
-  demo INTEGER NOT NULL DEFAULT 0      -- 1 for the seed companies, which have a simulator backend
+  slug TEXT UNIQUE,                    -- console route /company/<slug> (R-04). Always set
+  sandbox INTEGER NOT NULL DEFAULT 0,  -- 1: only test customers may be asked (R-03)
 );
 
 CREATE TABLE purposes (
@@ -220,7 +219,7 @@ CREATE TABLE sandbox_testers (          -- R-03: customers a sandbox company may
 );
 ```
 
-Rules: `fiduciary_credentials` of the seed companies is filled at seed time from `demoApiKey(slug)`. A reset (`clearAll`) empties every table above, because the chain they describe is gone. Private keys and API keys never appear in a response, event, log line or error message; the only place a key is ever returned is the applicant's one read of their own status.
+Rules: no row of `fiduciaries`, `purposes`, `processors` or `fiduciary_credentials` exists until a company is approved (R-02): nothing is pre-registered. A reset (`clearAll`) empties every table above, because the chain they describe is gone. Private keys and API keys never appear in a response, event, log line or error message; the only place a key is ever returned is the applicant's one read of their own status.
 
 The vault lives in the **Processor's own SQLite file** (`processor/data/processor.sqlite`), never in Core's:
 
@@ -266,29 +265,20 @@ Leaves = `entry.hash`. Parent = `keccak256(min(a,b) || max(a,b))`. Odd node is p
 ### 4.4 Vault envelope
 Format, key derivation, AAD, `handle` and `ciphertextHash` are defined in `trd.md` §4.4. The stored `ciphertext` blob is the canonical JSON bytes of the envelope, so `handle = keccak256(blob)` can be recomputed from a row at any time.
 
-## 5. Seed data (demo)
+## 5. What a fresh deployment holds (X-01)
 
-| Fiduciary | Sector | Purposes (code → plain description) | Downstream processors |
-|---|---|---|---|
-| **QuickLoan** | Fintech lending | `credit_check` → Check your credit eligibility (PAN, income, 12 months). `marketing` → Send you loan offers (phone, email). `bureau_share` → Share repayment history with credit bureaus | CreditBureauX (for `bureau_share`), AdPartnerQ (for `marketing`) |
-| **MediCare+** | Health | `treatment` → Use your records for your treatment. `insurance_claim` → Share records with your insurer for claims. `research` → Use anonymised data for medical research | InsureCo (for `insurance_claim`), ResearchLab (for `research`) |
-| **FoodRush** | Food delivery | `delivery` → Use your location to deliver orders. `ad_targeting` → Personalise ads from your order history. `partner_share` → Share your orders with restaurant partners | AdNetworkZ (for `ad_targeting`) |
+Nothing but infrastructure: the two contracts, the regulator's chain account (the admin), and the relayer, funded. No company, purpose, processor, customer, request or access log is pre-registered, in the database or on chain. Every company arrives through R-01 to R-03, and its purposes and processors are exactly those its application declared.
 
-Required (core) purposes such as `delivery` and `treatment` are marked `required`; the wallet shows them as "needed for the service" but still records and allows withdrawal (withdrawing stops the service use, the UI explains the effect).
+Required (core) purposes, if a company declares them `required`, are shown by the wallet as "needed for the service" but still recorded and withdrawable (withdrawing stops the service use, the UI explains the effect).
 
-Demo principal: one seeded wallet address is not used; the real phone generates its own key. A dedicated demo relayer key pays gas; the seed funds it from the admin account.
-
-Fake customer payloads (examples returned by guarded endpoints):
-- QuickLoan demo profile: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", employment: "salaried", score: 742 }` (fictional). The customer portal (`trd.md` §6.10) holds only the company-side alias, and the wallet's W10 screen can also take the three fields by hand; either way they exist only on the phone and, for one evaluation, in the Processor. **It no longer lives in QuickLoan's backend.** It exists in exactly two places (plus the e2e script, which plays the wallet and so holds a copy in `shared/src/seed.ts` as `DEMO_PROFILE`): the wallet's demo profile screen (`wallet/lib/core/demo_profile.dart`, on the phone) and the Processor's memory while it evaluates (`drd.md` §3 vault holds only its ciphertext). QuickLoan's `credit-profile` endpoint returns `{ handle, ciphertextHash, status }`; its apply endpoint returns `{ decision, limit, reasonCodes }` (`trd.md` §6.8). For the demo profile the decision is `approved`, `limit: 300000`, `["SCORE_FAIR"]`.
-- MediCare+ `records`: `{ bloodGroup: "B+", lastVisit: "2026-08-14", note: "Routine checkup" }`
-- FoodRush `profile`: `{ homeArea: "Indiranagar", lastOrders: 14 }`
+No customer data is shipped. A tester types made-up PAN, income band and employment in the wallet's W10 screen; they exist only on the phone and, for one evaluation, in the Processor. Test fixtures (companies, customers, a throwaway PAN) live in `test/` directories and in `core/scripts/e2e.ts` and never ship with the app.
 
 ## 6. Retention and deletion
 - Chain data is permanent by design and contains no personal data.
-- Core DB logs are demo data; `POST /v1/demo/reset` wipes everything.
+- Core DB rows are test data in this build. `pnpm dev:reset` wipes them (`trd.md` §6.4); no HTTP endpoint can.
 - Erasure rights requests are tracked as status records; they do not touch the chain.
 - Vault ciphertext is kept only while the consent behind it is Active and unexpired: it is erased on withdrawal, on expiry, when consent is found missing, and when a newer submission replaces it (`trd.md` §6.7). Erasure overwrites the `ciphertext` column with `NULL`; the metadata row stays (no personal data) so the audit trail of "stored, then erased because X" survives. The hash-chained access log is not erased: it holds no data from the vault, only that an evaluation happened.
-- The Processor's key is never persisted. Restarting the Processor without `PROCESSOR_KEY` generates a new key, which makes every stored ciphertext unreadable: it answers `CIPHERTEXT_INVALID`, and the wallet must submit again. `pnpm demo:up` sets no key on purpose, and `pnpm demo:reset` clears the vault.
+- The Processor's key is never persisted. Restarting the Processor without `PROCESSOR_KEY` generates a new key, which makes every stored ciphertext unreadable: it answers `CIPHERTEXT_INVALID`, and the wallet must submit again. `pnpm demo:up` sets no key on purpose, and `pnpm dev:reset` clears the vault.
 
 ## 7. Integrity rules
 - `access_logs.seq` strictly increasing per fiduciary with no gaps. A gap is a tamper signal.

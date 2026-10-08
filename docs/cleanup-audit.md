@@ -48,6 +48,7 @@ Audit date 2026-10-09, taken after merging `feat/R-01-R-03-onboarding` (company 
 | Wallet demo profile (fictional PAN, income band, score, "Use demo details") | `wallet/lib/core/demo_profile.dart`, `features/vault/demo_profile_screen.dart`, `Routes.demoProfile`, Me tile, `l10n` keys | DELETE | The wallet collects the fields by typing only. A typed profile has no credit score; the existing `SCORE_ASSUMED` rule already covers it |
 | Processor built-in sample data | `processor/src` | KEEP, none found | `rules.ts` holds only the PAN pattern and limit table, not sample data. Keys of companies come from Core |
 | Test fixtures (hard-coded principals, fake Core, fake wallet stubs) | `*/test/`, `wallet/test/support/` | KEEP | Under `test/` only; they never ship |
+| `docs/copy-hi-kn.md` (Hindi and Kannada text for the nine seeded purposes) | `docs/` | REPLACE | Kept as reference wording a company can start from; it no longer claims to be the built-in text |
 | Root copies of `prd.md`, `trd.md`, `drd.md`, `ui.md`, `architecture.md`, `demo.md`, `tasks.md` | repo root | DELETE | Byte-identical stale duplicates of `docs/`. The source of truth is `docs/` (AGENTS.md) |
 | `demo-up.log`, `wallet-web*.log` | repo root, untracked | DELETE | Local logs. `*.log` is ignored |
 

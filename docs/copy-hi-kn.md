@@ -1,8 +1,8 @@
-# Hindi and Kannada notice text for the 9 seed purposes
+# Hindi and Kannada reference wording for common purposes
 
-**Status: draft for native-speaker review. Not applied.** Nothing in `shared/seed.ts` has changed yet.
+**Status: draft for native-speaker review.** Nothing here ships with the app: no company or purpose is built in (X-01). It is reference wording a company can start from when it writes its Hindi and Kannada purpose text at registration (`/join`).
 
-Today the seed puts `[hi] Check your credit eligibility` and `[kn] Check your credit eligibility` in the consent notice, so switching the wallet to Hindi or Kannada (demo Act 1) shows English with a tag in front. This file proposes the real text. The purposes are the ones in `docs/drd.md` §5; the English is exactly what `shared/seed.ts` has today.
+A company's purpose text is whatever it enters at registration, and until a native speaker reviews it the wallet shows what was entered. This file proposes real text for nine common purposes.
 
 ## For the reviewer
 
@@ -29,7 +29,7 @@ Mark any cell you change; the "Choices to check" list below says where I was lea
 | `ad_targeting` | Personalised ads | Personalise ads from your order history | व्यक्तिगत विज्ञापन | आपके ऑर्डर के इतिहास के आधार पर विज्ञापन दिखाना | ವೈಯಕ್ತಿಕ ಜಾಹೀರಾತುಗಳು | ನಿಮ್ಮ ಆರ್ಡರ್ ಇತಿಹಾಸದ ಆಧಾರದ ಮೇಲೆ ಜಾಹೀರಾತುಗಳನ್ನು ತೋರಿಸುವುದು |
 | `partner_share` | Restaurant partners | Share your orders with restaurant partners | रेस्तराँ साझेदार | आपके ऑर्डर की जानकारी रेस्तराँ साझेदारों के साथ साझा करना | ರೆಸ್ಟೋರೆಂಟ್ ಪಾಲುದಾರರು | ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ರೆಸ್ಟೋರೆಂಟ್ ಪಾಲುದಾರರೊಂದಿಗೆ ಹಂಚುವುದು |
 
-By company: QuickLoan has the first three, MediCare+ the next three, FoodRush the last three.
+They fall into three groups of three: lending, health and food delivery.
 
 ## Choices to check
 
@@ -50,11 +50,10 @@ These are the places a reviewer is most likely to want something different.
 
 ## Not covered here
 
-- **Data categories and retention** (`PAN`, `income`, `12 months of statements`, `phone`, `email`, `repayment history`, `medical records`, `billing`, `anonymised records`, `location`, `order history`) are shown in the notice too and are English-only in the seed today. If they should be translated, that needs a small change to the data model (they are plain strings, not per-language text), so it is a separate decision.
-- **The Hindi and Kannada company names** (QuickLoan, MediCare+, FoodRush) are brands and stay as they are.
+- **Data categories and retention** (`PAN`, `income`, `12 months of statements`, `phone`, `email`, `repayment history`, `medical records`, `billing`, `anonymised records`, `location`, `order history`) are shown in the notice too and are entered by the company, in English unless it translates them. If they should be translated, that needs a small change to the data model (they are plain strings, not per-language text), so it is a separate decision.
+- **Company names** are brands and stay as the company wrote them.
 
 ## When this is approved
 
-1. Put the approved text into the `title` and `description` of the 9 purposes in `shared/src/seed.ts` (today built by `text()` with the `[hi]` / `[kn]` prefix).
-2. The notice hash (`docs/drd.md` §4.2) and each purpose's `descHash` on chain are computed from this text, so they change. Run `pnpm demo:reset` (or restart `pnpm demo:up`) after applying; existing consents were signed against the old hash.
-3. `pnpm -r test` and `pnpm e2e` should pass unchanged (they recompute the hash from the served text).
+1. Hand the approved text to companies as the starting point for the `title` and `description` fields of the `/join` form (`docs/integration.md` §1).
+2. The notice hash (`docs/drd.md` §4.2) and each purpose's `descHash` on chain are computed from the text a company registers, so changing the text later needs a new purpose; existing consents were signed against the old hash.

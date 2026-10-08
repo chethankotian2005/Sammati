@@ -18,7 +18,7 @@ Avoid: cream and terracotta, black plus neon, identical grey-shadow card grids, 
 | `mute` | `#6B6F8C` | Secondary text |
 | `line` | `#E3E5F0` | Dividers |
 
-Company identity colours (pass headers): QuickLoan `#2F5BEA`, MediCare+ `#0E9AA7`, FoodRush `#E4572E`.
+A company has no colour of its own: pass headers, dots and chips use `ink` for every company (no company is built in, so none has a brand colour here).
 
 ### 1.2 Type
 - **UI:** Manrope (400, 500, 700, 800). **Indic fallbacks:** Noto Sans Devanagari, Noto Sans Kannada, loaded and tested on the phone.
@@ -87,7 +87,13 @@ Animated stamp, then a receipt: company, purposes, expiry, ledger tx (short, cop
 Three actions: "See what a company holds" (access), "Ask a company to erase data" (erasure), "Raise a complaint" (grievance). Each opens a short form (company, note) and shows status: Open, In progress, Resolved.
 
 ### W9 Me
-Language, security (biometric), wallet address (copy), developer settings (Core URL, network), about.
+Language, security (biometric), wallet address (copy), developer settings (see W9b), about.
+
+### W9b Developer settings (X-01), from W9 Me
+A plain list screen titled "Developer settings", with a `mute` caption "For testing. Nothing here is needed to use Sammati."
+- **Core address** (existing): the field that points the phone at the laptop's Core, with Save.
+- **Short expiry for testing**: a switch, **off by default**, with the hint "Adds 2 minutes and 10 minutes to the expiry choices, so you can watch a consent expire." Turning it on adds those two choices to the consent notice (W3) and the renewal flow; turning it off removes them (consents already made stay as they are). Core and the contracts know nothing about it: the customer signs a short `expiresAt`.
+- A consent made with a short expiry shows a small outlined chip **Developer option** (icon and word, `marigold` outline on `surface`) next to its expiry on W5, on the receipt W4 and on the Alerts item that mentions it, so it is never mistaken for an ordinary consent. The wallet remembers which consents were made that way on this phone (the expiry is shorter than the shortest ordinary choice, 30 days).
 
 ### W11 Requests inbox (W-14), from the bell on W1 Home
 - Home's app bar gets a bell with a count badge (`marigold` fill, number in `ink`) of open requests; the badge is also read by screen readers ("3 requests"). Tap opens W11. The badge and the list update the moment a `consent.requested` arrives.
@@ -104,29 +110,25 @@ Language, security (biometric), wallet address (copy), developer settings (Core 
 - Errors: not 3 to 30 letters, numbers, dots, underscores or dashes: "Use 3 to 30 letters, numbers, dots or dashes"; taken: "That ID is taken. Try another."; no connection: "Could not reach Sammati. Check Wi-Fi."
 - Changing the ID is registering another one; the old one is released. No phone number or email is ever asked for.
 
-### V1 My demo details (V-01, V-06), opened from W9 Me
-- Read-only card with the fictional profile: PAN `ABCDE1234F` (IBM Plex Mono), income `6-9 LPA`, credit score `742`.
-- Note under it: "Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere."
-- A quiet footer line, `mute` colour, always shown: "Demo processor (simulated enclave, not real hardware protection)". The simulation is never presented as production security.
-- No edit, no copy, no share. It is the only place in the app where the plaintext appears.
+### V1 (removed, X-01)
+The wallet ships no sample profile and no screen that shows one. The standing line "Processor (simulated enclave, not real hardware protection)" lives on W10 and on the console's holdings card.
 
 ### V2 Send securely, on W5 pass detail (V-01, V-04, V-06)
 Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under that purpose row:
-- Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: opens W10, where the customer chooses what is sent (the demo details or their own), confirms with the device credential (`auth_reason_vault`), and sees the progress line "Encrypting and sending…". The sent, erased and failed lines below are shown on both screens.
+- Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: opens W10, where the customer types what is sent, confirms with the device credential (`auth_reason_vault`), and sees the progress line "Encrypting and sending…". The sent, erased and failed lines below are shown on both screens.
 - Sent: `allow`-coloured line with a lock icon, "Sent encrypted. {company} holds only a reference.", then the handle shortened (`0x4f2a…9be1`, tap to copy) and the button reads "Send again" (a new envelope replaces the old one).
 - Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "Your encrypted details were erased." The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
 - Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern (the button stays). Core or Processor unreachable uses `error_unreachable`; the user declining the device prompt uses `wallet_auth_failed`. A refusal for lack of consent is a failure like any other, never shown as sent.
 - The state is held while the app runs; after a restart the section is idle again until the next `vault.stored` / `vault.erased` event (there is no read endpoint for "what do I have stored", on purpose: the wallet does not ask the Processor questions about stored data).
 - The vault never changes the pass-cut animation or the cascade list.
 
-### W10 Share your details securely (W-13), after consent or from the QuickLoan pass
+### W10 Share your details securely (W-13), after consent or from a pass
 Opens from the receipt (W4) as a primary button "Share your details securely" when a data-using purpose was granted, and from "Send securely" on W5 (V2). Closing it never withdraws anything.
 - Intro: "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them."
-- A button "Use demo details" fills the three fields from the demo profile (and sends the demo score with them).
-- Fields: **PAN** (text, upper-cased as typed, hint "Like ABCDE1234F", error "Enter a PAN like ABCDE1234F" shown after the field was touched), **Income band** (choice of four: up to 3 LPA, 3 to 6 LPA, 6 to 9 LPA, 9 LPA and above), **Employment** (choice of four: salaried, self-employed, student, unemployed). Nothing is pre-filled; "Send securely" stays disabled until all three are valid.
+- Fields: **PAN** (text, upper-cased as typed, hint "Like ABCDE1234F", error "Enter a PAN like ABCDE1234F" shown after the field was touched), **Income band** (choice of four: up to 3 LPA, 3 to 6 LPA, 6 to 9 LPA, 9 LPA and above), **Employment** (choice of four: salaried, self-employed, student, unemployed). Nothing is pre-filled and no sample is offered; "Send securely" stays disabled until all three are valid.
 - Send: device-credential prompt (`auth_reason_vault`), "Encrypting and sending…", then the sent state of V2 ("Sent encrypted. {company} holds only a reference.", the handle shortened) and a "Done" button. Failed, unreachable and refused states are V2's.
 - The fields live only in this screen's memory: they are cleared once sent, and when the screen closes. Nothing is logged, saved or shown on any other screen.
-- A standing line, as on V1: "Demo processor (simulated enclave, not real hardware protection)".
+- A standing line, `mute` colour, always shown: "Processor (simulated enclave, not real hardware protection)". The simulation is never presented as production security. Hint under the fields: "Use made-up details while Sammati is a prototype."
 
 ### Edge states
 **Many companies and sandbox (R-04, R-03).** Home lists a pass for every company the customer has consented to, however many; the company's colour comes from Core (`ink` for a company that joined through R-01, so no new colour exists). If a request belongs to a sandbox company and the customer is not a test customer, Core answers 403 `SANDBOX_COMPANY` and the wallet shows its existing generic "could not open this request" state; this build adds no wallet string for it.
@@ -137,33 +139,33 @@ Offline banner "No connection. Showing last known consents."; expired consent ch
 - The bottom bar becomes Consents · Activity · [Scan] · **Alerts** · Rights · Me. Alerts has an unread **dot** (`marigold`, 10 dp, with a text alternative "Unread alerts" for screen readers) on its icon while anything is unread. Labels stay one short word in each language so six items fit at 360 dp; every item is still at least 48 dp.
 - The list is newest first under two headers, **Today** and **Earlier**. An item: the company's colour dot and name, an icon for the type (`schedule`, `event_busy`, `autorenew`, `delete_outline`, `done_all`), one plain sentence, its time ("2 min ago"), and, if unread, the dot at the start. Unread items sit on `surface`, read ones on `paper`; a state is never colour alone (the dot, the bold sentence and the icon all change).
 - Sentences: expiring "Your consent for {purpose} at {company} expires in {time}"; expired "Your consent for {purpose} at {company} has expired" (the same wording as W1's chip, "Expired {n} days ago, give consent again"); renewal requested "{company} asks you to renew your consent for {purpose}" with the company's message under "Message from {company}"; erased "{company} erased your data for {purpose} (after you withdrew consent / after consent expired)"; cascade "{processor} confirmed it stopped using your data for {purpose}".
-- Actions are text buttons of 48 dp under the sentence: **Renew** (primary), **Let expire**, **View proof**. Renew calls Core for a renewal request and opens the consent notice W3 for that one purpose with the expiry choices (and **2 minutes (demo)** when Core says `fastExpiry`); everything after is W3 and W4. Let expire records the choice and says "Okay. This consent will expire on its own." View proof opens the proof sheet W7 for that consent. An item whose consent has since been renewed shows "Renewed" instead of its actions, and one left to expire shows "Left to expire".
+- Actions are text buttons of 48 dp under the sentence: **Renew** (primary), **Let expire**, **View proof**. Renew calls Core for a renewal request and opens the consent notice W3 for that one purpose with the expiry choices (and the two short choices when the Developer option is on, W9b); everything after is W3 and W4. Let expire records the choice and says "Okay. This consent will expire on its own." View proof opens the proof sheet W7 for that consent. An item whose consent has since been renewed shows "Renewed" instead of its actions, and one left to expire shows "Left to expire".
 - A new alert arrives at the top with the same brief colour wash as W11 (reduced motion: it is simply there). Tapping an item, or any action, marks it read; **Mark all as read** sits in the app bar. The banner "No connection. Showing last known alerts." appears when Core cannot be reached, with the list kept.
 - Empty: "No alerts. Expiry reminders and updates from companies will appear here."
 - On a consent card (W1) and the pass (W5) an expired consent keeps the chip "Expired {n} days ago, give consent again", and tapping it now starts the same Renew flow.
 
 ## 3. Company Console (web)
 
-Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with a company switcher that lists **every approved company from Core** (R-04), not a fixed three: pills for up to five, a dropdown beyond that. A company in sandbox shows a **SANDBOX** chip (a flask icon and the word, `marigold` outline on `paper`) next to its name in the switcher and in the page title, with the tooltip "Test sandbox: only test customers can be asked". For a company with no simulator backend, **Live requests** replaces the simulator with a card "Your requests come from your own server" and a link to the integration guide; the feed stays.
+Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with a company switcher that lists **every approved company from Core** (R-04), pills for up to five, a dropdown beyond that. A company in sandbox shows a **SANDBOX** chip (a flask icon and the word, `marigold` outline on `paper`) next to its name in the switcher and in the page title, with the tooltip "Test sandbox: only test customers can be asked". **Live requests** shows a card "Your requests come from your own server" with a link to the integration guide, above the feed.
 
 - **Overview:** four numbers (active consents, allowed today, blocked today, last anchor), live feed beside a small consent trend chart.
 - **Purposes:** table plus "Add purpose" drawer (code, plain description in 3 languages, categories, retention, sharing flag).
 - **New consent request:** two tabs. **QR (in person)**: choose customer alias and purposes, large QR on right. "Waiting for scan…" then "Consent received" with tx. **Send to user** (N-02): a field "Sammati ID" (placeholder `asha@sammati`), the same purposes picker, an optional message (140 characters, with a counter) and "Expires in" (1 hour, 24 hours, 3 days, 7 days), then **Send request**. The answer is always "Request sent" for a well-formed ID, and the page says so: "We tell you nothing about whether this ID exists." Below, a table of requests sent: ID as typed, purposes, a status chip (Sent, Seen, Granted, Declined, Expired: each with icon and word), sent time, expiry; it updates live from `request.updated`, and a Granted row links to the Consents section. A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
-- **Live requests:** two-column. Left: **Simulator** with big buttons ("Run credit check", "Send marketing SMS", "Share with bureau") firing real requests. Right: feed with ALLOWED/BLOCKED, reason code, latency. Blocked rows use `block` left border and show "451 · Consent withdrawn".
-- **Live requests, QuickLoan only (V-05, V-06):** the simulator gains **Run loan decision**. The result row reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow`, or "Declined · …" in `block`, or the usual "451 · Consent withdrawn". Beside the feed, a **What QuickLoan holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "QuickLoan staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
+- **Live requests:** the feed of ALLOWED/BLOCKED rows with reason code and latency, driven by real `access.logged` events from the company's own server. Blocked rows use `block` left border and show "451 · Consent withdrawn". There are no buttons that fire requests: the company's server makes them. An empty feed says "No requests yet. Calls from your server appear here."
+- **Live requests, a company that uses the Processor (V-05, V-06):** beside the feed, a **What {company} holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "{company} staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time; Decided reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow` or "Declined · …" in `block`. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
 - **Consents:** table of customers by purpose with status, filterable. Above it, **Expiring consents** (N-03, N-04): the company's consents that expire within the window or expired within it, soonest first. Columns: customer (the company's own alias), purpose, expires (absolute and relative), a state chip (**Expiring** with `warn` styling, **Expired** with `expired`, each with an icon and the word), the renewal's status chip if one was asked (Sent, Seen, Granted, Declined, Expired), and the action **Request renewal** (48 px tall; while a request is open it reads "Requested" and is disabled). Updates live from `consent.updated` and `request.updated`. Empty: "No consents are about to expire." A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
 - **Processors:** per purpose list, ack state and time.
 - **Evidence:** "Generate evidence pack" button, preview, download. Titles say "evidence", never "compliance" (L-02).
 
-### 3.1 QuickLoan customer portal (`/portal/quickloan`, C-09)
+### 3.1 Company customer portal (`/portal/:slug`, C-09)
 
-QuickLoan's own customer page, not part of the console: header in `#2F5BEA`, "QuickLoan" and "Loans, quickly." one column, 640 px, large controls (48 px), sentence case. It looks like a company website because it is meant to be taken for one; the footer says "Demo page. Consent by Sammati." The states of `trd.md` §6.10:
+A company's customer page, not part of the console: header in `ink` with the company's name, one column, 640 px, large controls (48 px), sentence case. It looks like a company website because it is meant to be taken for one; the footer says "Sample page. Consent by Sammati." The states of `trd.md` §6.10:
 
-- **Logged out:** a card "Sign in to apply", one text input **"Your customer name or ID"** (placeholder "for example Asha"), a button "Continue". There is no password and no other field; in particular none for a PAN or an income. An alias shaped like a PAN is refused with the message "That looks like a PAN. QuickLoan does not need it here."
-- **Application form:** "Hello, {alias}". A card "Apply for a loan" with the checkbox **"Allow QuickLoan to use my data for loan purposes"**, unticked. Beneath it, indented and in plain language, the purposes: "Check your credit eligibility" (this is what the box asks for) and, each with its own unticked box, "Send you loan offers" and "Share repayment history with credit bureaus", the latter marked "Shared with third parties". "Apply" is disabled with the line "Allow the use of your data first".
+- **Logged out:** a card "Sign in to apply", one text input **"Your customer ID"**, a button "Continue". There is no password and no other field; in particular none for a PAN or an income. An alias shaped like a PAN is refused with the message "That looks like a PAN. {company} does not need it here."
+- **Application form:** "Hello, {alias}". A card "Apply for a loan" with the checkbox **"Allow {company} to use my data for loan purposes"**, unticked. Beneath it, indented and in plain language, the company's purposes, read from Core: the loan purpose (this is what the box asks for) and, each with its own unticked box, the others, those that share data marked "Shared with third parties". "Apply" is disabled with the line "Allow the use of your data first".
 - **Awaiting scan:** the same card with the QR (240 px, white tile) and "Waiting for you to approve in the Sammati app...", a live status chip (● Waiting / ✓ Connected), "Untick to cancel".
 - **Consent received:** "✓ Consent received" and "Recorded on the ledger" with the transaction shortened (tap to copy). Beneath, three rows (PAN, Income, Employment), each "Provided securely in your Sammati app" with a lock icon. Apply disabled with "Share your details in the Sammati app".
-- **Data submitted:** "✓ Data submitted securely", the handle and ciphertext hash shortened (tap to copy), the line "QuickLoan holds only a reference. Only the Sammati Processor can open your details." Apply enabled.
+- **Data submitted:** "✓ Data submitted securely", the handle and ciphertext hash shortened (tap to copy), the line "{company} holds only a reference. Only the Sammati Processor can open your details." Apply enabled.
 - **Decided:** a decision card: **Approved** (`allow`, ✓) with "Limit 3,00,000" and the reason codes as chips, or **Declined** (`block`, ✕) with the reasons. No data is shown, only the outcome.
 - **Withdrawn:** "Consent withdrawn. Application cannot be processed" in `block` with an icon; Apply disabled; the data rows are replaced by "Your encrypted details were erased" once the Processor says so.
 - **Error:** a `block` banner naming what failed, "Try again", and the form is kept.
@@ -177,7 +179,6 @@ A public page, no login, in Sammati's own look (`ink` header, `paper` body, `mar
 - **Company:** "Company name", "Sector", "Contact email" with the note "Used only for this application. Deleted when the regulator decides."
 - **Purposes** (one card each, "Add a purpose" up to 8, "Remove" on each): "Code" (`credit_check`, lower case with underscores), "Title" and "What you will do with the data, in plain words" each in three labelled fields (English, हिन्दी, ಕನ್ನಡ), "Data categories" (comma separated), "Kept for (days)", two checkboxes "Shared with third parties" and "Needed for the service".
 - **Processors** (optional, "Add a processor" up to 6): "Name" and "Used for" (a dropdown of the purposes above).
-- **Fill in the DemoBank example** (a quiet text button beside Submit): fills every field with the demo company, for the presenter. Real applicants never need it.
 - **Submit** "Send for review". Each field shows its problem beneath it in `block` with an icon (never colour alone), on blur and on submit; the button is not disabled, it explains. While sending: "Sending…". A refusal from Core (`NAME_TAKEN`, `RATE_LIMITED`, `TOO_MANY_PENDING`) is a `block` banner with what to do.
 - On success the page moves to the status page and remembers the application in this browser.
 
@@ -227,7 +228,6 @@ Copy (English / Hindi / Kannada; native-speaker check needed, like §6):
 | join_processor_name | Name | नाम | ಹೆಸರು |
 | join_processor_for | Used for | किसलिए | ಯಾವುದಕ್ಕೆ |
 | join_sending | Sending… | भेजा जा रहा है… | ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ… |
-| join_example | Fill in the DemoBank example | DemoBank का उदाहरण भरें | DemoBank ಉದಾಹರಣೆ ತುಂಬಿ |
 | join_pending_hint | Keep this page's address. You can come back to it. | इस पेज का पता रखें। आप इस पर वापस आ सकते हैं। | ಈ ಪುಟದ ವಿಳಾಸ ಇಟ್ಟುಕೊಳ್ಳಿ. ನೀವು ಇದಕ್ಕೆ ಮರಳಿ ಬರಬಹುದು. |
 | join_rejected_hint | You can apply again with the changes. | आप बदलावों के साथ फिर आवेदन कर सकते हैं। | ಬದಲಾವಣೆಗಳೊಂದಿಗೆ ನೀವು ಮತ್ತೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು. |
 | join_address | Fiduciary address | फिड्यूशियरी पता | ಫಿಡ್ಯೂಷಿಯರಿ ವಿಳಾಸ |
@@ -241,43 +241,14 @@ Copy (English / Hindi / Kannada; native-speaker check needed, like §6):
 
 - **Home:** one card per company with a scorecard (grants, withdrawals, allowed, blocked, avg withdrawal-to-block latency, pending acknowledgements, integrity status).
 - **Ledger explorer:** reverse-chronological table with type, principal alias (short address), company, purpose, tx, ledger head; filters on top.
-- **Verify integrity:** button per company. Progress rows "Recomputing hash chain… Rebuilding Merkle roots… Comparing with chain anchors…". Result: green "All 148 records match 7 anchors" or red "Mismatch in batch 4, record 63" with a diff of the stored vs expected hash. This is the second hero moment of the demo.
+- **Verify integrity:** button per company. Progress rows "Recomputing hash chain… Rebuilding Merkle roots… Comparing with chain anchors…". Result: green "All 148 records match 7 anchors" or red "Mismatch in batch 4, record 63" with a diff of the stored vs expected hash. The mismatch is what an edited log looks like.
 - **Report:** printable page titled "Consent and access evidence report": company, period, the log integrity check ("Log integrity check", result "MATCH" or "MISMATCH" against the on-chain anchors; the words violation, certification and compliance proof are not used), evidence list, anchor links, and a closing "Scope and limits" note: the report lists evidence from the ledger and the access log, it is not a legal finding, and the mapping of Sammati to the Act, with its unchecked points, is in `docs/dpdp-mapping.md` (L-02). No section number is printed.
 - Scorecards count "Access without valid consent" (allowed use with no valid consent at that moment), not "violations".
 - **Scorecards and filters for any number of companies (R-04):** the home grid wraps (`auto-fill`, 280 px minimum) and the ledger explorer's company filter lists the approved companies from Core, so a fourth or tenth company needs no change.
-- **Registrations (R-02):** a third tab beside Scorecards and Ledger. First the **regulator access code** field (password type, "Ask your administrator. In the demo it is on the stage sheet."), kept in this tab's session only; until it is accepted the tab shows nothing else. Then three filter chips (Pending, Approved, Rejected; Pending has a count badge). A list of applications, newest first: company, sector, time, status chip (icon and word). Selecting one opens the **review panel**: company, sector, contact email, each purpose (code, the three titles and descriptions, categories, retention, sharing, required) and each processor, and a checklist the regulator ticks for themselves (no effect on the system): "Purposes are specific", "Retention is justified", "Sharing is disclosed". Below: a note field (required to reject, optional to approve), a "Start in sandbox" checkbox (ticked), and **Approve** and **Reject** buttons. Approving is one request to Core, so the page shows one honest status line while it runs ("Approving: generating the company's key, registering the company, its purposes and processors on the ledger, creating the API key. This takes a few seconds."), never a timed set of steps; then "Approved. {name} is in the directory", with the ledger transactions as short copyable hashes. A failure says which step failed and that Approve can be repeated. Approved companies appear in a second list with a **Sandbox / Live** control ("Promote to live" and "Return to sandbox", each with a confirm) and **Issue a new API key** (confirm: "The old key stops working at once"). A last card, **Test customers**, lists the customers a sandbox company may ask (Sammati ID if known, else a short address), with "Add" (a Sammati ID or an address) and "Remove". Reduced motion: progress rows change without animation.
+- **Registrations (R-02):** a third tab beside Scorecards and Ledger. First the **regulator access code** field (password type, "Ask your administrator for the regulator access code."), kept in this tab's session only; until it is accepted the tab shows nothing else. Then three filter chips (Pending, Approved, Rejected; Pending has a count badge). A list of applications, newest first: company, sector, time, status chip (icon and word). Selecting one opens the **review panel**: company, sector, contact email, each purpose (code, the three titles and descriptions, categories, retention, sharing, required) and each processor, and a checklist the regulator ticks for themselves (no effect on the system): "Purposes are specific", "Retention is justified", "Sharing is disclosed". Below: a note field (required to reject, optional to approve), a "Start in sandbox" checkbox (ticked), and **Approve** and **Reject** buttons. Approving is one request to Core, so the page shows one honest status line while it runs ("Approving: generating the company's key, registering the company, its purposes and processors on the ledger, creating the API key. This takes a few seconds."), never a timed set of steps; then "Approved. {name} is in the directory", with the ledger transactions as short copyable hashes. A failure says which step failed and that Approve can be repeated. Approved companies appear in a second list with a **Sandbox / Live** control ("Promote to live" and "Return to sandbox", each with a confirm) and **Issue a new API key** (confirm: "The old key stops working at once"). A last card, **Test customers**, lists the customers a sandbox company may ask (Sammati ID if known, else a short address), with "Add" (a Sammati ID or an address) and "Remove". Reduced motion: progress rows change without animation.
 
-## 5. Stage view (`/stage`, for the live demo)
-Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre columns, one per approved company (three in the seed; a fourth appears the moment it is approved, R-04, and a sandbox company carries the SANDBOX chip), showing live request feeds, right column a ledger ticker (tx, ledger head). The QuickLoan column also shows the confidential-processing timeline (the same chips as the console card, handle shortened) so the audience watches the data go in encrypted, a decision come out and the ciphertext vanish on withdrawal. A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
-
-### 5.1 Data Flow Inspector (`/stage/flow`, and a panel of `/stage`; V-07, S-04)
-
-The screen that makes "encrypted, and decrypted only inside the processor" obvious from the back of the room in a few seconds. Everything on it comes from real events and real responses (`trd.md` §6.9); nothing is a canned animation.
-
-Layout: a thin header with the title "Data flow", a **Live / Replay** switch, and the presenter controls; four lanes left to right, each a large card with a number, a title and a one-line caption; below them the step timeline and the privacy line. Type is large (lane titles 28, body 20 or more), `ink` and `marigold` for structure, `allow` and `block` only for decision states.
-
-| Lane | Title and caption | Content |
-|---|---|---|
-| 1 | **Wallet** · "On the customer's own phone" | The customer's fields in plain text (PAN in Plex Mono, income band, score), because it is their own device. An **Encrypting** step lights on `vault.encrypted` and becomes **Sent encrypted** on `vault.stored` |
-| 2 | **In transit and at rest** · "X25519 + AES-256-GCM" | The real ciphertext in Plex Mono, shortened (`0x1a2b…c3d4`, tap to copy in full), the envelope hash (the handle, labelled "Envelope hash"), the size in bytes, and the algorithm label |
-| 3 | **QuickLoan staff view** · "What QuickLoan can see" | Two buttons. **Try to view customer data** calls the real admin endpoint and shows exactly what came back: the ciphertext hash and the chip "Not authorised to read content". **Try to read database** shows the raw ciphertext row. This lane never shows a plaintext value: its answers are filtered (`trd.md` §6.9) and anything that looks like data is replaced by "Blocked: looks like plaintext" |
-| 4 | **Sealed Processor** · "Demo visualisation of a sealed processor" | A box with four states, **Waiting**, **Decrypting**, **Scoring**, **Decision**, the current one marked. Fields are shown masked, by shape only (`PAN ••••• •••• •`, `Income •••••`, `Score •••`), whatever state it is in. On Decision: Approved or Declined (or Blocked with the reason) in the decision's colour **and** with an icon and a word, the limit, and the reason codes as chips. It renders only `processor.decrypting` and `processor.decided` |
-
-Bottom strip: a step-by-step timeline (Encrypted, Stored, Requested, Decrypting, Decided, Erased) with the time of each step and the gap from the previous one, taken from the events' own timestamps. Under it the privacy line:
-
-- "No plaintext was visible to QuickLoan or any third party" with a shield icon, in `allow`, **only** while the client-side check holds and at least one decision has been seen;
-- until then, nothing (no empty claim);
-- if a value from the demo profile turns up in any event: "Plaintext found in an event: this must never happen" with a warning icon, in `block`, and it stays.
-
-Presenter controls: **Withdraw and re-run** runs Withdraw, then Apply, and shows the Processor lane go to Decision: Blocked ("451 · Consent withdrawn") and the line "Ciphertext erased" in lane 2 (struck-through ciphertext, a bin icon and the word). For a real phone the control says "Withdraw on the phone now" and waits for that withdrawal, then applies. **Replay** plays the saved recording instead of the live stream (marked with a persistent "Replay of a recording" chip so it is never taken for live). **Save session** downloads the events seen so far.
-
-States: nothing yet (every lane shows its caption and "Waiting for the customer to send their details"); Processor unreachable or Core unreachable ("Live feed offline", chip in the header, controls disabled except Replay); an answer the page cannot read (shown as such, never guessed).
-
-Motion: lane highlights and the Processor state change only on events; the presentation delay (`trd.md` §6.9) paces them; with `prefers-reduced-motion` there is no delay and no transition, the state simply changes. Status is never colour alone: every state and decision has a word and an icon. Tokens from §1.1 only; type sizes are the exception to §1.2 for the projector.
-
-Copy (English only, like the rest of the web console): "Encrypting", "Sent encrypted", "Try to view customer data", "Try to read database", "Not authorised to read content", "Blocked: looks like plaintext", "Waiting", "Decrypting", "Scoring", "Decision", "Demo visualisation of a sealed processor", "Withdraw and re-run", "Withdraw on the phone now", "Ciphertext erased", "Replay of a recording", "Live feed offline".
-
-In `/stage` the inspector is a panel the presenter toggles with a **Data flow** button in the header; the banner names the current act of `demo.md` (S-04).
+## 5. (removed, X-01)
+There is no presenter screen. Nothing in the console, Auditor or portal is controlled by a hidden shortcut: the Auditor has no tamper or reset control. A tester edits a stored log row with `pnpm dev:tamper` (`trd.md` §6.4) and presses the real **Verify**.
 
 ## 6. Copy and i18n
 
@@ -409,12 +380,10 @@ Confidential processing (V1, V2), same status as above. `{company}` is a placeho
 
 | Key | English | Hindi | Kannada |
 |---|---|---|---|
-| vault_profile_title | My demo details | मेरा डेमो विवरण | ನನ್ನ ಡೆಮೊ ವಿವರಗಳು |
-| vault_profile_note | Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere. | डेमो के लिए बनाए गए विवरण। ये इसी फ़ोन पर रहते हैं और कहीं भी भेजने से पहले एन्क्रिप्ट हो जाते हैं। | ಡೆಮೊಗಾಗಿ ಮಾಡಿದ ವಿವರಗಳು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಇರುತ್ತವೆ ಮತ್ತು ಎಲ್ಲಿಗಾದರೂ ಕಳುಹಿಸುವ ಮೊದಲು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. |
 | vault_pan | PAN | PAN | PAN |
 | vault_income | Income | आय | ಆದಾಯ |
 | vault_score | Credit score | क्रेडिट स्कोर | ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ |
-| vault_simulated | Demo processor (simulated enclave, not real hardware protection) | डेमो प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं) | ಡೆಮೊ ಪ್ರೊಸೆಸರ್ (ಸಿಮ್ಯುಲೇಟೆಡ್ ಎನ್‌ಕ್ಲೇವ್, ನಿಜವಾದ ಹಾರ್ಡ್‌ವೇರ್ ರಕ್ಷಣೆ ಅಲ್ಲ) |
+| vault_simulated | Processor (simulated enclave, not real hardware protection) | प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं) | ಪ್ರೊಸೆಸರ್ (ಸಿಮ್ಯುಲೇಟೆಡ್ ಎನ್‌ಕ್ಲೇವ್, ನಿಜವಾದ ಹಾರ್ಡ್‌ವೇರ್ ರಕ್ಷಣೆ ಅಲ್ಲ) |
 | vault_send | Send securely | सुरक्षित रूप से भेजें | ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಿ |
 | vault_send_again | Send again | दोबारा भेजें | ಮತ್ತೆ ಕಳುಹಿಸಿ |
 | vault_send_hint | {company} gets a decision, not your details. Only the Sammati Processor can open them. | {company} को फ़ैसला मिलता है, आपका विवरण नहीं। उन्हें सिर्फ़ Sammati Processor खोल सकता है। | {company} ಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಅವುಗಳನ್ನು Sammati Processor ಮಾತ್ರ ತೆರೆಯಬಹುದು. |
@@ -430,7 +399,6 @@ Share your details securely (W10, W-13), same status as above. `{company}` is a 
 |---|---|---|---|
 | share_title | Share your details securely | अपना विवरण सुरक्षित रूप से साझा करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ |
 | share_intro | {company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them. | {company} को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए {company} इन्हें कभी नहीं देखती। | {company} ಗೆ ನಿಮ್ಮ ಸಾಲ ನಿರ್ಧರಿಸಲು ಇವು ಬೇಕು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ {company} ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ. |
-| share_use_demo | Use demo details | डेमो विवरण भरें | ಡೆಮೊ ವಿವರಗಳನ್ನು ಬಳಸಿ |
 | share_pan | PAN | PAN | PAN |
 | share_pan_hint | Like ABCDE1234F | जैसे ABCDE1234F | ಉದಾಹರಣೆ ABCDE1234F |
 | share_pan_invalid | Enter a PAN like ABCDE1234F | ABCDE1234F जैसा PAN दर्ज करें | ABCDE1234F ಮಾದರಿಯ PAN ನಮೂದಿಸಿ |
@@ -506,7 +474,12 @@ Requests inbox (W11) and Sammati ID (W12), same status as above. `{company}`, `{
 | duration_hours | {count, plural, =1{1 hour} other{{count} hours}} | {count, plural, other{{count} घंटे}} | {count, plural, =1{1 ಗಂಟೆ} other{{count} ಗಂಟೆಗಳು}} |
 | duration_minutes | {count, plural, =1{1 minute} other{{count} minutes}} | {count, plural, other{{count} मिनट}} | {count, plural, =1{1 ನಿಮಿಷ} other{{count} ನಿಮಿಷಗಳು}} |
 | duration_seconds | {count, plural, =1{1 second} other{{count} seconds}} | {count, plural, other{{count} सेकंड}} | {count, plural, =1{1 ಸೆಕೆಂಡ್} other{{count} ಸೆಕೆಂಡುಗಳು}} |
-| expiry_demo | 2 minutes (demo) | 2 मिनट (डेमो) | 2 ನಿಮಿಷಗಳು (ಡೆಮೊ) |
+| expiry_short_2m | 2 minutes (testing) | 2 मिनट (परीक्षण) | 2 ನಿಮಿಷಗಳು (ಪರೀಕ್ಷೆ) |
+| expiry_short_10m | 10 minutes (testing) | 10 मिनट (परीक्षण) | 10 ನಿಮಿಷಗಳು (ಪರೀಕ್ಷೆ) |
+| dev_short_expiry | Short expiry for testing | परीक्षण के लिए छोटी अवधि | ಪರೀಕ್ಷೆಗಾಗಿ ಚಿಕ್ಕ ಅವಧಿ |
+| dev_short_expiry_hint | Adds 2 minutes and 10 minutes to the expiry choices, so you can watch a consent expire. | समाप्ति के विकल्पों में 2 और 10 मिनट जोड़ता है, ताकि आप सहमति को समाप्त होते देख सकें। | ಅವಧಿ ಆಯ್ಕೆಗಳಿಗೆ 2 ಮತ್ತು 10 ನಿಮಿಷ ಸೇರಿಸುತ್ತದೆ, ಸಮ್ಮತಿ ಮುಗಿಯುವುದನ್ನು ನೋಡಲು. |
+| dev_option_chip | Developer option | डेवलपर विकल्प | ಡೆವಲಪರ್ ಆಯ್ಕೆ |
+| share_note_made_up | Use made-up details while Sammati is a prototype. | जब तक Sammati प्रोटोटाइप है, बनावटी विवरण इस्तेमाल करें। | Sammati ಮಾದರಿ ಹಂತದಲ್ಲಿರುವವರೆಗೆ ಕಾಲ್ಪನಿಕ ವಿವರಗಳನ್ನು ಬಳಸಿ. |
 | notif_expiring_title | Consent expiring soon | सहमति जल्द समाप्त होगी | ಒಪ್ಪಿಗೆ ಶೀಘ್ರದಲ್ಲಿ ಮುಗಿಯಲಿದೆ |
 | notif_expired_title | Consent expired | सहमति समाप्त हो गई | ಒಪ್ಪಿಗೆ ಮುಗಿದಿದೆ |
 | notif_renewal_title | Renewal requested | नवीनीकरण का अनुरोध | ನವೀಕರಣದ ವಿನಂತಿ |
@@ -521,7 +494,7 @@ Legal alignment (L-02): the sheet opened by "How this protects you" on the conse
 | protect_1 | Each purpose is your own choice. Nothing is ticked for you. | हर उद्देश्य आपका अपना चुनाव है। आपके लिए कुछ भी पहले से चुना नहीं गया है। | ಪ್ರತಿ ಉದ್ದೇಶವೂ ನಿಮ್ಮದೇ ಆಯ್ಕೆ. ನಿಮಗಾಗಿ ಯಾವುದನ್ನೂ ಮೊದಲೇ ಆಯ್ಕೆ ಮಾಡಿಲ್ಲ. |
 | protect_2 | You can withdraw any purpose later in two taps. The company's next request is blocked. | आप बाद में दो टैप में किसी भी उद्देश्य की सहमति वापस ले सकते हैं। कंपनी का अगला अनुरोध रोक दिया जाता है। | ನೀವು ನಂತರ ಎರಡು ಟ್ಯಾಪ್‌ಗಳಲ್ಲಿ ಯಾವುದೇ ಉದ್ದೇಶದ ಒಪ್ಪಿಗೆಯನ್ನು ಹಿಂಪಡೆಯಬಹುದು. ಕಂಪನಿಯ ಮುಂದಿನ ವಿನಂತಿಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ. |
 | protect_3 | Every time a company uses your data it is recorded. If the record is edited later, the edit shows. | जब भी कोई कंपनी आपके डेटा का उपयोग करती है, वह दर्ज होता है। बाद में रिकॉर्ड बदला गया तो बदलाव पकड़ में आ जाता है। | ಕಂಪನಿಯು ನಿಮ್ಮ ಡೇಟಾ ಬಳಸಿದಾಗಲೆಲ್ಲ ಅದು ದಾಖಲಾಗುತ್ತದೆ. ನಂತರ ದಾಖಲೆಯನ್ನು ಬದಲಿಸಿದರೆ ಆ ಬದಲಾವಣೆ ಗೊತ್ತಾಗುತ್ತದೆ. |
-| protect_4 | When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this demo the secure processor is simulated. | जब किसी कंपनी को संवेदनशील जानकारी चाहिए, तो वह पहले इसी फ़ोन पर एन्क्रिप्ट होती है। कंपनी को फ़ैसला मिलता है, आपकी जानकारी नहीं। इस डेमो में सुरक्षित प्रोसेसर नकली (सिम्युलेटेड) है। | ಕಂಪನಿಗೆ ಸೂಕ್ಷ್ಮ ವಿವರಗಳು ಬೇಕಾದಾಗ, ಅವು ಮೊದಲು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. ಕಂಪನಿಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಈ ಡೆಮೊದಲ್ಲಿ ಸುರಕ್ಷಿತ ಪ್ರೊಸೆಸರ್ ಅನುಕರಣೆಯಾಗಿದೆ. |
+| protect_4 | When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this build the secure processor is simulated. | जब किसी कंपनी को संवेदनशील जानकारी चाहिए, तो वह पहले इसी फ़ोन पर एन्क्रिप्ट होती है। कंपनी को फ़ैसला मिलता है, आपकी जानकारी नहीं। इस डेमो में सुरक्षित प्रोसेसर नकली (सिम्युलेटेड) है। | ಕಂಪನಿಗೆ ಸೂಕ್ಷ್ಮ ವಿವರಗಳು ಬೇಕಾದಾಗ, ಅವು ಮೊದಲು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. ಕಂಪನಿಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಈ ಡೆಮೊದಲ್ಲಿ ಸುರಕ್ಷಿತ ಪ್ರೊಸೆಸರ್ ಅನುಕರಣೆಯಾಗಿದೆ. |
 | protect_note | Sammati is a prototype with made-up data. It is aligned with the principles of India's DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md. | Sammati एक प्रोटोटाइप है और इसमें बनावटी डेटा है। यह भारत के DPDP अधिनियम, 2023 के सिद्धांतों के अनुरूप बनाया गया है। यह क़ानूनी सलाह या प्रमाणन नहीं है। क्या मैप किया गया है और क्या अभी जाँचना बाकी है, यह docs/dpdp-mapping.md में है। | Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿದ್ದು ಕಾಲ್ಪನಿಕ ಡೇಟಾ ಬಳಸುತ್ತದೆ. ಇದನ್ನು ಭಾರತದ DPDP ಕಾಯ್ದೆ, 2023 ರ ತತ್ವಗಳಿಗೆ ಅನುಗುಣವಾಗಿ ರೂಪಿಸಲಾಗಿದೆ. ಇದು ಕಾನೂನು ಸಲಹೆ ಅಥವಾ ಪ್ರಮಾಣೀಕರಣ ಅಲ್ಲ. ಯಾವುದನ್ನು ಹೋಲಿಸಲಾಗಿದೆ ಮತ್ತು ಯಾವುದನ್ನು ಇನ್ನೂ ಪರಿಶೀಲಿಸಬೇಕು ಎಂಬುದು docs/dpdp-mapping.md ನಲ್ಲಿದೆ. |
 
 ### 6.2 Keys added with the proof sheet, cascade list and "How this protects you"
@@ -550,7 +523,7 @@ These shipped in the app before the spec listed them; the table is the app's tex
 | cascade_waiting | Waiting… | प्रतीक्षा में… | ಕಾಯುತ್ತಿದೆ… |
 | cascade_acked | {n} s ago | {n} सेकंड पहले | {n} ಸೆಕೆಂಡ್ ಹಿಂದೆ |
 
-Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
+Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before release.
 
 ## 7. Accessibility and quality floor
 - Contrast AA minimum; status never relies on colour alone (chips carry text and icon).

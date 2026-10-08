@@ -6,9 +6,8 @@ Run this the day of the demo, in this order. Tick nothing you did not see happen
 - [ ] `git status` clean, on the commit you will present; `git tag demo-ready`
 - [ ] `pnpm install`, then `pnpm -r typecheck`, `pnpm -r test`, `pnpm lint` all pass
 - [ ] `pnpm e2e` passes in under 45 s (it starts its own stack: stop `demo:up` first)
-- [ ] `pnpm demo:up:fast` is up; `pnpm demo:reset` done; the banner address is the laptop's address on the hotspot
-- [ ] `curl http://<lan-ip>:4000/v1/health` says `live`; `curl http://<lan-ip>:4200/health` says `simulated-enclave`
-- [ ] Stage view opens on **Data flow** with no "Live feed offline" chip; `/stage/flow?replay=1` plays the recording
+- [ ] `pnpm demo:up` is up; `pnpm dev:reset` done; the banner address is the laptop's address on the hotspot
+- [ ] `curl http://<lan-ip>:4000/v1/health` answers `ok`; `curl http://<lan-ip>:4200/health` says `simulated-enclave`
 - [ ] Amoy explorer links open and show the deployed contracts
 
 ## 2. On the real phone (the one you will present with)
@@ -21,8 +20,8 @@ Install the release build (`flutter build apk --release`), same hotspot as the l
 - [ ] **Share your details securely** → demo details → the portal says "Data submitted securely"; **Apply** gives a decision; Data flow lanes fill
 - [ ] Withdraw: the console turns BLOCKED 451 at once, the cascade list shows an acknowledgement, the phone says the details were erased
 - [ ] **Sammati ID**: register `asha@sammati`; console **Send to user** reaches the inbox in about 2 seconds; Review, Decline and Block all work; a made-up ID gets the same "Request sent" and nothing arrives
-- [ ] **Expiry** (stack in fast mode): grant with **2 minutes (demo)**; Alerts shows "expires in 1 minute", then "expired"; console **Expiring consents** → **Request renewal**; **Renew** and approve; the same console call is ALLOWED
-- [ ] Auditor: **Verify** green; **Tamper** then **Verify** red, naming the record
+- [ ] **Expiry** (Developer settings: Short expiry for testing on): grant with **2 minutes**; Alerts shows "expires in 1 minute", then "expired"; console **Expiring consents** → **Request renewal**; **Renew** and approve; the same console call is ALLOWED
+- [ ] Auditor: **Verify** green; `pnpm dev:tamper` then **Verify** red, naming the record
 - [ ] Rotate the phone, set text size to the largest, switch to Hindi: nothing is cut off
 - [ ] Airplane mode on, then off: the wallet shows its offline banner and recovers
 
@@ -39,19 +38,18 @@ These are specified and built, but never run on a device. Until one has been, th
 - [ ] Charged, on the hotspot, Do Not Disturb set
 
 ## 4. Record the fallback video (once everything above passed)
-Record on a **clean** `pnpm demo:reset` run, screen mirrored so both the phone and the laptop are in frame (or record both and join them). Keep the narration to the script.
+Record on a **clean** `pnpm dev:reset` run, screen mirrored so both the phone and the laptop are in frame (or record both and join them). Keep the narration to the script.
 
 - [ ] Take 1, full four minutes, as in `docs/demo.md` §2, all eight acts
 - [ ] Take 2, three-minute cut (no Acts 6 and 7)
-- [ ] Short clips as insurance, each on its own: **withdraw then BLOCKED** (Act 5), **Data flow with the staff view** (Act 4), **tamper then red Verify** (Act 8), **a targeted request arriving** (Act 6), **expiry then Renew then ALLOWED** (Act 7)
-- [ ] Also record the replay: `E2E_RECORD_FLOW=web/public/flow-replay.json pnpm e2e`, commit the file
+- [ ] Short clips as insurance, each on its own: **withdraw then BLOCKED** (Act 5), **a decision with the company holding only a handle** (Act 4), **tamper then red Verify** (Act 8), **a targeted request arriving** (Act 6), **expiry then Renew then ALLOWED** (Act 7)
 - [ ] Save the files on the laptop **and** on the spare phone; check one plays without a network
 - [ ] Say in the video's first line that it is a recording
 - [ ] Note the commit hash and date in the file name
 
 ## 5. Last five minutes before going on
-- [ ] `pnpm demo:reset` (not a restart of the Processor on its own)
-- [ ] Register `asha@sammati` on the phone; give MediCare+ the 2-minute consent about two minutes before Act 7
+- [ ] `pnpm dev:reset` (not a restart of the Processor on its own)
+- [ ] Register a Sammati ID on the phone and add it as a test customer; give the company a 2-minute consent about two minutes before Act 7
 - [ ] Phone brightness up, notifications set as decided, mirroring running
-- [ ] Tabs open: Stage (Data flow), console on **Send to user**, portal signed out, Auditor, explorer
+- [ ] Tabs open: console on **Send to user**, customer page signed out, Auditor, explorer
 - [ ] One person owns the recovery: the recording, the spare phone, and the sentence "let me show you the recording of this step"
