@@ -8,10 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'consent_providers.dart';
 import 'consents_controller.dart';
-import 'demo_profile.dart';
 import 'core_api.dart';
 import 'live_events.dart';
 import 'preferences.dart';
+import 'profile.dart';
+import 'profile_controller.dart';
 import 'processor_api.dart';
 import 'wallet_service.dart';
 
@@ -59,8 +60,9 @@ class VaultController extends Notifier<VaultState> {
     return const VaultState();
   }
 
-  /// [profile] is what is encrypted (W10's fields); without one the demo profile goes, as "Send again" always did.
-  Future<void> send({required String reason, Object? profile}) async {
+  /// [payload] is what is encrypted: the profile entries this purpose's categories name (W10, W-13). On success the
+  /// send is recorded in the profile (field names and the handle, no values) so a later edit can mark it (W-17).
+  Future<void> send({required String reason, required Map<String, String> payload}) async {
     if (state.stage == VaultStage.sending) return;
     state = const VaultState(stage: VaultStage.sending);
     try {
@@ -69,8 +71,9 @@ class VaultController extends Notifier<VaultState> {
             fiduciary: _key.fiduciary,
             purposeCode: _key.purposeCode,
             reason: reason,
-            profile: profile ?? DemoProfile.payload,
+            profile: payload,
           );
+      await _remember(sent.handle, payload.keys.toList());
       // The live frame may already have set the same state; this keeps it correct without a socket.
       state = VaultState(stage: VaultStage.sent, handle: sent.handle);
     } on WalletException {
@@ -79,6 +82,20 @@ class VaultController extends Notifier<VaultState> {
       state = const VaultState(stage: VaultStage.failed, problem: VaultProblem.refused);
     } on CoreException catch (e) {
       state = VaultState(stage: VaultStage.failed, problem: e.failure == CoreFailure.unreachable ? VaultProblem.unreachable : VaultProblem.other);
+    }
+  }
+
+  Future<void> _remember(String handle, List<String> fields) async {
+    try {
+      await ref.read(profileProvider.notifier).recordShare(ShareRecord(
+            fiduciary: _key.fiduciary,
+            purposeCode: _key.purposeCode,
+            fields: fields,
+            handle: handle,
+            sentAt: ref.read(clockProvider)().millisecondsSinceEpoch ~/ 1000,
+          ));
+    } on Object {
+      // The data was sent. Failing to note it only means a later edit is not marked, which the person can still redo.
     }
   }
 

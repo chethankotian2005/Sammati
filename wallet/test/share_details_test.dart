@@ -1,5 +1,5 @@
-// W10 share your details securely (W-13, ui.md W10): what the customer can type, what is checked on the phone, what
-// is encrypted and sent, and that nothing is kept.
+// W10 share your details securely (W-13, ui.md W10): it shows exactly the profile fields the purpose's data categories
+// need, asks only for the missing ones, encrypts only those, and saves what was typed so it is asked once.
 
 import 'dart:convert';
 import 'dart:io';
@@ -7,9 +7,10 @@ import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sammati/core/demo_profile.dart';
 import 'package:sammati/core/envelope.dart';
+import 'package:sammati/core/profile_controller.dart';
 
 import 'support/fake_core.dart';
 import 'support/fakes.dart';
@@ -22,7 +23,14 @@ const _day = 86400;
 FakeCoreApi seeded() => FakeCoreApi()..seed(creditCheckId, expiresAt: _now + 150 * _day);
 
 Finder sendFilled() => find.widgetWithText(FilledButton, 'Send securely');
-Finder panField() => find.byType(TextField);
+
+/// A profile with more than the loan needs, so "only what the purpose names" is visible.
+const rich = {
+  'fullName': 'Zebulon Quillfeather',
+  'mobile': '9123456780',
+  'pan': 'QZXWV9876K',
+  'employment': 'salaried',
+};
 
 Future<void> open(WidgetTester tester) async {
   tester.view.physicalSize = const Size(800, 2400);
@@ -41,194 +49,156 @@ Future<void> pick(WidgetTester tester, String field, String option) async {
   await tester.pumpAndSettle();
 }
 
+ProviderContainer containerOf(WidgetTester tester) => ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
+
 /// What the Processor would read: opens the envelope the fake Processor was given with the vectors' processor key.
-Future<Map<String, dynamic>> opened(FakeProcessorApi processor, String principal) async {
+Future<Map<String, dynamic>> opened(FakeProcessorApi processor) async {
   final vectors = jsonDecode(File('../shared/test-vectors/envelope.json').readAsStringSync()) as Map<String, dynamic>;
   final key = Uint8List.fromList(hex.decode(((vectors['processor'] as Map)['privateKey'] as String).substring(2)));
   final submission = processor.submissions.last;
   final envelope = Envelope.fromJson((submission['envelope'] as Map).cast<String, dynamic>());
-  final clear = await openEnvelope(envelope, key, EnvelopeContext(fiduciary: fiduciaryAddress, principal: principal, purposeCode: 'credit_check'));
+  final clear = await openEnvelope(envelope, key, EnvelopeContext(fiduciary: fiduciaryAddress, principal: submission['principal'] as String, purposeCode: 'credit_check'));
   return jsonDecode(utf8.decode(clear)) as Map<String, dynamic>;
 }
 
 void main() {
-  group('the form', () {
-    testWidgets('starts empty, explains who never sees the details, and cannot be sent', (tester) async {
-      await pumpApp(tester, core: seeded());
+  group('what it asks for', () {
+    testWidgets('lists the fields the profile has and asks only for the one it lacks, nothing else', (tester) async {
+      await pumpApp(tester, core: seeded(), profile: rich);
       await open(tester);
 
-      expect(find.text('Share your details securely'), findsOneWidget); // the title
-      expect(find.text('QuickLoan needs these to decide your loan. They are encrypted on this phone, so QuickLoan never sees them.'), findsOneWidget);
-      expect((tester.widget<TextField>(panField()).controller!.text), isEmpty);
+      expect(find.text('From My details'), findsOneWidget);
+      expect(find.text('QuickLoan also needs these'), findsOneWidget);
+      // the loan names PAN, income and type of work; the name and mobile in the profile are not part of it
+      expect(find.text('QZXWV9876K'), findsOneWidget);
+      expect(find.text('Salaried'), findsOneWidget);
+      expect(find.text('Zebulon Quillfeather'), findsNothing);
+      expect(find.text('9123456780'), findsNothing);
+      expect(find.text('Full name'), findsNothing);
+      // only the missing income is an input
+      expect(find.text('Yearly income'), findsOneWidget);
       expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
       expect(find.text('Demo processor (simulated enclave, not real hardware protection)'), findsOneWidget);
-      expect(find.text('Use demo details'), findsOneWidget);
     });
 
-    testWidgets('PAN is capitals as typed, and an invalid one says what is expected', (tester) async {
-      await pumpApp(tester, core: seeded());
+    testWidgets('asks for nothing when the profile already has every field, and sends in one tap', (tester) async {
+      final processor = FakeProcessorApi();
+      await pumpApp(tester, core: seeded(), processor: processor, profile: {...rich, 'incomeBand': '6-9 LPA'});
       await open(tester);
 
-      await tester.enterText(panField(), 'abc');
-      await tester.pump();
-      expect(tester.widget<TextField>(panField()).controller!.text, 'ABC');
-      expect(find.text('Enter a PAN like ABCDE1234F'), findsOneWidget);
-
-      await tester.enterText(panField(), 'abcde1234f');
-      await tester.pump();
-      expect(tester.widget<TextField>(panField()).controller!.text, 'ABCDE1234F');
-      expect(find.text('Enter a PAN like ABCDE1234F'), findsNothing);
-
-      await tester.enterText(panField(), 'ABCDE1234FXYZ'); // longer than a PAN: the field stops at ten
-      await tester.pump();
-      expect(tester.widget<TextField>(panField()).controller!.text.length, lessThanOrEqualTo(10));
-    });
-
-    testWidgets('Send stays off until the PAN is valid and both choices are made', (tester) async {
-      await pumpApp(tester, core: seeded());
-      await open(tester);
-      await tester.enterText(panField(), 'ABCDE1234F');
-      await tester.pump();
-      expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
-      await pick(tester, 'Income band', '6 to 9 LPA');
-      expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
-      await pick(tester, 'Employment', 'Salaried');
+      expect(find.text('QuickLoan also needs these'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
       expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNotNull);
-      await tester.enterText(panField(), 'ABCDE1234'); // broken again
-      await tester.pump();
-      expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
+      await tester.tap(sendFilled());
+      await tester.pumpAndSettle();
+
+      expect(await opened(processor), {'pan': 'QZXWV9876K', 'incomeBand': '6-9 LPA', 'employment': 'salaried'});
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
     });
 
-    testWidgets('"Use demo details" fills all three', (tester) async {
+    testWidgets('an empty profile asks for all three, and Send waits for valid values', (tester) async {
       await pumpApp(tester, core: seeded());
       await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(panField()).controller!.text, 'ABCDE1234F');
-      expect(find.text('6 to 9 LPA'), findsOneWidget);
-      expect(find.text('Salaried'), findsOneWidget);
+
+      expect(find.text('From My details'), findsNothing);
+      expect(find.text('QuickLoan also needs these'), findsOneWidget);
+      final pan = find.widgetWithText(TextField, 'PAN');
+      await tester.enterText(pan, 'abc');
+      await tester.pump();
+      expect(find.text('Enter a PAN like ABCDE1234F'), findsOneWidget);
+      await tester.enterText(pan, 'qzxwv9876k');
+      await tester.pump();
+      expect(tester.widget<TextField>(pan).controller!.text, 'QZXWV9876K');
+      expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
+      await pick(tester, 'Yearly income', '6 to 9 LPA');
+      await pick(tester, 'Type of work', 'Salaried');
       expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNotNull);
     });
   });
 
-  group('what is sent', () {
-    testWidgets('the demo details go with the demo credit score', (tester) async {
+  group('what is sent and kept', () {
+    testWidgets('only the purpose\'s fields are encrypted; what was typed is saved to the profile; the wire has no plaintext', (tester) async {
       final processor = FakeProcessorApi();
-      await pumpApp(tester, core: seeded(), processor: processor);
+      await pumpApp(tester, core: seeded(), processor: processor, profile: rich);
       await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
+      await pick(tester, 'Yearly income', '3 to 6 LPA');
       await tester.tap(sendFilled());
       await tester.pumpAndSettle();
 
-      expect(processor.submissions, hasLength(1));
-      final principal = processor.submissions.single['principal'] as String;
-      expect(await opened(processor, principal), {'pan': 'ABCDE1234F', 'incomeBand': '6-9 LPA', 'employment': 'salaried', 'score': 742});
-      // and only ciphertext crossed: nothing in what the Processor was handed is readable
-      expect(jsonEncode(processor.submissions.single), isNot(contains('ABCDE1234F')));
+      expect(await opened(processor), {'pan': 'QZXWV9876K', 'incomeBand': '3-6 LPA', 'employment': 'salaried'});
+      final wire = jsonEncode(processor.submissions.single);
+      for (final secret in ['QZXWV9876K', 'Zebulon', '9123456780', '3-6 LPA']) {
+        expect(wire, isNot(contains(secret)));
+      }
+      // typed once, kept: the profile now has the income, and the share is recorded by field names
+      final profile = containerOf(tester).read(profileProvider).doc;
+      expect(profile.fields['incomeBand'], '3-6 LPA');
+      expect(profile.shareFor(fiduciaryAddress, 'credit_check')!.fields, unorderedEquals(['pan', 'incomeBand', 'employment']));
+      expect(profile.shareFor(fiduciaryAddress, 'credit_check')!.stale, isFalse);
     });
 
-    testWidgets('details typed by hand go without a score: the customer has none to give', (tester) async {
+    testWidgets('an edit to a value already shown is saved and sent', (tester) async {
       final processor = FakeProcessorApi();
-      await pumpApp(tester, core: seeded(), processor: processor);
+      await pumpApp(tester, core: seeded(), processor: processor, profile: {...rich, 'incomeBand': '6-9 LPA'});
       await open(tester);
-      await tester.enterText(panField(), 'pqrst5678u');
-      await tester.pump();
-      await pick(tester, 'Income band', '3 to 6 LPA');
-      await pick(tester, 'Employment', 'Self-employed');
-      await tester.tap(sendFilled());
+      await tester.tap(find.text('Edit').first);
       await tester.pumpAndSettle();
-
-      final principal = processor.submissions.single['principal'] as String;
-      expect(await opened(processor, principal), {'pan': 'PQRST5678U', 'incomeBand': '3-6 LPA', 'employment': 'self-employed'});
+      expect(find.byType(TextField), findsOneWidget);
     });
 
-    testWidgets('editing the demo details takes the demo score away', (tester) async {
+    testWidgets('asks the device for confirmation, and sends nothing if the profile stays locked', (tester) async {
       final processor = FakeProcessorApi();
-      await pumpApp(tester, core: seeded(), processor: processor);
+      final presence = FakePresence();
+      await pumpApp(tester, core: seeded(), processor: processor, presence: presence, profile: rich);
+      presence.approve = false;
       await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
-      await pick(tester, 'Salaried', 'Student');
-      await tester.tap(sendFilled());
-      await tester.pumpAndSettle();
-
-      final principal = processor.submissions.single['principal'] as String;
-      expect(await opened(processor, principal), {'pan': 'ABCDE1234F', 'incomeBand': '6-9 LPA', 'employment': 'student'});
-    });
-
-    testWidgets('asks the device for confirmation, and sends nothing if declined', (tester) async {
-      final processor = FakeProcessorApi();
-      await pumpApp(tester, core: seeded(), processor: processor, presence: FakePresence(approve: false));
-      await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
-      await tester.tap(sendFilled());
-      await tester.pumpAndSettle();
+      expect(find.text('Your details are locked'), findsOneWidget);
+      expect(find.text('QZXWV9876K'), findsNothing);
+      expect(sendFilled(), findsNothing);
       expect(processor.submissions, isEmpty);
-      expect(find.text('Could not confirm it is you. Try again.'), findsOneWidget);
-      // what was typed is kept for another try
-      expect(tester.widget<TextField>(panField()).controller!.text, 'ABCDE1234F');
+
+      presence.approve = true;
+      await tester.tap(find.text('Unlock'));
+      await tester.pumpAndSettle();
+      expect(find.text('QZXWV9876K'), findsOneWidget);
     });
   });
 
   group('after it was sent', () {
-    testWidgets('the form is gone, the handle is shown shortened, and Done returns to the pass', (tester) async {
-      await pumpApp(tester, core: seeded());
+    testWidgets('the form is gone, the PAN is on no screen, and Done returns to the pass', (tester) async {
+      await pumpApp(tester, core: seeded(), profile: {...rich, 'incomeBand': '6-9 LPA'});
       await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
       await tester.tap(sendFilled());
       await tester.pumpAndSettle();
 
       expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-      expect(find.text('ABCDE1234F'), findsNothing, reason: 'the PAN is not on any screen once it has been sent');
+      expect(find.text('QZXWV9876K'), findsNothing, reason: 'the PAN is not on this screen once it has been sent');
       expect(find.textContaining('…'), findsWidgets);
-
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(textButtonWithText('Send again'), findsOneWidget);
     });
-
-    testWidgets('opening the screen again starts empty', (tester) async {
-      await pumpApp(tester, core: seeded());
-      await open(tester);
-      await tester.tap(find.text('Use demo details'));
-      await tester.pumpAndSettle();
-      await tester.tap(sendFilled());
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
-      await tester.tap(textButtonWithText('Send again'));
-      await tester.pumpAndSettle();
-      // a fresh form, with nothing in it and no leftover "sent" line
-      expect(tester.widget<TextField>(panField()).controller!.text, isEmpty);
-      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsNothing);
-      expect(tester.widget<FilledButton>(sendFilled()).onPressed, isNull);
-    });
   });
 
   testWidgets('reads in Hindi', (tester) async {
-    await pumpApp(tester, core: seeded(), stored: {'locale': 'hi'});
+    await pumpApp(tester, core: seeded(), stored: {'locale': 'hi'}, profile: rich);
     await open(tester);
     expect(find.text('अपना विवरण सुरक्षित रूप से साझा करें'), findsOneWidget);
-    expect(find.text('डेमो विवरण भरें'), findsOneWidget);
-    expect(find.text('आय वर्ग'), findsOneWidget);
-    expect(find.text('रोज़गार'), findsOneWidget);
+    expect(find.text('मेरी जानकारी से'), findsOneWidget);
+    expect(find.text('वार्षिक आय'), findsOneWidget);
   });
 
   testWidgets('reads in Kannada', (tester) async {
-    await pumpApp(tester, core: seeded(), stored: {'locale': 'kn'});
+    await pumpApp(tester, core: seeded(), stored: {'locale': 'kn'}, profile: rich);
     await open(tester);
-    expect(find.text('ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ'), findsOneWidget);
-    expect(find.text('ಆದಾಯ ವರ್ಗ'), findsOneWidget);
+    expect(find.text('ನನ್ನ ವಿವರಗಳಿಂದ'), findsOneWidget);
+    expect(find.text('ವಾರ್ಷಿಕ ಆದಾಯ'), findsOneWidget);
   });
 
   group('the receipt offers it right after consent', () {
-    testWidgets('the credit check consent leads straight to W10, with the company named', (tester) async {
+    testWidgets('the credit check consent leads to W10, which names the company', (tester) async {
       useTallScreen(tester);
-      final core = await pumpApp(tester);
+      final core = await pumpApp(tester, profile: rich);
       await tester.tap(find.byIcon(Icons.qr_code_scanner));
       await tester.pumpAndSettle();
       await tester.tap(find.text('read valid qr'));
@@ -242,7 +212,7 @@ void main() {
       expect(find.text('Share your details securely'), findsOneWidget);
       await tester.tap(find.text('Share your details securely'));
       await tester.pumpAndSettle();
-      expect(find.text('QuickLoan needs these to decide your loan. They are encrypted on this phone, so QuickLoan never sees them.'), findsOneWidget);
+      expect(find.text('QuickLoan needs these details for this purpose. They are encrypted on this phone, so QuickLoan never sees them.'), findsOneWidget);
     });
 
     testWidgets('a consent for a purpose that uses no data offers nothing to share', (tester) async {

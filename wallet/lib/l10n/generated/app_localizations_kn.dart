@@ -435,22 +435,6 @@ class AppLocalizationsKn extends AppLocalizations {
   }
 
   @override
-  String get vault_profile_title => 'ನನ್ನ ಡೆಮೊ ವಿವರಗಳು';
-
-  @override
-  String get vault_profile_note =>
-      'ಡೆಮೊಗಾಗಿ ಮಾಡಿದ ವಿವರಗಳು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಇರುತ್ತವೆ ಮತ್ತು ಎಲ್ಲಿಗಾದರೂ ಕಳುಹಿಸುವ ಮೊದಲು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ.';
-
-  @override
-  String get vault_pan => 'PAN';
-
-  @override
-  String get vault_income => 'ಆದಾಯ';
-
-  @override
-  String get vault_score => 'ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್';
-
-  @override
   String get vault_simulated =>
       'ಡೆಮೊ ಪ್ರೊಸೆಸರ್ (ಸಿಮ್ಯುಲೇಟೆಡ್ ಎನ್‌ಕ್ಲೇವ್, ನಿಜವಾದ ಹಾರ್ಡ್‌ವೇರ್ ರಕ್ಷಣೆ ಅಲ್ಲ)';
 
@@ -488,11 +472,8 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String share_intro(String company) {
-    return '$company ಗೆ ನಿಮ್ಮ ಸಾಲ ನಿರ್ಧರಿಸಲು ಇವು ಬೇಕು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ $company ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ.';
+    return 'ಈ ಉದ್ದೇಶಕ್ಕಾಗಿ $company ಗೆ ಈ ವಿವರಗಳು ಬೇಕು. ಅವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ $company ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ.';
   }
-
-  @override
-  String get share_use_demo => 'ಡೆಮೊ ವಿವರಗಳನ್ನು ಬಳಸಿ';
 
   @override
   String get share_pan => 'PAN';
@@ -825,4 +806,187 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get protect_note =>
       'Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿದ್ದು ಕಾಲ್ಪನಿಕ ಡೇಟಾ ಬಳಸುತ್ತದೆ. ಇದನ್ನು ಭಾರತದ DPDP ಕಾಯ್ದೆ, 2023 ರ ತತ್ವಗಳಿಗೆ ಅನುಗುಣವಾಗಿ ರೂಪಿಸಲಾಗಿದೆ. ಇದು ಕಾನೂನು ಸಲಹೆ ಅಥವಾ ಪ್ರಮಾಣೀಕರಣ ಅಲ್ಲ. ಯಾವುದನ್ನು ಹೋಲಿಸಲಾಗಿದೆ ಮತ್ತು ಯಾವುದನ್ನು ಇನ್ನೂ ಪರಿಶೀಲಿಸಬೇಕು ಎಂಬುದು docs/dpdp-mapping.md ನಲ್ಲಿದೆ.';
+
+  @override
+  String acct_step(int n) {
+    return 'ಹಂತ $n / 3';
+  }
+
+  @override
+  String get acct_id_title => 'ನಿಮ್ಮ Sammati ID ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String get acct_id_checking => 'ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…';
+
+  @override
+  String acct_id_available(String handle) {
+    return '$handle ಲಭ್ಯವಿದೆ';
+  }
+
+  @override
+  String get acct_id_later => 'ನಂತರ ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String acct_registering(String handle) {
+    return 'ನಿಮ್ಮ ವಾಲೆಟ್ ರಚಿಸಲಾಗಿದೆ. $handle ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ…';
+  }
+
+  @override
+  String acct_register_failed(String handle) {
+    return 'ನಿಮ್ಮ ವಾಲೆಟ್ ಸಿದ್ಧವಾಗಿದೆ, ಆದರೆ $handle ನೋಂದಾಯಿಸಲು ಆಗಲಿಲ್ಲ.';
+  }
+
+  @override
+  String get acct_choose_another => 'ಬೇರೆ ID ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String get acct_profile_title => 'ನಿಮ್ಮ ವಿವರಗಳು';
+
+  @override
+  String get acct_profile_body =>
+      'ನಿಮಗೆ ಬೇಕಾದದ್ದನ್ನು ಒಮ್ಮೆ ತುಂಬಿ. ಪ್ರತಿ ಕ್ಷೇತ್ರವೂ ಐಚ್ಛಿಕ. ಆ ವಿವರ ಬೇಕಾದ ಉದ್ದೇಶಕ್ಕೆ ನೀವು ಹೌದು ಎಂದ ನಂತರವೇ ಕಂಪನಿಗೆ ಅದು ಸಿಗುತ್ತದೆ.';
+
+  @override
+  String get acct_skip => 'ಈಗ ಬಿಟ್ಟುಬಿಡಿ';
+
+  @override
+  String get acct_finish => 'ಉಳಿಸಿ ಮುಂದುವರಿಸಿ';
+
+  @override
+  String get profile_title => 'ನನ್ನ ವಿವರಗಳು';
+
+  @override
+  String get profile_group_identity => 'ನೀವು ಯಾರು';
+
+  @override
+  String get profile_group_contact => 'ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುವ ವಿಧಾನ';
+
+  @override
+  String get profile_group_financial => 'ಹಣಕಾಸು';
+
+  @override
+  String get profile_group_health => 'ಆರೋಗ್ಯ';
+
+  @override
+  String get profile_group_prefs => 'ನಿಮ್ಮ ಆದ್ಯತೆಗಳು';
+
+  @override
+  String get profile_private =>
+      'ಈ ಫೋನ್‌ನಲ್ಲಿ ಮಾತ್ರ ಉಳಿಯುತ್ತದೆ, ನಿಮ್ಮ ಫಿಂಗರ್‌ಪ್ರಿಂಟ್ ಅಥವಾ PIN ನಿಂದ ಲಾಕ್ ಆಗಿರುತ್ತದೆ. Sammati ಸರ್ವರ್‌ಗಳಿಗೆ ಇದು ಎಂದಿಗೂ ತಲುಪುವುದಿಲ್ಲ.';
+
+  @override
+  String get profile_locked => 'ನಿಮ್ಮ ವಿವರಗಳು ಲಾಕ್ ಆಗಿವೆ';
+
+  @override
+  String get profile_unlock => 'ಅನ್‌ಲಾಕ್ ಮಾಡಿ';
+
+  @override
+  String get auth_reason_profile => 'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ತೆರೆಯಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get profile_empty =>
+      'ಇನ್ನೂ ಏನನ್ನೂ ಸೇರಿಸಿಲ್ಲ. ಒಮ್ಮೆ ಸೇರಿಸಿ, ಯಾವುದೇ ಕಂಪನಿಯೊಂದಿಗೆ ಬಳಸಿ.';
+
+  @override
+  String get profile_not_set => 'ಸೇರಿಸಿಲ್ಲ';
+
+  @override
+  String get profile_save => 'ಉಳಿಸಿ';
+
+  @override
+  String get profile_remove => 'ತೆಗೆದುಹಾಕಿ';
+
+  @override
+  String get profile_saved => 'ಈ ಫೋನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ';
+
+  @override
+  String get profile_lost =>
+      'ನಿಮ್ಮ ಉಳಿಸಿದ ವಿವರಗಳನ್ನು ಓದಲಾಗಲಿಲ್ಲ. ಅವನ್ನು ಮತ್ತೆ ಸೇರಿಸಿ.';
+
+  @override
+  String get gender_female => 'ಮಹಿಳೆ';
+
+  @override
+  String get gender_male => 'ಪುರುಷ';
+
+  @override
+  String get gender_other => 'ಇತರೆ';
+
+  @override
+  String get gender_prefer_not => 'ಹೇಳಲು ಇಷ್ಟವಿಲ್ಲ';
+
+  @override
+  String get food_vegetarian => 'ಸಸ್ಯಾಹಾರಿ';
+
+  @override
+  String get food_non_vegetarian => 'ಮಾಂಸಾಹಾರಿ';
+
+  @override
+  String get food_vegan => 'ವೀಗನ್';
+
+  @override
+  String get dob_hint => 'DD/MM/YYYY';
+
+  @override
+  String get err_name => 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು ನಮೂದಿಸಿ, 2 ರಿಂದ 80 ಅಕ್ಷರಗಳು';
+
+  @override
+  String get err_dob => '31/12/1995 ನಂತಹ ನಿಜವಾದ ದಿನಾಂಕ ನಮೂದಿಸಿ';
+
+  @override
+  String get err_mobile => '10 ಅಂಕಿಗಳ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ';
+
+  @override
+  String get err_email => 'name@example.com ನಂತಹ ಇಮೇಲ್ ನಮೂದಿಸಿ';
+
+  @override
+  String get err_text => 'ತುಂಬಾ ಚಿಕ್ಕದು ಅಥವಾ ತುಂಬಾ ಉದ್ದ';
+
+  @override
+  String get err_policy => '4 ರಿಂದ 30 ಅಕ್ಷರ, ಅಂಕಿ ಅಥವಾ ಡ್ಯಾಶ್ ಬಳಸಿ';
+
+  @override
+  String get share_have => 'ನನ್ನ ವಿವರಗಳಿಂದ';
+
+  @override
+  String share_missing(String company) {
+    return '$company ಗೆ ಇವೂ ಬೇಕು';
+  }
+
+  @override
+  String get share_saved_note =>
+      'ನನ್ನ ವಿವರಗಳಲ್ಲಿ ಉಳಿಸಲಾಗುತ್ತದೆ, ಆದ್ದರಿಂದ ಒಮ್ಮೆ ಮಾತ್ರ ಟೈಪ್ ಮಾಡಿದರೆ ಸಾಕು.';
+
+  @override
+  String share_none_needed(String company) {
+    return 'ಇದಕ್ಕಾಗಿ $company ಗೆ ನಿಮ್ಮಿಂದ ಯಾವುದೇ ವಿವರ ಬೇಕಿಲ್ಲ.';
+  }
+
+  @override
+  String get share_edit => 'ಬದಲಿಸಿ';
+
+  @override
+  String details_changed(String company) {
+    return 'ನಿಮ್ಮ ವಿವರಗಳು ಬದಲಾಗಿವೆ. $company ಬಳಿ ಇರುವುದನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಬೇಕೆ?';
+  }
+
+  @override
+  String get details_update => 'ಅಪ್‌ಡೇಟ್ ಮಾಡಿ';
+
+  @override
+  String get me_about => 'ಕುರಿತು';
+
+  @override
+  String get about_title => 'Sammati ಕುರಿತು';
+
+  @override
+  String get about_prototype =>
+      'Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್. ಕಾಲ್ಪನಿಕ ವಿವರಗಳನ್ನು ಬಳಸಿ.';
+
+  @override
+  String get about_no_recovery_title => 'ಈ ಆವೃತ್ತಿಯಲ್ಲಿ ಖಾತೆ ಮರುಪಡೆಯುವಿಕೆ ಇಲ್ಲ';
+
+  @override
+  String get about_no_recovery_body =>
+      'ಈ ಫೋನ್ ಕಳೆದುಹೋದರೆ ಅಥವಾ ಆ್ಯಪ್‌ನ ಡೇಟಾ ಅಳಿಸಿದರೆ, ನಿಮ್ಮ ವಾಲೆಟ್, ನಿಮ್ಮ Sammati ID ಮತ್ತು ಉಳಿಸಿದ ವಿವರಗಳು ಹೋಗುತ್ತವೆ, ಮತ್ತು ನೀವು ಹೊಸ ಖಾತೆಯೊಂದಿಗೆ ಮತ್ತೆ ಆರಂಭಿಸಬೇಕು. ನಿಜವಾದ ಬಿಡುಗಡೆಯಲ್ಲಿ ಬ್ಯಾಕಪ್ ಮತ್ತು ಮರುಪಡೆಯುವಿಕೆಗೆ ಯೋಜನೆ ಇದೆ.';
 }

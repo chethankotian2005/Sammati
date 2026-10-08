@@ -13,7 +13,7 @@ import '../../core/wallet_service.dart';
 import '../../core/withdraw_flow.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
-import '../../core/demo_profile.dart';
+import '../../core/vault_purposes.dart';
 import '../alerts/renew.dart';
 import '../consent/receipt_data.dart';
 import '../shell/empty_state.dart';
@@ -234,6 +234,7 @@ class _PurposeRow extends ConsumerWidget {
                     company: company,
                     purposeCode: consent.code,
                     consentActive: state == ConsentState.active,
+                    categories: consent.dataCategories,
                   ),
                 // After a withdrawal this is the "who else was told" list (W-08); empty, it takes no room.
                 _CascadeList(purposeId: consent.purposeId, now: now),

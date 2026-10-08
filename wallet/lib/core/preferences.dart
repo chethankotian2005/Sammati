@@ -52,3 +52,19 @@ class CoreUrlNotifier extends Notifier<String> {
 }
 
 final coreUrlProvider = NotifierProvider<CoreUrlNotifier, String>(CoreUrlNotifier.new);
+
+/// Whether account creation (W-15) has finished on this phone. Not secret. A wallet made before accounts existed has no
+/// flag and is taken through the profile step once, which it can skip.
+class AccountSetupNotifier extends Notifier<bool> {
+  @override
+  bool build() => ref.watch(sharedPreferencesProvider).getBool(_setupKey) ?? false;
+
+  Future<void> finish() async {
+    state = true;
+    await ref.read(sharedPreferencesProvider).setBool(_setupKey, true);
+  }
+}
+
+const _setupKey = 'account_setup_done';
+
+final accountSetupDoneProvider = NotifierProvider<AccountSetupNotifier, bool>(AccountSetupNotifier.new);

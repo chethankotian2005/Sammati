@@ -7,6 +7,8 @@ import 'package:sammati/core/consents_controller.dart';
 import 'package:sammati/core/notifications.dart';
 import 'package:sammati/core/processor_api.dart';
 import 'package:sammati/core/preferences.dart';
+import 'package:sammati/core/profile.dart';
+import 'package:sammati/core/profile_store.dart';
 import 'package:sammati/core/wallet_providers.dart';
 import 'package:sammati/core/wallet_service.dart';
 import 'package:sammati/main.dart';
@@ -39,13 +41,19 @@ Future<FakeCoreApi> pumpApp(
   Stream<DateTime>? ticks,
   ProcessorApi? processor,
   LocalNotifier? notifier,
+  FakeVault? vault,
+  Map<String, String> profile = const {},
 }) async {
-  SharedPreferences.setMockInitialValues(stored);
+  // A phone with a wallet has finished account setup unless a test says otherwise (W-15).
+  SharedPreferences.setMockInitialValues({if (withWallet) 'account_setup_done': true, ...stored});
   final prefs = await SharedPreferences.getInstance();
   final fakePresence = presence ?? FakePresence();
   final fakeCore = core ?? FakeCoreApi();
   final fakeLive = live ?? FakeLiveEvents();
-  final service = WalletService(vault: FakeVault(), presence: fakePresence);
+  final fakeVault = vault ?? FakeVault();
+  final service = WalletService(vault: fakeVault, presence: fakePresence);
+  // A phone whose owner already filled in some details (W-16): encrypted into the same secure storage the app reads.
+  if (profile.isNotEmpty) await ProfileStore(vault: fakeVault, presence: fakePresence).create(const ProfileDoc().withFields(profile));
   if (withWallet) {
     // The wallet exists before the scenario starts, even if the scenario is "user declines biometrics".
     final scenarioApproves = fakePresence.approve;

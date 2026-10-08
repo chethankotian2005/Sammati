@@ -433,22 +433,6 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get vault_profile_title => 'मेरा डेमो विवरण';
-
-  @override
-  String get vault_profile_note =>
-      'डेमो के लिए बनाए गए विवरण। ये इसी फ़ोन पर रहते हैं और कहीं भी भेजने से पहले एन्क्रिप्ट हो जाते हैं।';
-
-  @override
-  String get vault_pan => 'PAN';
-
-  @override
-  String get vault_income => 'आय';
-
-  @override
-  String get vault_score => 'क्रेडिट स्कोर';
-
-  @override
   String get vault_simulated =>
       'डेमो प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं)';
 
@@ -486,11 +470,8 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String share_intro(String company) {
-    return '$company को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए $company इन्हें कभी नहीं देखती।';
+    return '$company को इस उद्देश्य के लिए ये जानकारी चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होती हैं, इसलिए $company इन्हें कभी नहीं देखती।';
   }
-
-  @override
-  String get share_use_demo => 'डेमो विवरण भरें';
 
   @override
   String get share_pan => 'PAN';
@@ -819,4 +800,188 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get protect_note =>
       'Sammati एक प्रोटोटाइप है और इसमें बनावटी डेटा है। यह भारत के DPDP अधिनियम, 2023 के सिद्धांतों के अनुरूप बनाया गया है। यह क़ानूनी सलाह या प्रमाणन नहीं है। क्या मैप किया गया है और क्या अभी जाँचना बाकी है, यह docs/dpdp-mapping.md में है।';
+
+  @override
+  String acct_step(int n) {
+    return 'चरण $n / 3';
+  }
+
+  @override
+  String get acct_id_title => 'अपनी Sammati ID चुनें';
+
+  @override
+  String get acct_id_checking => 'जाँच हो रही है…';
+
+  @override
+  String acct_id_available(String handle) {
+    return '$handle उपलब्ध है';
+  }
+
+  @override
+  String get acct_id_later => 'बाद में चुनें';
+
+  @override
+  String acct_registering(String handle) {
+    return 'आपका वॉलेट बन गया है। $handle पंजीकृत हो रही है…';
+  }
+
+  @override
+  String acct_register_failed(String handle) {
+    return 'आपका वॉलेट तैयार है, लेकिन $handle पंजीकृत नहीं हो सकी।';
+  }
+
+  @override
+  String get acct_choose_another => 'दूसरी ID चुनें';
+
+  @override
+  String get acct_profile_title => 'आपकी जानकारी';
+
+  @override
+  String get acct_profile_body =>
+      'जो चाहें, एक बार भर दें। हर खाना वैकल्पिक है। किसी कंपनी को कोई जानकारी तभी मिलती है जब आप उस उद्देश्य के लिए हाँ कहें जिसे उसकी ज़रूरत है।';
+
+  @override
+  String get acct_skip => 'अभी छोड़ें';
+
+  @override
+  String get acct_finish => 'सहेजें और आगे बढ़ें';
+
+  @override
+  String get profile_title => 'मेरी जानकारी';
+
+  @override
+  String get profile_group_identity => 'आप कौन हैं';
+
+  @override
+  String get profile_group_contact => 'आप तक कैसे पहुँचें';
+
+  @override
+  String get profile_group_financial => 'पैसा';
+
+  @override
+  String get profile_group_health => 'स्वास्थ्य';
+
+  @override
+  String get profile_group_prefs => 'आपकी पसंद';
+
+  @override
+  String get profile_private =>
+      'केवल इसी फ़ोन में रखी जाती है, आपके फ़िंगरप्रिंट या PIN से बंद। Sammati के सर्वर इन्हें कभी नहीं पाते।';
+
+  @override
+  String get profile_locked => 'आपकी जानकारी बंद है';
+
+  @override
+  String get profile_unlock => 'खोलें';
+
+  @override
+  String get auth_reason_profile => 'अपनी जानकारी खोलने के लिए पुष्टि करें';
+
+  @override
+  String get profile_empty =>
+      'अभी कुछ नहीं जोड़ा। एक बार जोड़ें और किसी भी कंपनी के साथ इस्तेमाल करें।';
+
+  @override
+  String get profile_not_set => 'जोड़ा नहीं गया';
+
+  @override
+  String get profile_save => 'सहेजें';
+
+  @override
+  String get profile_remove => 'हटाएँ';
+
+  @override
+  String get profile_saved => 'इस फ़ोन में सहेजा गया';
+
+  @override
+  String get profile_lost =>
+      'आपकी सहेजी जानकारी पढ़ी नहीं जा सकी। उसे फिर से जोड़ें।';
+
+  @override
+  String get gender_female => 'महिला';
+
+  @override
+  String get gender_male => 'पुरुष';
+
+  @override
+  String get gender_other => 'अन्य';
+
+  @override
+  String get gender_prefer_not => 'बताना नहीं चाहते';
+
+  @override
+  String get food_vegetarian => 'शाकाहारी';
+
+  @override
+  String get food_non_vegetarian => 'मांसाहारी';
+
+  @override
+  String get food_vegan => 'वीगन';
+
+  @override
+  String get dob_hint => 'DD/MM/YYYY';
+
+  @override
+  String get err_name => 'अपना पूरा नाम दर्ज करें, 2 से 80 अक्षर';
+
+  @override
+  String get err_dob => '31/12/1995 जैसी असली तारीख दर्ज करें';
+
+  @override
+  String get err_mobile => '10 अंकों का मोबाइल नंबर दर्ज करें';
+
+  @override
+  String get err_email => 'name@example.com जैसा ईमेल दर्ज करें';
+
+  @override
+  String get err_text => 'बहुत छोटा या बहुत लंबा';
+
+  @override
+  String get err_policy => '4 से 30 अक्षर, अंक या डैश इस्तेमाल करें';
+
+  @override
+  String get share_have => 'मेरी जानकारी से';
+
+  @override
+  String share_missing(String company) {
+    return '$company को ये भी चाहिए';
+  }
+
+  @override
+  String get share_saved_note =>
+      'मेरी जानकारी में सहेजा जाता है, ताकि आपको एक ही बार लिखना पड़े।';
+
+  @override
+  String share_none_needed(String company) {
+    return '$company को इसके लिए आपसे कोई जानकारी नहीं चाहिए।';
+  }
+
+  @override
+  String get share_edit => 'बदलें';
+
+  @override
+  String details_changed(String company) {
+    return 'आपकी जानकारी बदली है। $company के पास जो है उसे अपडेट करें?';
+  }
+
+  @override
+  String get details_update => 'अपडेट करें';
+
+  @override
+  String get me_about => 'परिचय';
+
+  @override
+  String get about_title => 'Sammati के बारे में';
+
+  @override
+  String get about_prototype =>
+      'Sammati एक प्रोटोटाइप है। बनावटी जानकारी का उपयोग करें।';
+
+  @override
+  String get about_no_recovery_title =>
+      'इस संस्करण में खाता पुनर्प्राप्ति नहीं है';
+
+  @override
+  String get about_no_recovery_body =>
+      'यह फ़ोन खो जाए या ऐप का डेटा मिट जाए, तो आपका वॉलेट, आपकी Sammati ID और सहेजी हुई जानकारी चली जाती है और आपको नया खाता बनाना पड़ता है। असली संस्करण में बैकअप और पुनर्प्राप्ति की योजना है।';
 }

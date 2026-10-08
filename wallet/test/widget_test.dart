@@ -47,6 +47,7 @@ void main() {
     });
 
     testWidgets('dev settings rejects a bad Core URL and stores a good one', (tester) async {
+      useTallScreen(tester);
       await pumpApp(tester);
       await goToMe(tester);
       await tester.tap(find.text('Developer settings'));
@@ -80,9 +81,13 @@ void main() {
         await tester.tap(find.byType(FilledButton));
         await tester.pumpAndSettle();
       }
+      // account creation (W-15) opens on the Sammati ID; these tests are about the wallet step
+      await tester.tap(find.text('Choose later'));
+      await tester.pumpAndSettle();
     }
 
     testWidgets('walks language, three onboarding screens, wallet creation, then home', (tester) async {
+      useTallScreen(tester);
       await pumpApp(tester, withWallet: false);
       expect(find.text('Choose your language'), findsOneWidget);
 
@@ -104,8 +109,14 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      expect(find.text('Choose your Sammati ID'), findsOneWidget);
+      await tester.tap(find.text('Choose later'));
+      await tester.pumpAndSettle();
       expect(find.text('Secure with fingerprint or PIN'), findsOneWidget);
       await tester.tap(find.text('Create wallet'));
+      await tester.pumpAndSettle();
+      expect(find.text('Your details'), findsWidgets); // step 3, optional
+      await tester.tap(find.text('Skip for now'));
       await tester.pumpAndSettle();
       expect(find.text('No companies yet. Scan a QR code to connect your first one.'), findsOneWidget);
     });

@@ -11,7 +11,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/consent_flow.dart';
 import 'package:sammati/core/core_api.dart';
-import 'package:sammati/core/demo_profile.dart';
+
 import 'package:sammati/core/envelope.dart';
 import 'package:sammati/core/live_events.dart';
 import 'package:sammati/core/processor_api.dart';
@@ -23,6 +23,18 @@ import '../support/fake_core.dart' show fiduciaryAddress;
 import '../support/fakes.dart';
 
 const _coreUrl = String.fromEnvironment('CORE_URL');
+/// A throwaway profile for this test (made up).
+const _profile = {'pan': 'QZXWV9876K', 'incomeBand': '6-9 LPA', 'employment': 'salaried', 'score': 742};
+
+class _Details {
+  const _Details({required this.pan, required this.incomeBand, required this.employment, this.score});
+  final String pan;
+  final String incomeBand;
+  final String employment;
+  final int? score;
+  Map<String, Object> toPayload() => {'pan': pan, 'incomeBand': incomeBand, 'employment': employment, 'score': ?score};
+}
+
 const _apiKey = 'sk_demo_quickloan'; // QuickLoan's demo key (trd.md §10)
 
 Future<({int status, Map<String, dynamic> json})> _http(String method, String url, {Object? body, Map<String, String> headers = const {}}) async {
@@ -93,7 +105,7 @@ void main() {
     await live.connection.firstWhere((up) => up).timeout(const Duration(seconds: 5));
 
     // 1. send securely: Dart seals, signs (EIP-191), the Processor verifies and stores
-    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload);
+    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: _profile);
     expect(sent.handle, matches(RegExp(r'^0x[0-9a-f]{64}$')));
 
     // 2. the vault holds ciphertext and metadata, whoever asks
@@ -101,7 +113,7 @@ void main() {
     expect(vaulted.status, 200);
     expect(vaulted.json['status'], 'stored');
     expect(vaulted.json['ciphertextHash'], sent.ciphertextHash);
-    expect(jsonEncode(vaulted.json), isNot(contains(DemoProfile.pan)));
+    expect(jsonEncode(vaulted.json), isNot(contains('QZXWV9876K')));
     final stored = Envelope.fromJson((vaulted.json['envelope'] as Map).cast<String, dynamic>());
     expect(stored.handle, sent.handle, reason: 'the handle is the hash of exactly what the phone sent');
 
@@ -111,7 +123,7 @@ void main() {
     expect(decision.json['decision'], 'approved');
     expect(decision.json['limit'], 300000);
     expect(decision.json['reasonCodes'], ['SCORE_FAIR']);
-    expect(jsonEncode(decision.json), isNot(contains(DemoProfile.pan)));
+    expect(jsonEncode(decision.json), isNot(contains('QZXWV9876K')));
 
     // 4. the live socket told the phone
     await _until(() => notices.any((n) => n.kind == VaultNoticeKind.stored), 'the vault.stored event');
@@ -139,7 +151,7 @@ void main() {
     await wallet.create(reason: 'setup');
     flow = VaultFlow(wallet: wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
     await expectLater(
-      flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload),
+      flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: _profile),
       throwsA(isA<VaultRefusedException>().having((e) => e.code, 'code', 'NO_CONSENT')),
     );
   }, skip: skip);
@@ -148,7 +160,7 @@ void main() {
     final who = await _consented();
     flow = VaultFlow(wallet: who.wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
 
-    final manual = const SensitiveDetails(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'self-employed').toPayload();
+    final manual = const _Details(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'self-employed').toPayload();
     final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: manual);
     final approved = await evaluate(sent.handle);
     expect(approved.status, 200, reason: '${approved.json}');
@@ -158,7 +170,7 @@ void main() {
     expect(jsonEncode(approved.json), isNot(contains('PQRST5678U')));
 
     // a student is not lent to: the Processor declines, and says why, from data QuickLoan never sees
-    final student = const SensitiveDetails(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'student', score: 800).toPayload();
+    final student = const _Details(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'student', score: 800).toPayload();
     final again = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: student);
     final declined = await evaluate(again.handle);
     expect(declined.json['decision'], 'declined');
@@ -168,7 +180,7 @@ void main() {
   test('a tampered ciphertext is an error, never a guessed decision', () async {
     final who = await _consented();
     flow = VaultFlow(wallet: who.wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
-    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload);
+    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: _profile);
 
     expect((await _http('POST', '$processorUrl/v1/demo/tamper/${sent.handle}')).status, 200);
     final result = await evaluate(sent.handle);

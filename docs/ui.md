@@ -549,7 +549,7 @@ Have a native speaker check every Hindi and Kannada string, including purpose de
 
 ### 6.3 Keys for the account and profile (W-15 to W-17)
 
-Hindi and Kannada are first drafts and need the native-speaker check, like the rest. The `cat_*` labels are the data category labels of the registry (`shared/src/categories.ts`); a wallet test fails if an ARB label differs from the registry's. A key that already exists keeps its text unless it appears here (`share_intro` changes). The strings `vault_profile_title`, `vault_profile_note`, `vault_pan`, `vault_income`, `vault_score` and `share_use_demo` belonged to the removed sample profile and are deleted.
+Hindi and Kannada are first drafts and need the native-speaker check, like the rest. The `cat_*` rows are the data category labels of the registry (`shared/src/categories.ts`). They are **not** ARB keys: the wallet reads them from the registry in the app's language (`data_categories.dart`, kept identical by `data_categories_test.dart` against the shared vectors), so each label exists once. A key that already exists keeps its text unless it appears here (`share_intro` changes). The strings `vault_profile_title`, `vault_profile_note`, `vault_pan`, `vault_income`, `vault_score` and `share_use_demo` belonged to the removed sample profile and are deleted.
 
 | Key | English | Hindi | Kannada |
 |---|---|---|---|

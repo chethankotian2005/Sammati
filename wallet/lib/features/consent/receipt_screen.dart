@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
-import '../../core/demo_profile.dart';
+import '../../core/vault_purposes.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 import '../shell/hash_text.dart';

@@ -25,7 +25,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _next(int pageCount) {
     if (_page == pageCount - 1) {
-      context.go(Routes.createWallet);
+      context.go(Routes.createAccount);
     } else {
       _controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     }

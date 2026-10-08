@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/vault_purposes.dart';
+import '../vault/stale_note.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -167,6 +169,9 @@ class _PassCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                  for (final consent in company.consents)
+                    if (vaultPurposes.contains(consent.code) && consent.stateAt(now) == ConsentState.active)
+                      StaleDetailsNote(fiduciary: company.fiduciary.address, company: company.fiduciary.name, purposeCode: consent.code, categories: consent.dataCategories),
                   if (expiry != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),

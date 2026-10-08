@@ -48,6 +48,10 @@ class WalletService {
   final KeyVault _vault;
   final UserPresence _presence;
 
+  /// The same two seams, for the profile vault (profile_store.dart): one device check gates both secrets.
+  KeyVault get vault => _vault;
+  UserPresence get presence => _presence;
+
   /// The wallet address, or null on a fresh install. No prompt.
   Future<String?> address() => _readAddress();
 

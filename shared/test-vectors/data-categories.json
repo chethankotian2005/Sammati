@@ -1,0 +1,657 @@
+{
+  "groups": [
+    {
+      "id": "identity",
+      "label": {
+        "en": "Who you are",
+        "hi": "आप कौन हैं",
+        "kn": "ನೀವು ಯಾರು"
+      }
+    },
+    {
+      "id": "contact",
+      "label": {
+        "en": "How to reach you",
+        "hi": "आप तक कैसे पहुँचें",
+        "kn": "ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುವ ವಿಧಾನ"
+      }
+    },
+    {
+      "id": "financial",
+      "label": {
+        "en": "Money",
+        "hi": "पैसा",
+        "kn": "ಹಣಕಾಸು"
+      }
+    },
+    {
+      "id": "health",
+      "label": {
+        "en": "Health",
+        "hi": "स्वास्थ्य",
+        "kn": "ಆರೋಗ್ಯ"
+      }
+    },
+    {
+      "id": "prefs",
+      "label": {
+        "en": "Your preferences",
+        "hi": "आपकी पसंद",
+        "kn": "ನಿಮ್ಮ ಆದ್ಯತೆಗಳು"
+      }
+    }
+  ],
+  "categories": [
+    {
+      "id": "identity.name",
+      "group": "identity",
+      "field": "fullName",
+      "kind": "text",
+      "min": 2,
+      "max": 80,
+      "label": {
+        "en": "Full name",
+        "hi": "पूरा नाम",
+        "kn": "ಪೂರ್ಣ ಹೆಸರು"
+      }
+    },
+    {
+      "id": "identity.dob",
+      "group": "identity",
+      "field": "dob",
+      "kind": "date",
+      "label": {
+        "en": "Date of birth",
+        "hi": "जन्म तिथि",
+        "kn": "ಹುಟ್ಟಿದ ದಿನಾಂಕ"
+      }
+    },
+    {
+      "id": "identity.gender",
+      "group": "identity",
+      "field": "gender",
+      "kind": "choice",
+      "choices": [
+        "female",
+        "male",
+        "other",
+        "prefer_not_to_say"
+      ],
+      "label": {
+        "en": "Gender",
+        "hi": "लिंग",
+        "kn": "ಲಿಂಗ"
+      }
+    },
+    {
+      "id": "contact.mobile",
+      "group": "contact",
+      "field": "mobile",
+      "kind": "mobile",
+      "label": {
+        "en": "Mobile number",
+        "hi": "मोबाइल नंबर",
+        "kn": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ"
+      }
+    },
+    {
+      "id": "contact.email",
+      "group": "contact",
+      "field": "email",
+      "kind": "email",
+      "label": {
+        "en": "Email",
+        "hi": "ईमेल",
+        "kn": "ಇಮೇಲ್"
+      }
+    },
+    {
+      "id": "contact.address",
+      "group": "contact",
+      "field": "address",
+      "kind": "multiline",
+      "min": 5,
+      "max": 200,
+      "label": {
+        "en": "Home address",
+        "hi": "घर का पता",
+        "kn": "ಮನೆಯ ವಿಳಾಸ"
+      }
+    },
+    {
+      "id": "financial.pan",
+      "group": "financial",
+      "field": "pan",
+      "kind": "pan",
+      "label": {
+        "en": "PAN",
+        "hi": "पैन (PAN)",
+        "kn": "ಪ್ಯಾನ್ (PAN)"
+      }
+    },
+    {
+      "id": "financial.income_band",
+      "group": "financial",
+      "field": "incomeBand",
+      "kind": "choice",
+      "choices": [
+        "0-3 LPA",
+        "3-6 LPA",
+        "6-9 LPA",
+        "9+ LPA"
+      ],
+      "label": {
+        "en": "Yearly income",
+        "hi": "वार्षिक आय",
+        "kn": "ವಾರ್ಷಿಕ ಆದಾಯ"
+      }
+    },
+    {
+      "id": "financial.employment",
+      "group": "financial",
+      "field": "employment",
+      "kind": "choice",
+      "choices": [
+        "salaried",
+        "self-employed",
+        "student",
+        "unemployed"
+      ],
+      "label": {
+        "en": "Type of work",
+        "hi": "काम का प्रकार",
+        "kn": "ಕೆಲಸದ ಬಗೆ"
+      }
+    },
+    {
+      "id": "financial.employer",
+      "group": "financial",
+      "field": "employer",
+      "kind": "text",
+      "min": 2,
+      "max": 80,
+      "label": {
+        "en": "Employer",
+        "hi": "नियोक्ता",
+        "kn": "ಉದ್ಯೋಗದಾತ"
+      }
+    },
+    {
+      "id": "health.blood_group",
+      "group": "health",
+      "field": "bloodGroup",
+      "kind": "choice",
+      "choices": [
+        "A+",
+        "A-",
+        "B+",
+        "B-",
+        "AB+",
+        "AB-",
+        "O+",
+        "O-"
+      ],
+      "label": {
+        "en": "Blood group",
+        "hi": "रक्त समूह",
+        "kn": "ರಕ್ತದ ಗುಂಪು"
+      }
+    },
+    {
+      "id": "health.allergies",
+      "group": "health",
+      "field": "allergies",
+      "kind": "multiline",
+      "min": 2,
+      "max": 200,
+      "label": {
+        "en": "Allergies",
+        "hi": "एलर्जी",
+        "kn": "ಅಲರ್ಜಿಗಳು"
+      }
+    },
+    {
+      "id": "health.insurance_policy",
+      "group": "health",
+      "field": "insurancePolicy",
+      "kind": "policy",
+      "label": {
+        "en": "Health insurance policy number",
+        "hi": "स्वास्थ्य बीमा पॉलिसी नंबर",
+        "kn": "ಆರೋಗ್ಯ ವಿಮೆ ಪಾಲಿಸಿ ಸಂಖ್ಯೆ"
+      }
+    },
+    {
+      "id": "prefs.food",
+      "group": "prefs",
+      "field": "foodPreference",
+      "kind": "choice",
+      "choices": [
+        "vegetarian",
+        "non_vegetarian",
+        "vegan"
+      ],
+      "label": {
+        "en": "Food preference",
+        "hi": "भोजन की पसंद",
+        "kn": "ಆಹಾರದ ಆದ್ಯತೆ"
+      }
+    },
+    {
+      "id": "prefs.delivery_address",
+      "group": "prefs",
+      "field": "deliveryAddress",
+      "kind": "multiline",
+      "min": 5,
+      "max": 200,
+      "label": {
+        "en": "Delivery address",
+        "hi": "डिलीवरी का पता",
+        "kn": "ಡೆಲಿವರಿ ವಿಳಾಸ"
+      }
+    }
+  ],
+  "validation": {
+    "today": "2026-10-09",
+    "cases": [
+      {
+        "field": "fullName",
+        "value": "Asha Rao",
+        "valid": true
+      },
+      {
+        "field": "fullName",
+        "value": "A",
+        "valid": false
+      },
+      {
+        "field": "fullName",
+        "value": " Asha",
+        "valid": false
+      },
+      {
+        "field": "fullName",
+        "value": "ಆಶಾ ರಾವ್",
+        "valid": true
+      },
+      {
+        "field": "fullName",
+        "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "valid": false
+      },
+      {
+        "field": "dob",
+        "value": "1995-12-31",
+        "valid": true
+      },
+      {
+        "field": "dob",
+        "value": "2026-10-09",
+        "valid": true
+      },
+      {
+        "field": "dob",
+        "value": "2026-10-10",
+        "valid": false
+      },
+      {
+        "field": "dob",
+        "value": "1899-12-31",
+        "valid": false
+      },
+      {
+        "field": "dob",
+        "value": "1995-02-30",
+        "valid": false
+      },
+      {
+        "field": "dob",
+        "value": "31/12/1995",
+        "valid": false
+      },
+      {
+        "field": "gender",
+        "value": "female",
+        "valid": true
+      },
+      {
+        "field": "gender",
+        "value": "prefer_not_to_say",
+        "valid": true
+      },
+      {
+        "field": "gender",
+        "value": "Female",
+        "valid": false
+      },
+      {
+        "field": "mobile",
+        "value": "9876501234",
+        "valid": true
+      },
+      {
+        "field": "mobile",
+        "value": "5876501234",
+        "valid": false
+      },
+      {
+        "field": "mobile",
+        "value": "98765012",
+        "valid": false
+      },
+      {
+        "field": "mobile",
+        "value": "+919876501234",
+        "valid": false
+      },
+      {
+        "field": "email",
+        "value": "asha@example.com",
+        "valid": true
+      },
+      {
+        "field": "email",
+        "value": "asha@example",
+        "valid": false
+      },
+      {
+        "field": "email",
+        "value": "asha example@x.com",
+        "valid": false
+      },
+      {
+        "field": "email",
+        "value": "a@b.co",
+        "valid": true
+      },
+      {
+        "field": "address",
+        "value": "12 MG Road, Bengaluru",
+        "valid": true
+      },
+      {
+        "field": "address",
+        "value": "Home",
+        "valid": false
+      },
+      {
+        "field": "pan",
+        "value": "ABCDE1234F",
+        "valid": true
+      },
+      {
+        "field": "pan",
+        "value": "abcde1234f",
+        "valid": false
+      },
+      {
+        "field": "pan",
+        "value": "ABCDE12345",
+        "valid": false
+      },
+      {
+        "field": "incomeBand",
+        "value": "6-9 LPA",
+        "valid": true
+      },
+      {
+        "field": "incomeBand",
+        "value": "6 to 9 LPA",
+        "valid": false
+      },
+      {
+        "field": "employment",
+        "value": "salaried",
+        "valid": true
+      },
+      {
+        "field": "employment",
+        "value": "Salaried",
+        "valid": false
+      },
+      {
+        "field": "employer",
+        "value": "Acme Pvt Ltd",
+        "valid": true
+      },
+      {
+        "field": "employer",
+        "value": "A",
+        "valid": false
+      },
+      {
+        "field": "bloodGroup",
+        "value": "O+",
+        "valid": true
+      },
+      {
+        "field": "bloodGroup",
+        "value": "AB-",
+        "valid": true
+      },
+      {
+        "field": "bloodGroup",
+        "value": "C+",
+        "valid": false
+      },
+      {
+        "field": "allergies",
+        "value": "Peanuts",
+        "valid": true
+      },
+      {
+        "field": "allergies",
+        "value": "x",
+        "valid": false
+      },
+      {
+        "field": "insurancePolicy",
+        "value": "POL-2024-0099",
+        "valid": true
+      },
+      {
+        "field": "insurancePolicy",
+        "value": "ab",
+        "valid": false
+      },
+      {
+        "field": "insurancePolicy",
+        "value": "POL 2024",
+        "valid": false
+      },
+      {
+        "field": "foodPreference",
+        "value": "vegetarian",
+        "valid": true
+      },
+      {
+        "field": "foodPreference",
+        "value": "veg",
+        "valid": false
+      },
+      {
+        "field": "deliveryAddress",
+        "value": "Flat 4B, 2nd Cross, Mysuru",
+        "valid": true
+      },
+      {
+        "field": "deliveryAddress",
+        "value": "abc",
+        "valid": false
+      }
+    ]
+  },
+  "normalize": [
+    {
+      "input": [
+        "financial.pan",
+        "identity.name",
+        "financial.pan"
+      ],
+      "output": [
+        "identity.name",
+        "financial.pan"
+      ]
+    },
+    {
+      "input": [
+        "prefs.delivery_address",
+        "contact.email",
+        "identity.dob"
+      ],
+      "output": [
+        "identity.dob",
+        "contact.email",
+        "prefs.delivery_address"
+      ]
+    },
+    {
+      "input": [
+        "a.unknown",
+        "identity.name"
+      ],
+      "output": [
+        "identity.name",
+        "a.unknown"
+      ]
+    }
+  ],
+  "payload": [
+    {
+      "name": "loan purpose, full profile",
+      "profile": {
+        "fullName": "Asha Rao",
+        "dob": "1995-12-31",
+        "gender": "female",
+        "mobile": "9876501234",
+        "email": "asha@example.com",
+        "address": "12 MG Road, Bengaluru",
+        "pan": "ABCDE1234F",
+        "incomeBand": "6-9 LPA",
+        "employment": "salaried",
+        "employer": "Acme Pvt Ltd",
+        "bloodGroup": "O+",
+        "allergies": "Peanuts",
+        "insurancePolicy": "POL-2024-0099",
+        "foodPreference": "vegetarian",
+        "deliveryAddress": "Flat 4B, 2nd Cross, Mysuru"
+      },
+      "categories": [
+        "financial.pan",
+        "financial.income_band",
+        "financial.employment"
+      ],
+      "payload": {
+        "pan": "ABCDE1234F",
+        "incomeBand": "6-9 LPA",
+        "employment": "salaried"
+      },
+      "missing": []
+    },
+    {
+      "name": "loan purpose, income missing",
+      "profile": {
+        "pan": "ABCDE1234F",
+        "employment": "salaried"
+      },
+      "categories": [
+        "financial.pan",
+        "financial.income_band",
+        "financial.employment"
+      ],
+      "payload": {
+        "pan": "ABCDE1234F",
+        "employment": "salaried"
+      },
+      "missing": [
+        "incomeBand"
+      ]
+    },
+    {
+      "name": "categories out of order and repeated",
+      "profile": {
+        "fullName": "Asha Rao",
+        "dob": "1995-12-31",
+        "gender": "female",
+        "mobile": "9876501234",
+        "email": "asha@example.com",
+        "address": "12 MG Road, Bengaluru",
+        "pan": "ABCDE1234F",
+        "incomeBand": "6-9 LPA",
+        "employment": "salaried",
+        "employer": "Acme Pvt Ltd",
+        "bloodGroup": "O+",
+        "allergies": "Peanuts",
+        "insurancePolicy": "POL-2024-0099",
+        "foodPreference": "vegetarian",
+        "deliveryAddress": "Flat 4B, 2nd Cross, Mysuru"
+      },
+      "categories": [
+        "contact.mobile",
+        "identity.name",
+        "contact.mobile"
+      ],
+      "payload": {
+        "fullName": "Asha Rao",
+        "mobile": "9876501234"
+      },
+      "missing": []
+    },
+    {
+      "name": "empty values count as missing",
+      "profile": {
+        "fullName": "",
+        "mobile": "9876501234"
+      },
+      "categories": [
+        "identity.name",
+        "contact.mobile"
+      ],
+      "payload": {
+        "mobile": "9876501234"
+      },
+      "missing": [
+        "fullName"
+      ]
+    },
+    {
+      "name": "a category the registry does not know",
+      "profile": {
+        "fullName": "Asha Rao",
+        "dob": "1995-12-31",
+        "gender": "female",
+        "mobile": "9876501234",
+        "email": "asha@example.com",
+        "address": "12 MG Road, Bengaluru",
+        "pan": "ABCDE1234F",
+        "incomeBand": "6-9 LPA",
+        "employment": "salaried",
+        "employer": "Acme Pvt Ltd",
+        "bloodGroup": "O+",
+        "allergies": "Peanuts",
+        "insurancePolicy": "POL-2024-0099",
+        "foodPreference": "vegetarian",
+        "deliveryAddress": "Flat 4B, 2nd Cross, Mysuru"
+      },
+      "categories": [
+        "identity.name",
+        "loyalty.card"
+      ],
+      "payload": {
+        "fullName": "Asha Rao"
+      },
+      "missing": []
+    },
+    {
+      "name": "empty profile",
+      "profile": {},
+      "categories": [
+        "health.blood_group"
+      ],
+      "payload": {},
+      "missing": [
+        "bloodGroup"
+      ]
+    }
+  ]
+}

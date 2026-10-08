@@ -8,7 +8,6 @@ import 'package:convert/convert.dart';
 import 'package:eth_sig_util/eth_sig_util.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/core_api.dart';
-import 'package:sammati/core/demo_profile.dart';
 import 'package:sammati/core/envelope.dart';
 import 'package:sammati/core/processor_api.dart';
 import 'package:sammati/core/vault_flow.dart';
@@ -19,6 +18,7 @@ import 'support/fakes.dart';
 
 const _fiduciary = fiduciaryAddress;
 const _reason = 'Confirm to send your details securely';
+const _payload = {'pan': 'QZXWV9876K', 'incomeBand': '6-9 LPA', 'employment': 'salaried'};
 
 void main() {
   final vectors = jsonDecode(File('../shared/test-vectors/envelope.json').readAsStringSync()) as Map<String, dynamic>;
@@ -52,7 +52,7 @@ void main() {
   });
 
   Future<VaultSent> send({String purposeCode = 'credit_check'}) =>
-      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason, profile: DemoProfile.payload);
+      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason, profile: _payload);
 
   test('sends only ciphertext, bound to this customer, company and purpose, and the Processor can open it', () async {
     final sent = await send();
@@ -64,7 +64,7 @@ void main() {
     expect(submission['purposeCode'], 'credit_check');
     // nothing in what was sent contains the data
     final wire = jsonEncode(submission);
-    for (final secret in [DemoProfile.pan, DemoProfile.incomeBand]) {
+    for (final secret in [_payload['pan']!, _payload['incomeBand']!]) {
       expect(wire, isNot(contains(secret)));
     }
 
@@ -72,7 +72,7 @@ void main() {
     expect(sent.handle, envelope.handle);
     expect(sent.ciphertextHash, envelope.ciphertextHash);
     final ctx = EnvelopeContext(fiduciary: _fiduciary, principal: principal, purposeCode: 'credit_check');
-    expect(jsonDecode(utf8.decode(await openEnvelope(envelope, processorKey, ctx))), DemoProfile.payload);
+    expect(jsonDecode(utf8.decode(await openEnvelope(envelope, processorKey, ctx))), _payload);
     await expectLater(
       openEnvelope(envelope, processorKey, EnvelopeContext(fiduciary: _fiduciary, principal: principal, purposeCode: 'marketing')),
       throwsA(isA<EnvelopeException>()),
@@ -134,7 +134,7 @@ void main() {
       processorFor: (_) => processor,
     );
     await expectLater(
-      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason, profile: DemoProfile.payload),
+      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason, profile: _payload),
       throwsA(isA<WalletException>().having((e) => e.failure, 'failure', WalletFailure.notCreated)),
     );
   });
