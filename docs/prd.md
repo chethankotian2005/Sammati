@@ -4,7 +4,7 @@
 Make consent behave like payments in India: one wallet, instant, revocable, verifiable. Just as UPI made it trivial to pay any merchant, Sammati makes it trivial to control who may use your data, and makes "withdraw" actually stop the data flow.
 
 ## 2. Problem
-- India's DPDP Act requires clear, purpose-specific consent, withdrawal "as easy as" giving it, and proof of compliance.
+- India's DPDP Act, 2023 asks (as the team understands it, not yet checked against the official text: `dpdp-mapping.md` VERIFY-1 to VERIFY-3) for clear, purpose-specific consent, withdrawal as easy as giving it, and a way for a company to show that it gave notice and obtained consent.
 - Today consent lives in each company's own database. Users cannot see it in one place, companies can quietly edit it, and withdrawal rarely stops anything downstream.
 - Regulators must trust the audited party's own logs.
 
@@ -46,7 +46,7 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | W-09 | Languages | P1 | English, Hindi, Kannada, switchable at runtime, applied to consent notices too |
 | W-10 | Data rights | P1 | Request access, request erasure, raise grievance, each logged and visible in status |
 | W-11 | Expiry reminders | P2 | Local notification 3 days before a consent expires |
-| W-12 | Nominee | P2 | Nominate a trusted person (DPDP right) |
+| W-12 | Nominee | P2 | Nominate a trusted person (a right of the Data Principal under the Act; scope unchecked, `dpdp-mapping.md` VERIFY-10) |
 | W-13 | Share your details securely | P1 | After consenting to a data-using purpose, the wallet offers a screen (W10) that collects the sensitive fields (PAN, income band, employment) from the local demo profile or by manual entry, validates them on the device, encrypts them for the Processor (V-01) and uploads only the ciphertext. The fields are never stored by the wallet, never sent anywhere in plain form and are cleared from memory once sent. Available in English, Hindi and Kannada |
 
 ### 6.2 Gateway + Company Console
@@ -120,6 +120,15 @@ Acceptance, end to end (all of it is in `pnpm e2e`):
 - Customer journey (C-09, W-13), by one person on stage: tick the checkbox, scan, approve, submit the details in the wallet, Apply, see the decision, withdraw, see Apply blocked, with the page following each step live. `pnpm e2e` plays the same journey with a headless client in place of the wallet, driving the portal's own state machine with the real events.
 - Data Flow Inspector (V-07, S-04): with the full flow running, all four lanes update live from events; the staff lane's two buttons return only a handle, a ciphertext hash, a status and ciphertext; the privacy line stays hidden if a plaintext value is injected into any event; replay mode reproduces a recorded run with no stack running. Checked by web tests (reducer, privacy check, staff-view filter, replay file) and by recording the replay file from a real `pnpm e2e` run.
 
+### 6.6 Legal alignment
+
+A mapping from the obligations in the Digital Personal Data Protection Act, 2023 to what Sammati does, written so that someone who works on the law can check it fast (`dpdp-mapping.md`). Accuracy over breadth: it cites no section, rule, date, threshold or timeline, because none has been checked against the official text; every such point is a numbered VERIFY item with a checklist at the end. Wording is always "aligned with the principles of", never "compliant", "certified" or "approved".
+
+| ID | Feature | Pri | Acceptance criteria |
+|---|---|---|---|
+| L-01 | DPDP mapping document | P1 | `docs/dpdp-mapping.md` has a table of obligation (plain words), who it applies to (Data Principal, Data Fiduciary, Consent Manager), the Sammati feature (ID and screen or endpoint), the evidence in the demo, and a status (implemented, partial, out of scope). It covers: notice with itemised plain-language purposes and language choice; specific, informed, unconditional, unambiguous, affirmative consent with nothing pre-ticked; purpose limitation; withdrawal as easy as giving, and its consequences; erasure on withdrawal or when the purpose is served, including processors; the consent-manager role (accountable, interoperable, not reading content); security safeguards; retention of logs and records; breach handling; grievance; the rights to information, correction and erasure, grievance and nomination; children's data. It has a "Gaps and honest limitations" section with the production path, and a VERIFY checklist listing every uncertain point. It contains no section number, rule number, date, threshold or timeline |
+| L-02 | Compliance claims review | P1 | Every legal or compliance claim in the docs and screens was reviewed (findings and actions in `dpdp-mapping.md` §6). No screen or document says "compliant", "certified" or "approved", or prints a section number that is not recorded as checked. The wallet's consent notice offers "How this protects you" (plain, implemented protections, in English, Hindi and Kannada, and a pointer to the mapping), and the Auditor report states its scope and limits. A web test fails if a known overclaim reappears; a wallet test fails if a banned word enters the wallet's strings |
+
 ## 7. The four differentiators (what to emphasise)
 1. **Enforcement, not just a log.** Withdraw in the wallet and the company's very next request is blocked.
 2. **Proof of access.** Every data access is logged and anchored on chain, so a citizen can verify what a company did and the regulator can catch edited logs.
@@ -151,6 +160,6 @@ Acceptance, end to end (all of it is in `pnpm e2e`):
 | Venue Wi-Fi unreliable | Local chain, LAN backend on a phone hotspot, recorded fallback video |
 | "Why blockchain?" challenge | Prepared answer in `demo.md` §7 |
 | Too much scope | Golden path first; cut lines in `tasks.md` |
-| Legal claims overstated | Say "aligned with DPDP principles", never "certified compliant" |
+| Legal claims overstated | Say "aligned with the principles of the DPDP Act", never "compliant", "certified" or "approved". No section or rule numbers until checked (`dpdp-mapping.md` §7). A web test and a wallet test guard the screen wording (L-02) |
 | Dart and Node envelopes disagree | Shared test vectors (`shared/test-vectors/envelope.json`) run on both sides before anything else; fixed ephemeral key and nonce in the vectors |
 | "Your Processor is just a server" | True in the build, and said so: simulated enclave, in-memory key; production path is a TEE with remote attestation (`architecture.md` §5.5, `demo.md` §7) |
