@@ -7,8 +7,9 @@ import { SEED_FIDUCIARIES, type ExpiringRow } from "@sammati/shared";
 import { WsProvider } from "../../ws";
 import { effectiveState, ExpiringConsents, relativeTime } from "./ExpiringConsents";
 
-const company = SEED_FIDUCIARIES[0]!;
-const purposes = company.purposes.map((p) => ({
+const seed = SEED_FIDUCIARIES[0]!;
+const company = { address: seed.address, slug: seed.slug, name: seed.name, sector: seed.sector, color: seed.color, sandbox: false, demo: true };
+const purposes = seed.purposes.map((p) => ({
   id: `0x${p.code}`,
   code: p.code,
   title: p.title,

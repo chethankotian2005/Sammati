@@ -6,18 +6,20 @@
  *   - Top bar: company switcher pill + CoreChip + WS indicator.
  *   - Main area: receives children.
  *
- * Company switcher is a segmented pill control (not a dropdown) because there
- * are exactly three companies — a pill is faster and never hides a state.
+ * Company switcher lists every approved company from Core (R-04): pills for up
+ * to five (faster, and never hides a state), a dropdown beyond that. A company
+ * in the sandbox carries a SANDBOX badge.
  *
  * Rail items are not router-aware yet; the active section is passed as a prop.
  * When pages move to sub-routes (e.g. /company/:id/purposes) this becomes a
  * NavLink. For now it is a controlled prop so the gallery can render any state.
  */
 
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ReactNode } from "react";
-import { SEED_FIDUCIARIES } from "@sammati/shared";
 import { CoreChip } from "../components";
+import { useDirectory } from "../directory";
+import { SandboxBadge } from "./SandboxBadge";
 import { WsIndicator } from "./WsIndicator";
 
 export type RailSection =
@@ -138,14 +140,41 @@ export function ConsoleLayout({
 // CompanySwitcher
 // ---------------------------------------------------------------------------
 
+const MAX_PILLS = 5;
+
 function CompanySwitcher({ currentId }: { currentId: string | undefined }): ReactNode {
+  const { fiduciaries, status } = useDirectory();
+  const navigate = useNavigate();
+  if (status !== "ready") {
+    return <span className="text-sm text-mute">{status === "loading" ? "Loading companies…" : "Cannot load the companies"}</span>;
+  }
+  if (fiduciaries.length > MAX_PILLS) {
+    return (
+      <label className="flex items-center gap-2 text-sm font-medium text-ink">
+        <span className="text-mute">Company</span>
+        <select
+          aria-label="Switch company"
+          value={currentId}
+          onChange={(e) => navigate(`/company/${e.target.value}`)}
+          className="rounded-pill border border-line bg-paper px-3 py-1.5 text-sm font-medium"
+        >
+          {fiduciaries.map((f) => (
+            <option key={f.slug} value={f.slug}>
+              {f.name}
+              {f.sandbox ? " (sandbox)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
   return (
     <div
       role="navigation"
       aria-label="Switch company"
       className="flex gap-1 rounded-pill border border-line bg-paper p-1"
     >
-      {SEED_FIDUCIARIES.map((f) => {
+      {fiduciaries.map((f) => {
         const isActive = f.slug === currentId;
         return (
           <Link
@@ -163,6 +192,7 @@ function CompanySwitcher({ currentId }: { currentId: string | undefined }): Reac
               aria-hidden="true"
             />
             {f.name}
+            {f.sandbox && <SandboxBadge size="sm" />}
           </Link>
         );
       })}

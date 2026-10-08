@@ -6,7 +6,7 @@
 
 import express, { type Request, type Response } from "express";
 import { sammati } from "@sammati/gateway";
-import { SEED_FIDUCIARIES } from "@sammati/shared";
+import { SEED_FIDUCIARIES, demoApiKey } from "@sammati/shared";
 
 const company = SEED_FIDUCIARIES.find((f) => f.slug === "foodrush")!;
 const port = Number(process.env.PORT ?? company.port);
@@ -14,6 +14,7 @@ const port = Number(process.env.PORT ?? company.port);
 const gate = sammati({
   coreUrl: process.env.CORE_URL ?? "http://localhost:4000",
   fiduciary: company.address,
+  apiKey: process.env.SAMMATI_API_KEY ?? demoApiKey(company.slug),
   signer: process.env.FIDUCIARY_KEY,
 });
 

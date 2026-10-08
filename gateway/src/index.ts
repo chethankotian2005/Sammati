@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import {
+  API_KEY_HEADER,
   ENTRY_ID_HEADER,
   REASON_CODES,
   ZERO_HASH,
@@ -20,6 +21,11 @@ export interface SammatiOptions {
   coreUrl: string;
   /** The company's fiduciary address. */
   fiduciary: Hex;
+  /**
+   * The company's API key (trd.md §6.2a), sent on every call to Core. Core's gateway endpoints refuse a call without
+   * a valid key for this company, and the SDK then fails closed.
+   */
+  apiKey?: string;
   /** Company key. Reserved for signing anchor batches (trd.md §8); unused until anchoring lands. */
   signer?: string;
   /** Per-call timeout; consent checks fail closed when Core is slower than this. */
@@ -74,6 +80,13 @@ const MESSAGES: Record<ReasonCode, string> = {
   NO_PRINCIPAL: "The request did not identify a data principal.",
 };
 
+/** What an API-key refusal from Core means for the company's developer, in the 451 message and the one warning. */
+const KEY_PROBLEMS: Record<string, string> = {
+  INVALID_API_KEY:
+    "Sammati rejected this company's API key (unknown, revoked or missing), so consent could not be verified and access is blocked. A company can use Sammati only after the regulator approves its registration.",
+  FIDUCIARY_MISMATCH: "Sammati rejected this API key because it belongs to another company, so consent could not be verified and access is blocked.",
+};
+
 const UNAVAILABLE: ConsentVerdict = { valid: false, reason: "LEDGER_UNAVAILABLE", expiresAt: null };
 
 export function sammati(rawOptions: SammatiOptions): SammatiGate {
@@ -81,7 +94,20 @@ export function sammati(rawOptions: SammatiOptions): SammatiGate {
   const options = { ...rawOptions, fiduciary: checksumAddress(rawOptions.fiduciary) };
   const core = options.coreUrl.replace(/\/+$/, "");
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const log = new LogChain(core, options.fiduciary, timeout, options.maxQueuedLogs ?? DEFAULT_MAX_QUEUED_LOGS);
+  const auth: Record<string, string> = options.apiKey ? { [API_KEY_HEADER]: options.apiKey } : {};
+  /** Set while Core is refusing this company's key, so the 451 can say why. Cleared by the next accepted call. */
+  let keyProblem: string | null = null;
+  const warned = new Set<string>();
+  const keyRefused = async (res: globalThis.Response): Promise<void> => {
+    const body = (await res.json().catch(() => ({}))) as { error?: { code?: string } };
+    const code = body.error?.code && KEY_PROBLEMS[body.error.code] ? body.error.code : "INVALID_API_KEY";
+    keyProblem = KEY_PROBLEMS[code]!;
+    if (!warned.has(code)) {
+      warned.add(code);
+      console.warn(`[sammati] Core refused this company's API key (${code}). ${KEY_PROBLEMS[code]}`);
+    }
+  };
+  const log = new LogChain(core, options.fiduciary, timeout, options.maxQueuedLogs ?? DEFAULT_MAX_QUEUED_LOGS, auth);
   const feed = new ConsentFeed({
     coreUrl: core,
     fiduciary: options.fiduciary,
@@ -94,8 +120,13 @@ export function sammati(rawOptions: SammatiOptions): SammatiGate {
   async function askCore(principal: string, purposeId: Hex): Promise<{ verdict: ConsentVerdict; trusted: boolean }> {
     const q = new URLSearchParams({ principal, fid: options.fiduciary, purpose: purposeId });
     try {
-      const res = await fetch(`${core}/v1/gateway/consent-state?${q}`, { signal: AbortSignal.timeout(timeout) });
+      const res = await fetch(`${core}/v1/gateway/consent-state?${q}`, { headers: auth, signal: AbortSignal.timeout(timeout) });
+      if (res.status === 401 || res.status === 403) {
+        await keyRefused(res);
+        return { verdict: UNAVAILABLE, trusted: false };
+      }
       if (!res.ok) return { verdict: UNAVAILABLE, trusted: false };
+      keyProblem = null;
       const state = (await res.json()) as ConsentStateResponse;
       if (state.valid) return { verdict: { valid: true, expiresAt: state.expiresAt }, trusted: true };
       const reason = isReasonCode(state.reason) ? state.reason : "LEDGER_UNAVAILABLE";
@@ -140,7 +171,7 @@ export function sammati(rawOptions: SammatiOptions): SammatiGate {
         res.setHeader(ENTRY_ID_HEADER, id);
         // Logging never blocks the response (AGENTS.md): the entry is queued after the decision is sent.
         if (denied) {
-          res.status(451).json({ code: denied, message: MESSAGES[denied] });
+          res.status(451).json({ code: denied, message: denied === "LEDGER_UNAVAILABLE" && keyProblem ? keyProblem : MESSAGES[denied] });
         } else {
           next();
         }
@@ -188,6 +219,7 @@ class LogChain {
     private readonly fiduciary: Hex,
     private readonly timeout: number,
     private readonly maxQueued: number,
+    private readonly auth: Record<string, string> = {},
   ) {}
 
   enqueue(entry: PendingEntry): void {
@@ -221,7 +253,7 @@ class LogChain {
       const row: StoredAccessLogEntry = { ...full, prevHash: chained.prevHash, hash: chained.hash, batchIndex: null };
       const res = await fetch(`${this.core}/v1/gateway/log`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...this.auth },
         body: JSON.stringify(row),
         signal: AbortSignal.timeout(this.timeout),
       });
@@ -230,6 +262,7 @@ class LogChain {
         return;
       }
       this.head = null; // out of sync: resume from Core and retry
+      if (res.status === 401 || res.status === 403) throw new Error(`Core refused this company's API key (${res.status}); the access was not logged`);
       if (res.status !== 409) throw new Error(`Core rejected log entry: ${res.status}`);
     }
     throw new Error("Core kept rejecting the log entry");
@@ -237,6 +270,7 @@ class LogChain {
 
   private async resume(): Promise<{ seq: number; hash: Hex }> {
     const res = await fetch(`${this.core}/v1/fiduciaries/${this.fiduciary}/access?limit=1`, {
+      headers: this.auth,
       signal: AbortSignal.timeout(this.timeout),
     });
     if (!res.ok) throw new Error(`Could not read log head: ${res.status}`);

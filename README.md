@@ -91,6 +91,8 @@ Useful for stub development:
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
 - Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
 
+A company joins without anyone editing seed data: open http://localhost:5173/join, send the form, approve it as the regulator under Auditor > Registrations (access code `demo-regulator-key`), and follow `docs/integration.md` (`docs/prd.md` R-01 to R-04).
+
 Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
 
 ## Problem statement (CB-04)
@@ -124,13 +126,14 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 
 | File | Purpose |
 |---|---|
-| `prd.md` | What and why: personas, features with IDs (W, C, A, B, V), priorities, acceptance criteria |
+| `prd.md` | What and why: personas, features with IDs (W, C, A, B, V, N, R), priorities, acceptance criteria |
 | `architecture.md` | System design, trust model, data flows, why blockchain |
 | `trd.md` | Stack, contract interface, EIP-712 types, APIs, events, deployment |
 | `drd.md` | Data requirements: on-chain and off-chain schemas, hashing, seed data, privacy rules |
 | `ui.md` | Design system, every screen, copy, motion, i18n |
 | `demo.md` | The 4-minute demo script, stage setup, fallbacks, judge Q&A |
 | `tasks.md` | Work split for 3 people, 24-hour plan, cut lines, definition of done |
+| `integration.md` | For a company joining Sammati: register, get a key, integrate in 5 lines, send a request, call the Processor |
 | `dpdp-mapping.md` | DPDP obligations mapped to Sammati features with the evidence and an honest status; gaps and limitations; the claims review; and the VERIFY checklist for a human to check against the official Act and Rules. Wording is "aligned with the principles of", never "compliant" |
 | `AGENTS.md` | Rules for AI coding tools working in this repo |
 

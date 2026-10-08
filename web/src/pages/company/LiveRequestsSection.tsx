@@ -10,16 +10,17 @@
 import { useState, useMemo, type ReactNode } from "react";
 import {
   DEMO_PRINCIPAL,
+  SEED_FIDUCIARIES,
   type AccessReason,
   type Decision,
-  type SeedFiduciary,
+  type FiduciaryInfo,
   type StoredAccessLogEntry,
 } from "@sammati/shared";
-import { StatusChip, HashLabel, VaultPanel, useVaultTimeline, formatInr } from "../../ui";
+import { StatusChip, HashLabel, VaultPanel, useVaultTimeline, formatInr, Feed, type FeedRowData } from "../../ui";
 import { demoFire } from "../../api";
 
 interface LiveRequestsSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   accessLogs: StoredAccessLogEntry[];
   newLogIds: Set<string>;
 }
@@ -152,7 +153,48 @@ export function loanOutcome(payload: unknown): string | null {
     : `Declined · ${codes}`;
 }
 
-export function LiveRequestsSection({
+/**
+ * The simulator fires requests at a demo company's own backend, which only the three seed companies have. A company
+ * that joined through R-01 runs its own server (docs/integration.md): it gets the feed of what that server did.
+ */
+export function LiveRequestsSection(props: LiveRequestsSectionProps): ReactNode {
+  return props.company.demo ? <DemoLiveRequests {...props} /> : <OwnServerLiveRequests {...props} />;
+}
+
+function OwnServerLiveRequests({ company, accessLogs, newLogIds }: LiveRequestsSectionProps): ReactNode {
+  const rows: FeedRowData[] = accessLogs.map((log) => ({
+    id: log.id,
+    companyColor: company.color,
+    companyName: company.name,
+    purposeCode: log.purposeCode,
+    decision: log.decision,
+    reason: log.reason,
+    endpoint: log.endpoint,
+    at: log.at,
+    latencyMs: log.latencyMs,
+  }));
+  return (
+    <div className="space-y-6">
+      <div className="rounded-pass border border-line bg-surface p-6 shadow-sm">
+        <h2 className="text-xl font-extrabold text-ink">Your requests come from your own server</h2>
+        <p className="mt-1 text-sm text-mute">
+          There is no simulator for {company.name}: its guarded endpoints run on your side. Each call your server
+          checks with Sammati appears below, allowed or blocked, as it happens.
+        </p>
+        <p className="mt-3 text-sm text-ink">
+          Not integrated yet? Five lines with <span className="font-mono">@sammati/gateway</span> are in{" "}
+          <span className="font-mono">docs/integration.md</span>.
+        </p>
+      </div>
+      <div className="rounded-pass border border-line bg-surface p-6 shadow-sm">
+        <h3 className="mb-3 font-extrabold text-ink">Live feed</h3>
+        <Feed rows={rows} newIds={newLogIds} emptyMessage="No requests yet. Call a guarded endpoint on your server." />
+      </div>
+    </div>
+  );
+}
+
+function DemoLiveRequests({
   company,
   accessLogs,
   newLogIds,
@@ -180,7 +222,7 @@ export function LiveRequestsSection({
   const handleFire = async (btn: SimulatorButtonConfig) => {
     setFiringPurpose(btn.id);
     const [method, path] = btn.endpoint.split(" ");
-    const companyUrl = `http://localhost:${company.port}${path}`;
+    const companyUrl = `http://localhost:${SEED_FIDUCIARIES.find((f) => f.slug === company.slug)?.port}${path}`;
 
     try {
       // 1. Hit the real company guarded backend directly

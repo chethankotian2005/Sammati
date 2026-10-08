@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { NoticePurpose, SeedFiduciary, TargetedRequestRow, TargetedStatus } from "@sammati/shared";
+import type { NoticePurpose, FiduciaryInfo, TargetedRequestRow, TargetedStatus } from "@sammati/shared";
 import { fetchTargetedRequests, sendTargetedRequest } from "../../api";
 import { StatusChip, type ChipVariant } from "../../ui";
 import { useRequestUpdated } from "../../ws";
@@ -31,7 +31,7 @@ export const STATUS_CHIPS: Record<TargetedStatus, { variant: ChipVariant; label:
 };
 
 interface Props {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   purposes: NoticePurpose[];
   /** Opens the Consents section (a Granted row links there). */
   onOpenConsents?: () => void;

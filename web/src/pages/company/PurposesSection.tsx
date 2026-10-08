@@ -5,12 +5,12 @@
  */
 
 import { useState, type ReactNode } from "react";
-import type { NoticePurpose, SeedFiduciary } from "@sammati/shared";
+import type { NoticePurpose, FiduciaryInfo } from "@sammati/shared";
 import { DataTable, HashLabel, type Column } from "../../ui";
 import { AddPurposeDrawer } from "./AddPurposeDrawer";
 
 interface PurposesSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   purposes: NoticePurpose[];
   onRefreshPurposes: () => void;
 }

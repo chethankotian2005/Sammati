@@ -113,7 +113,7 @@ export class CascadeEngine {
 
   private async process(w: Withdrawal, p: Processor): Promise<void> {
     const stub = this.resolveProcessor(p);
-    const fiduciaryKey = this.config.fiduciaryKeys[w.fiduciary.toLowerCase()];
+    const fiduciaryKey = this.config.fiduciaryKeys[w.fiduciary.toLowerCase()] ?? this.repo.fiduciaryKey(w.fiduciary);
     if (!stub || !fiduciaryKey) {
       this.log(`[cascade] no way to reach ${p.name} (Core holds no ${stub ? "company" : "processor"} key for it); skipping`);
       return;
@@ -188,7 +188,7 @@ export class CascadeEngine {
   private builtInStub(p: Processor): InProcessProcessor | undefined {
     let stub = this.stubs.get(p.address.toLowerCase());
     if (!stub) {
-      const key = this.config.processorKeys[p.address.toLowerCase()];
+      const key = this.config.processorKeys[p.address.toLowerCase()] ?? this.repo.processorKey(p.address);
       if (!key) return undefined;
       const [min, max] = this.config.cascadeDelayMs;
       stub = new InProcessProcessor(

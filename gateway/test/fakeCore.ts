@@ -12,6 +12,12 @@ export class FakeCore {
   stateDown = false;
   stateDelayMs = 0;
   logDelayMs = 0;
+  /** When set, the gateway endpoints need this API key (as Core's do): 401 INVALID_API_KEY otherwise. */
+  requireKey: string | null = null;
+  /** Make the key look like it belongs to another company (403 FIDUCIARY_MISMATCH). */
+  keyIsForSomeoneElse = false;
+  /** The API key header each gateway call carried, in order. */
+  readonly keysSeen: Array<string | undefined> = [];
   /** Accept WebSocket connections (and ack subscriptions). */
   wsEnabled = true;
 
@@ -26,7 +32,21 @@ export class FakeCore {
   async start(): Promise<this> {
     const app = express();
     app.use(express.json());
-    app.get("/v1/gateway/consent-state", async (_req, res) => {
+    const keyOk = (req: express.Request, res: express.Response): boolean => {
+      const key = req.header("x-sammati-api-key");
+      this.keysSeen.push(key);
+      if (this.keyIsForSomeoneElse) {
+        res.status(403).json({ error: { code: "FIDUCIARY_MISMATCH" } });
+        return false;
+      }
+      if (this.requireKey !== null && key !== this.requireKey) {
+        res.status(401).json({ error: { code: "INVALID_API_KEY" } });
+        return false;
+      }
+      return true;
+    };
+    app.get("/v1/gateway/consent-state", async (req, res) => {
+      if (!keyOk(req, res)) return;
       this.stateCalls++;
       if (this.stateDelayMs) await new Promise((r) => setTimeout(r, this.stateDelayMs));
       if (this.stateDown) return void res.status(503).json({ error: { code: "LEDGER_UNAVAILABLE" } });
@@ -34,6 +54,7 @@ export class FakeCore {
     });
     app.get("/v1/fiduciaries/:fid/access", (_req, res) => res.json({ items: this.logs.slice(-1) }));
     app.post("/v1/gateway/log", async (req, res) => {
+      if (!keyOk(req, res)) return;
       if (this.logDelayMs) await new Promise((r) => setTimeout(r, this.logDelayMs));
       const row = req.body as StoredAccessLogEntry;
       const last = this.logs[this.logs.length - 1];

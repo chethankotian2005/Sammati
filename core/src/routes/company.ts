@@ -6,6 +6,7 @@ import {
   type ExportResponse,
   type FiduciaryAccessResponse,
   type FiduciaryConsentsResponse,
+  type FiduciaryProcessorsResponse,
   type GatewayLogResponse,
   type Hex,
   type RegisterProcessorResponse,
@@ -46,6 +47,14 @@ export function companyRoutes(ctx: Ctx): Router {
   r.get("/fiduciaries/:fid/purposes", (req, res) => {
     const f = store.fiduciary(req.params.fid!);
     res.json({ fiduciary: f.address, purposes: f.purposes });
+  });
+
+  r.get("/fiduciaries/:fid/processors", (req, res) => {
+    const f = store.fiduciary(req.params.fid!);
+    res.json({
+      fiduciary: f.address,
+      processors: f.processors.map((p) => ({ name: p.name, address: p.address, purposeCode: f.purposes.find((x) => x.id === p.purposeId)?.code ?? "" })),
+    } satisfies FiduciaryProcessorsResponse);
   });
 
   r.post("/fiduciaries/:fid/purposes", (req, res) => {

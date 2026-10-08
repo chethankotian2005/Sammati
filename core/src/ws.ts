@@ -23,6 +23,9 @@ export function topicsFor(e: WsEvent): WsTopic[] {
       return [principalTopic(e.principal)];
     case "request.updated":
       return [fiduciaryTopic(e.fiduciary)];
+    case "fiduciary.registered":
+    case "fiduciary.updated":
+      return [fiduciaryTopic(e.fiduciary), AUDITOR_TOPIC];
     case "consent.expiring":
     case "consent.expired":
     case "consent.renewal_requested":

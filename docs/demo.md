@@ -15,9 +15,10 @@
 | 2:10 | **Act 4: The moment** | Phone: withdraw marketing. Console: "Send marketing SMS" turns **BLOCKED 451**. Cascade list on phone fills in: AdPartnerQ acknowledged. Then withdraw credit check (on the phone; or the presenter's **Withdraw and re-run** if the demo customer is used): the Data flow panel shows Blocked and "Ciphertext erased", and the phone says "Your encrypted details were erased." | "Withdraw is two taps. The very next request is blocked. The partner was told and confirmed. And the data we gave for the loan check? Not just blocked. Erased." Pause. Let the red row land |
 | 2:50 | **Act 5: Three companies, one wallet** (10 s; cut first if running late) | Home screen shows QuickLoan, MediCare+, FoodRush. Withdraw `ad_targeting` at FoodRush only, others keep working | "One wallet, every company, per-purpose control." |
 | 3:00 | **Act 6: Proof** | Auditor: Verify QuickLoan, all green (the loan decision is in the log too). Presenter clicks hidden **Tamper** control on one record, Verify again: **red mismatch in batch 4, record 63** | "A company edits its own log to hide an access. The regulator catches it without trusting the company." |
-| 3:30 | **Act 7: Close** | Explorer link on Amoy, QR to scan | "Same contracts are live on a public testnet. This is the consent layer India's data economy needs." State the production path in one breath |
+| 3:30 | **Act 6b: A fourth company joins** (R-01 to R-03; optional, 30 s, the first to cut when late) | Second screen, `/join`: **DemoBank** is already filled in; press **Send for review**. Auditor > **Registrations** > **Approve** (sandbox on). The status page shows the address, the API key once and the 5-line quickstart; DemoBank appears in the console switcher with a **SANDBOX** chip; its sample app runs with that key; **Send to user** asks `asha@sammati`, the phone approves, the sample endpoint answers ALLOWED, withdraw: BLOCKED | "Anyone can apply. The regulator decides who may ask people for consent. A new company starts in a sandbox with five lines of code and one key, and gets the same enforcement and the same proof." |
+| 3:50 | **Act 7: Close** (10 s) | Explorer link on Amoy, QR to scan | "Same contracts are live on a public testnet. This is the consent layer India's data economy needs." State the production path in one breath |
 
-Total ≈ 3:50, leaving ~10 seconds slack. To make room for the Data flow panel, Act 3b grew from 30 to 40 s, and the time came from Act 5 (15 to 10 s) and Act 6 (35 to 30 s), which the audience already follows from the Auditor's own words. If the script runs long, cut Act 5 entirely. Judges' questions come after.
+Total ≈ 3:50 without Act 6b and ≈ 4:00 with it (Act 7 shrinks to 10 s; Acts 5 and 6b are the ones to drop when running late, in that order). To make room for the Data flow panel, Act 3b grew from 30 to 40 s, and the time came from Act 5 (15 to 10 s) and Act 6 (35 to 30 s), which the audience already follows from the Auditor's own words. If the script runs long, cut Act 5 entirely. Judges' questions come after.
 
 ### Optional Act 4b: a consent that expires (needs `pnpm demo:up:fast`)
 Not in the four minutes; use it in the mentoring round or Q&A. With `DEMO_FAST_EXPIRY` the phone offers **2 minutes (demo)** as an expiry. Grant credit check with it. The **Alerts** tab shows "expires in 1 minute", then "expires in 30 seconds", then "expired" (and a phone notification if the app is open); **Run credit check** in the console answers **451 CONSENT_EXPIRED**; in the console's **Expiring consents** press **Request renewal**; the request appears in the wallet's inbox and Alerts; **Renew** gives a new consent and the same call is **ALLOWED**. If the customer sent details, the Processor erases them 60 seconds after expiry and the wallet shows **data erased**.
@@ -36,6 +37,7 @@ Not in the four minutes; use it in the mentoring round or Q&A. With `DEMO_FAST_E
 - [ ] Phone mirrored with `scrcpy` on the projector, brightness and Do Not Disturb set
 - [ ] Browser tabs preloaded: Stage view, QuickLoan console, Auditor, Amoy explorer
 - [ ] Wallet language set to English, Kannada one tap away
+- [ ] For Act 6b: `/join` open on the second screen, the regulator access code (`REGULATOR_KEY`, default `demo-regulator-key`) at hand, the phone's Sammati ID (`asha@sammati`) added once under Auditor > Registrations > **Test customers**, and the sample app command ready (`pnpm --filter @sammati/core sample:company`, `docs/integration.md` §4). `pnpm demo:reset` removes DemoBank, so redo the registration for each rehearsal
 - [ ] Screen recording of the full demo saved locally (fallback)
 - [ ] Amoy deployment addresses and explorer links verified the same day
 - [ ] A second phone with the APK installed as a spare
@@ -54,6 +56,7 @@ Not in the four minutes; use it in the mentoring round or Q&A. With `DEMO_FAST_E
 | Venue network is down or the stack will not start | Open `/stage/flow?replay=1`: the same screen plays a recording of a real run, marked "Replay of a recording". Say that it is a recording |
 | "Send securely" fails or Run loan decision answers an error | Check the Processor's `/health`; if its key changed, tap **Send again** on the phone, then run the decision again. If it is still broken skip Act 3b: it is a differentiator, not the golden path |
 | Projector or mirroring fails | Show the phone to the judges directly and keep the console on the projector |
+| Registration, approval or the sample app fails in Act 6b | Skip it: it is optional. Say "onboarding is in the guide" and show `docs/integration.md` on screen |
 | Anything unexplained | Say "let me show you the recording of this step", never debug live in front of judges |
 
 ## 6. Pitch deck (7 slides, optional but short)
@@ -109,8 +112,14 @@ The legal-alignment slide, in full. Say "aligned with the principles of", never 
 **Is the data real?**
 "No. All customer data is fictional. The consent flow, signatures, enforcement and anchoring are real and running."
 
+**Who stops a bad company from joining?**
+"The regulator. Anyone can apply, and nothing exists for them until the regulator approves: no company id, no key, no way to ask a customer for consent. After approval a company starts in a sandbox where it can only reach test customers, until the regulator promotes it. In this demo the review is a human decision: we do not verify licences. Production would tie this to the regulator's own registry."
+
+**Can a company use someone else's key?**
+"A key belongs to one company and is refused for any other company's id. We store only a hash of it and show it once. Each company is rate limited. Without a valid key the gateway fails closed: no key, no consent check, no data."
+
 **Be honest about the demo shortcuts.**
-"Company and processor keys are held by our core service for the demo. In production each company holds its own keys. The Sammati Processor is a simulated enclave: a separate service with its key in memory, not real hardware protection. The wallet also takes its public key on trust over plain HTTP on the venue network."
+"Company and processor keys are held by our core service for the demo, including those of a company that joins through the registration page. The regulator's access code is a shared secret, the company console has no login, and the sandbox is enforced by our core service, not by the contracts. In production each company holds its own keys. The Sammati Processor is a simulated enclave: a separate service with its key in memory, not real hardware protection. The wallet also takes its public key on trust over plain HTTP on the venue network."
 
 **Who can read the data?** (point at the Data flow screen)
 "The customer, on their phone, and the Processor, for the second it takes to compute a decision. QuickLoan's staff, QuickLoan's database, our core service, the auditor and anyone holding a copy of any database see ciphertext or a reference number. Our core never receives the encrypted data at all and has no key. There is no endpoint that returns plaintext, and we test for that: our end-to-end run searches every log, event, response and database file for the demo PAN."

@@ -8,6 +8,12 @@ import type { AccessLogger, CompanyNotifier, EventSink, ProcessorService } from 
 
 const POST_TIMEOUT_MS = 3000;
 
+/** The API key to use for a company: a configured one, else the one it last called with (prd.md R-01). */
+function keyFor(config: ProcessorConfig, fiduciary: Hex): string | undefined {
+  const configured = [...config.apiKeys].find(([, address]) => address === fiduciary.toLowerCase())?.[0];
+  return configured ?? config.registeredKeys.get(fiduciary.toLowerCase() as Hex);
+}
+
 /** Reports events to Core, which fans them out. A failure is a warning: events never block a response. */
 export class CoreEventSink implements EventSink {
   constructor(private readonly config: ProcessorConfig) {}
@@ -32,7 +38,7 @@ export class WebhookNotifier implements CompanyNotifier {
 
   notify(fiduciary: Hex, payload: Parameters<CompanyNotifier["notify"]>[1]): void {
     const url = this.config.callbacks[fiduciary.toLowerCase()];
-    const key = [...this.config.apiKeys].find(([, address]) => address === fiduciary.toLowerCase())?.[0];
+    const key = keyFor(this.config, fiduciary);
     if (!url || !key) return;
     void fetch(url, {
       method: "POST",
@@ -45,17 +51,19 @@ export class WebhookNotifier implements CompanyNotifier {
 
 /** Writes each use of data into the company's hash-chained log through the gateway SDK, the normal path. */
 export class SdkAccessLogger implements AccessLogger {
-  private readonly gates = new Map<string, SammatiGate>();
+  private readonly gates = new Map<string, { gate: SammatiGate; key: string | undefined }>();
 
   constructor(private readonly config: ProcessorConfig) {}
 
   private gate(fiduciary: Hex): SammatiGate {
-    let gate = this.gates.get(fiduciary);
-    if (!gate) {
-      // liveCache off: this gate only writes log entries, it never decides consent (the chain read in consent.ts does).
-      gate = sammati({ coreUrl: this.config.coreUrl, fiduciary, liveCache: false });
-      this.gates.set(fiduciary, gate);
-    }
+    const key = keyFor(this.config, fiduciary);
+    const have = this.gates.get(fiduciary);
+    if (have && have.key === key) return have.gate;
+    // The company's key changed (the regulator reissued it): the old gate would only be refused.
+    have?.gate.close();
+    // liveCache off: this gate only writes log entries, it never decides consent (the chain read in consent.ts does).
+    const gate = sammati({ coreUrl: this.config.coreUrl, fiduciary, apiKey: key, liveCache: false });
+    this.gates.set(fiduciary, { gate, key });
     return gate;
   }
 
@@ -64,11 +72,11 @@ export class SdkAccessLogger implements AccessLogger {
   }
 
   async flush(): Promise<void> {
-    await Promise.all([...this.gates.values()].map((g) => g.flush()));
+    await Promise.all([...this.gates.values()].map((g) => g.gate.flush()));
   }
 
   close(): void {
-    for (const g of this.gates.values()) g.close();
+    for (const g of this.gates.values()) g.gate.close();
   }
 }
 
@@ -78,7 +86,8 @@ export class SdkAccessLogger implements AccessLogger {
  * make the Processor look, never make it erase or decrypt.
  */
 export function watchConsent(config: ProcessorConfig, service: ProcessorService): () => void {
-  const topics = [...new Set(config.apiKeys.values())].map((f) => `fiduciary:${f}`);
+  // `auditor` carries every company's consent changes, including those of companies that registered after the start.
+  const topics = [...new Set(config.apiKeys.values())].map((f) => `fiduciary:${f}`).concat("auditor");
   const url = config.coreUrl.replace(/^http/, "ws") + "/ws";
   let stopped = false;
   let socket: WebSocket | null = null;

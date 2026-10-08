@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getAddress } from "ethers";
 import {
+  DEFAULT_COMPANY_COLOR,
   SEED_FIDUCIARIES,
+  demoApiKey,
   ZERO_HASH,
   descHash,
   explorerTxUrl,
@@ -34,6 +36,7 @@ import { HttpError } from "../errors";
 import type { DirectoryPurpose } from "../fixtures";
 import { noticeInput } from "../notice";
 import { now, toHashedEntry } from "../store";
+import { hashApiKey } from "./apikeys";
 import type { Db } from "./db";
 
 export const DEMO_REQUEST_ID = "req_demo_quickloan";
@@ -55,6 +58,12 @@ export interface FiduciaryRow {
   name: string;
   sector: string;
   color: string;
+  /** Console route /company/<slug> (R-04). */
+  slug: string;
+  /** In the sandbox (R-03): only test customers can be asked. */
+  sandbox: boolean;
+  /** One of the seed companies, the only ones with a simulator backend. */
+  demo: boolean;
 }
 
 export interface RequestRow {
@@ -104,7 +113,10 @@ export class Repo {
 
   /** The demo companies from shared/seed.ts. The chain registers them (the seed script); this is their off-chain metadata. */
   seedDirectory(): void {
-    const insertF = this.db.prepare("INSERT OR IGNORE INTO fiduciaries (address, name, sector, color) VALUES (?, ?, ?, ?)");
+    const insertF = this.db.prepare("INSERT OR IGNORE INTO fiduciaries (address, name, sector, color, slug, demo) VALUES (?, ?, ?, ?, ?, 1)");
+    // A database from before R-01 has the seed companies without a slug.
+    const fixSlug = this.db.prepare("UPDATE fiduciaries SET slug = ?, demo = 1 WHERE address = ? AND slug IS NULL");
+    const insertCredential = this.db.prepare("INSERT OR IGNORE INTO fiduciary_credentials (fiduciary, api_key_hash, issued_at) VALUES (?, ?, ?)");
     const insertP = this.db.prepare(
       `INSERT OR IGNORE INTO purposes (id, fiduciary, code, title_en, title_hi, title_kn, desc_en, desc_hi, desc_kn,
          data_categories, retention_days, shares_third_party, desc_hash, required)
@@ -113,7 +125,9 @@ export class Repo {
     const insertProc = this.db.prepare("INSERT OR IGNORE INTO processors (address, name, purpose_id) VALUES (?, ?, ?)");
     this.db.transaction(() => {
       for (const f of SEED_FIDUCIARIES) {
-        insertF.run(f.address, f.name, f.sector, f.color);
+        insertF.run(f.address, f.name, f.sector, f.color, f.slug);
+        fixSlug.run(f.slug, f.address);
+        insertCredential.run(f.address, hashApiKey(demoApiKey(f.slug)), now());
         for (const p of f.purposes) {
           insertP.run(
             purposeIdOf(f.address, p.code), f.address, p.code,
@@ -143,12 +157,30 @@ export class Repo {
   }
 
   fiduciaries(): FiduciaryRow[] {
-    return (this.db.prepare("SELECT address, name, sector, color FROM fiduciaries ORDER BY rowid").all() as Row[]).map((r) => ({
+    return (this.db.prepare("SELECT address, name, sector, color, slug, sandbox, demo FROM fiduciaries ORDER BY rowid").all() as Row[]).map((r) => ({
       address: r.address as Hex,
       name: r.name as string,
       sector: r.sector as string,
-      color: (r.color as string | null) ?? "",
+      color: (r.color as string | null) ?? DEFAULT_COMPANY_COLOR,
+      slug: (r.slug as string | null) ?? "",
+      sandbox: r.sandbox === 1,
+      demo: r.demo === 1,
     }));
+  }
+
+  /** The company an API key belongs to, or undefined for an unknown key (trd.md §6.2a). */
+  fiduciaryForKey(apiKey: string): FiduciaryRow | undefined {
+    const r = this.db.prepare("SELECT fiduciary FROM fiduciary_credentials WHERE api_key_hash = ?").get(hashApiKey(apiKey)) as { fiduciary: string } | undefined;
+    return r ? this.fiduciaries().find((f) => f.address === r.fiduciary) : undefined;
+  }
+
+  /** Keys Core generated for companies that joined through R-01 (demo shortcut, trd.md §12). */
+  fiduciaryKey(address: string): string | undefined {
+    return (this.db.prepare("SELECT private_key FROM fiduciary_keys WHERE address = ?").get(addr(address)) as { private_key: string } | undefined)?.private_key;
+  }
+
+  processorKey(address: string): string | undefined {
+    return (this.db.prepare("SELECT private_key FROM processor_keys WHERE address = ?").get(addr(address)) as { private_key: string } | undefined)?.private_key;
   }
 
   fiduciary(address: string): FiduciaryRow {
@@ -447,6 +479,15 @@ export class Repo {
 
   processorsFor(purposeId: Hex): { address: Hex; name: string }[] {
     return this.db.prepare("SELECT address, name FROM processors WHERE purpose_id = ? ORDER BY rowid").all(purposeId) as { address: Hex; name: string }[];
+  }
+
+  /** Every processor a company declared, with the code of the purpose it serves. */
+  processorsOfFiduciary(fiduciary: Hex): Array<{ name: string; address: Hex; purposeCode: string }> {
+    return (
+      this.db
+        .prepare("SELECT p.name AS name, p.address AS address, u.code AS code FROM processors p JOIN purposes u ON u.id = p.purpose_id WHERE u.fiduciary = ? ORDER BY p.rowid")
+        .all(fiduciary) as Array<{ name: string; address: Hex; code: string }>
+    ).map((r) => ({ name: r.name, address: r.address, purposeCode: r.code }));
   }
 
   /** A new cascade starts: the processor has been told, and any earlier acknowledgement belongs to an earlier withdrawal. */
