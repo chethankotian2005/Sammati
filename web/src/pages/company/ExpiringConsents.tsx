@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { ExpiringRow, NoticePurpose, SeedFiduciary, TargetedStatus } from "@sammati/shared";
+import type { ExpiringRow, FiduciaryInfo, NoticePurpose, TargetedStatus } from "@sammati/shared";
 import { fetchExpiring, requestRenewal } from "../../api";
 import { HashLabel, StatusChip, type ChipVariant } from "../../ui";
 import { useConsentUpdated, useRequestUpdated } from "../../ws";
@@ -21,7 +21,7 @@ const RENEWAL_CHIPS: Record<TargetedStatus, { variant: ChipVariant; label: strin
 };
 
 interface Props {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   purposes: NoticePurpose[];
 }
 

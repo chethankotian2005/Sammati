@@ -360,3 +360,64 @@ describe("logAccess (an access decided elsewhere, e.g. by the Processor)", () =>
     expect(core.logs[0]!.principal).toBe("0x" + "00".repeat(20));
   });
 });
+
+describe("company API key (R-03)", () => {
+  it("sends the key on the consent check and on the log, and works when Core accepts it", async () => {
+    core.requireKey = "sk_test_key";
+    await serve({ apiKey: "sk_test_key", liveCache: false });
+    const res = await get(USER);
+    expect(res.status).toBe(200);
+    await gate!.flush();
+    expect(core.logs).toHaveLength(1);
+    expect(core.keysSeen.every((k) => k === "sk_test_key")).toBe(true);
+  });
+
+  it("fails closed with a clear 451 when Core does not know the key, and warns once", async () => {
+    core.requireKey = "sk_right";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await serve({ apiKey: "sk_wrong", liveCache: false });
+    for (let i = 0; i < 3; i++) {
+      const res = await get(USER);
+      expect(res.status).toBe(451);
+      const body = (await res.json()) as { code: string; message: string };
+      expect(body.code).toBe("LEDGER_UNAVAILABLE");
+      expect(body.message).toMatch(/API key/);
+      expect(body.message).toMatch(/regulator approves/);
+    }
+    const keyWarnings = warn.mock.calls.filter((c) => String(c[0]).includes("INVALID_API_KEY"));
+    expect(keyWarnings).toHaveLength(1);
+    warn.mockRestore();
+  });
+
+  it("fails closed when no key is configured at all", async () => {
+    core.requireKey = "sk_right";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await serve({ liveCache: false });
+    const res = await get(USER);
+    expect(res.status).toBe(451);
+    expect(((await res.json()) as { message: string }).message).toMatch(/API key/);
+    expect(core.keysSeen[0]).toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it("says when the key belongs to another company", async () => {
+    core.keyIsForSomeoneElse = true;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await serve({ apiKey: "sk_other", liveCache: false });
+    const res = await get(USER);
+    expect(res.status).toBe(451);
+    expect(((await res.json()) as { message: string }).message).toMatch(/another company/);
+    warn.mockRestore();
+  });
+
+  it("recovers once Core accepts the key again", async () => {
+    core.requireKey = "sk_right";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await serve({ apiKey: "sk_right", liveCache: false });
+    core.requireKey = "sk_rotated";
+    expect((await get(USER)).status).toBe(451);
+    core.requireKey = "sk_right";
+    expect((await get(USER)).status).toBe(200);
+    warn.mockRestore();
+  });
+});

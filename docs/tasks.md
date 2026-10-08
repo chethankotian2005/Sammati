@@ -54,6 +54,9 @@ Built after the Inspector. Order: (1) spec commit; (2) Processor rules for emplo
 ### Sammati ID and targeted requests (N-01, N-02, W-14)
 Built after the portal. Order: (1) spec commit; (2) Core: tables, signed-message checks, targeted send with the anti-enumeration rule and abuse controls, with tests; (3) wallet: ID registration, inbox, Decline and Block; (4) console tab; (5) e2e. Gate: send from the console, inbox within 2 s, grant, Granted in the console; an unknown handle gives the same answer and no push.
 
+### Company onboarding (R-01 to R-04)
+Built after targeted requests. Order: (1) spec commit; (2) Core: tables and migration, key store, API-key auth and rate limit on the gateway routes (with the SDK's `apiKey`), directory endpoint; (3) registration (apply, approve with the chain steps and their retry, reject, reissue), sandbox rules, test customers; (4) web: directory provider and the removal of hard-coded companies, `/join`, the status page, the Registrations tab, the SANDBOX badge; (5) `integration.md` and the sample app; (6) e2e. Gate: DemoBank joins, is approved, runs the quickstart, is asked, is granted, ALLOWED, withdrawn, BLOCKED, inside `pnpm e2e`.
+
 ### Expiry, renewal and notification centre (N-03, N-04, N-05, W-11)
 Built after the inbox. Order: (1) spec commit; (2) Core: `notifications`, the scheduler, renewal requests and routes, with tests; (3) the Processor's erasure grace; (4) wallet: Alerts tab, actions, local notifications, strings; (5) console Expiring table; (6) e2e with a few seconds of expiry. Gate: with `DEMO_FAST_EXPIRY`, grant 2 minutes, see expiring then expired, 451 `CONSENT_EXPIRED`, Renew, ALLOWED again.
 
@@ -103,8 +106,19 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 - REST paths and WebSocket event names: `trd.md` §6
 - Reason codes: `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`
 - Colours and copy keys: `ui.md`
+- Company API keys, the `x-sammati-api-key` header and the registration routes: `trd.md` §6.2a, §6.12 (the SDK, the Processor and the console depend on them)
 - The Data Flow Inspector's replay file (`web/public/flow-replay.json`) is generated, not edited: regenerate it when the event shapes change
 - Vault envelope format and test vectors: `shared/src/envelope.ts`, `shared/test-vectors/envelope.json` (and the Dart copy `wallet/lib/core/envelope.dart`); Processor endpoints and `vault.*` / `processor.*` events: `trd.md` §6.5, §6.7
+
+### Onboarding checklist (R-01 to R-04)
+- [x] Specs first: prd §6.7, trd §6.12 and §6.2a, drd §3, ui §3.2, §3.3 and §4, architecture §5.7, demo Act 6b, `integration.md`
+- [x] Core: key store, API-key auth, rate limit, `GET /v1/fiduciaries`, registration, regulator routes, sandbox, test customers, migration
+- [x] Gateway SDK `apiKey` and the clear fail-closed message; companies and Processor use their keys
+- [x] Web: directory in the console, Stage, Auditor, ledger filter; `/join`; status page; Registrations tab; SANDBOX badge
+- [x] `integration.md` linked from README; sample app runs
+- [x] Package tests green (shared, gateway, processor, core, web)
+- [ ] `pnpm e2e` extended and run against a real stack (the steps are written; see the PR note)
+- [ ] Act 6b rehearsed
 
 ### Git workflow
 - Trunk-based, short branches per feature ID (`feat/W-05-withdraw`), merge to `main` at least hourly.

@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { afterEach, describe, expect, it } from "vitest";
 import { Wallet } from "ethers";
 import { submitMessage, handleOf } from "@sammati/shared/src/envelope";
 import { readConfig } from "../src/config";
@@ -263,6 +265,47 @@ describe("erasure (V-04)", () => {
     expect(r.vault.get(a.handle)).toMatchObject({ ciphertext: null, eraseCause: "expired" });
     await r.service.sweep(); // nothing left to erase, no second event
     expect(r.events.filter((e) => e.event === "vault.erased")).toHaveLength(1);
+  });
+});
+
+describe("companies registered after the Processor started (R-01)", () => {
+  const NEWCO = "0x1234567890abcdef1234567890abcdef12345678";
+  let core: Server | undefined;
+  afterEach(() => void core?.close());
+
+  /** A Core that knows exactly one API key. */
+  async function coreKnowing(key: string): Promise<string> {
+    core = createServer((req, res) => {
+      const known = req.url === "/v1/gateway/whoami" && req.headers["x-sammati-api-key"] === key;
+      res.statusCode = known ? 200 : 401;
+      res.setHeader("content-type", "application/json");
+      res.end(known ? JSON.stringify({ fiduciary: NEWCO }) : JSON.stringify({ error: { code: "INVALID_API_KEY" } }));
+    });
+    await new Promise<void>((r) => core!.listen(0, "127.0.0.1", r));
+    return `http://127.0.0.1:${(core!.address() as AddressInfo).port}`;
+  }
+
+  it("resolves their key through Core, serves the call, and remembers the key for logging", async () => {
+    const r = rig({ coreUrl: await coreKnowing("sk_newco") });
+    const { handle } = await r.submitted("credit_check", NEWCO);
+    const result = await r.service.evaluate("sk_newco", r.evaluateBody(handle, "credit_check", NEWCO));
+    expect(result.decision).toBe("approved");
+    expect(r.config.registeredKeys.get(NEWCO)).toBe("sk_newco");
+    expect(r.logs[0]?.fiduciary).toBe(NEWCO);
+  });
+
+  it("refuses a key Core does not know, and one that belongs to another company", async () => {
+    const r = rig({ coreUrl: await coreKnowing("sk_newco") });
+    const { handle } = await r.submitted("credit_check", NEWCO);
+    expect((await fails(r.service.evaluate("sk_forged", r.evaluateBody(handle, "credit_check", NEWCO)))).status).toBe(401);
+    // the right key but another company's id in the body
+    expect((await fails(r.service.evaluate("sk_newco", r.evaluateBody(handle, "credit_check", QUICKLOAN)))).code).toBe("WRONG_FIDUCIARY");
+  });
+
+  it("fails closed when Core cannot be reached", async () => {
+    const r = rig({ coreUrl: "http://127.0.0.1:9" });
+    const { handle } = await r.submitted("credit_check", NEWCO);
+    expect((await fails(r.service.evaluate("sk_newco", r.evaluateBody(handle, "credit_check", NEWCO)))).status).toBe(401);
   });
 });
 

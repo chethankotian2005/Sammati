@@ -12,6 +12,7 @@ import { badRequest, requireBody, requireString } from "../errors";
 import { noticeInput } from "../notice";
 import { address } from "../validate";
 import type { RealCore } from "./core";
+import { companyKey, mustOwn } from "./onboarding-routes";
 import { NOTICE_VERSION } from "./repo";
 import { cleanMessage, normaliseHandle } from "./targeted";
 import { HttpError } from "../errors";
@@ -45,8 +46,9 @@ export function targetedRoutes(core: RealCore): Router {
 
   // --- a company asks a customer (N-02) ---
 
-  r.post("/fiduciaries/:fid/requests/targeted", handle((req, res) => {
+  r.post("/fiduciaries/:fid/requests/targeted", companyKey(core, false), handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
     const body = requireBody(req.body);
     const to = normaliseHandle(body.handle);
     if (!to) throw new HttpError(400, "BAD_HANDLE", "A Sammati ID looks like asha@sammati");
@@ -66,12 +68,16 @@ export function targetedRoutes(core: RealCore): Router {
     res.status(201).json({ requestId: created.id, status: "sent", expiresAt } satisfies TargetedRequestResponse);
   }));
 
-  r.get("/fiduciaries/:fid/requests/targeted", handle((req, res) => {
-    res.json({ requests: targeted.listFor(repo.fiduciary(param(req, "fid"))) } satisfies TargetedRequestsResponse);
+  r.get("/fiduciaries/:fid/requests/targeted", companyKey(core, false), handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
+    res.json({ requests: targeted.listFor(f) } satisfies TargetedRequestsResponse);
   }));
 
-  r.get("/fiduciaries/:fid/requests/targeted/:requestId", handle((req, res) => {
-    res.json(targeted.statusFor(repo.fiduciary(param(req, "fid")), param(req, "requestId")));
+  r.get("/fiduciaries/:fid/requests/targeted/:requestId", companyKey(core, false), handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
+    res.json(targeted.statusFor(f, param(req, "requestId")));
   }));
 
   // --- the customer's side: inbox, decline, block (W-14) ---

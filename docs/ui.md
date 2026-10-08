@@ -129,6 +129,8 @@ Opens from the receipt (W4) as a primary button "Share your details securely" wh
 - A standing line, as on V1: "Demo processor (simulated enclave, not real hardware protection)".
 
 ### Edge states
+**Many companies and sandbox (R-04, R-03).** Home lists a pass for every company the customer has consented to, however many; the company's colour comes from Core (`ink` for a company that joined through R-01, so no new colour exists). If a request belongs to a sandbox company and the customer is not a test customer, Core answers 403 `SANDBOX_COMPANY` and the wallet shows its existing generic "could not open this request" state; this build adds no wallet string for it.
+
 Offline banner "No connection. Showing last known consents."; expired consent chip "Expired 3 days ago, give consent again"; QR from a different network "Could not reach Sammati. Check Wi-Fi."; failed transaction "Could not record this. Try again" with retry.
 
 ### W13 Alerts (N-05, W-11), the notification centre: a tab on W1
@@ -142,7 +144,7 @@ Offline banner "No connection. Showing last known consents."; expired consent ch
 
 ## 3. Company Console (web)
 
-Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with company switcher (QuickLoan, MediCare+, FoodRush).
+Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with a company switcher that lists **every approved company from Core** (R-04), not a fixed three: pills for up to five, a dropdown beyond that. A company in sandbox shows a **SANDBOX** chip (a flask icon and the word, `marigold` outline on `paper`) next to its name in the switcher and in the page title, with the tooltip "Test sandbox: only test customers can be asked". For a company with no simulator backend, **Live requests** replaces the simulator with a card "Your requests come from your own server" and a link to the integration guide; the feed stays.
 
 - **Overview:** four numbers (active consents, allowed today, blocked today, last anchor), live feed beside a small consent trend chart.
 - **Purposes:** table plus "Add purpose" drawer (code, plain description in 3 languages, categories, retention, sharing flag).
@@ -167,6 +169,74 @@ QuickLoan's own customer page, not part of the console: header in `#2F5BEA`, "Qu
 - **Error:** a `block` banner naming what failed, "Try again", and the form is kept.
 Status is never colour alone. Every dynamic line is an `aria-live` region.
 
+### 3.2 Join Sammati (`/join`, R-01)
+
+A public page, no login, in Sammati's own look (`ink` header, `paper` body, `marigold` primary action), with an **EN · हि · ಕ** switch. One column, max width 720.
+
+- **Intro:** "Ask people for consent the right way" and one sentence: "Register your company. The regulator reviews it. Then you can ask customers for consent and check it before you use their data."
+- **Company:** "Company name", "Sector", "Contact email" with the note "Used only for this application. Deleted when the regulator decides."
+- **Purposes** (one card each, "Add a purpose" up to 8, "Remove" on each): "Code" (`credit_check`, lower case with underscores), "Title" and "What you will do with the data, in plain words" each in three labelled fields (English, हिन्दी, ಕನ್ನಡ), "Data categories" (comma separated), "Kept for (days)", two checkboxes "Shared with third parties" and "Needed for the service".
+- **Processors** (optional, "Add a processor" up to 6): "Name" and "Used for" (a dropdown of the purposes above).
+- **Fill in the DemoBank example** (a quiet text button beside Submit): fills every field with the demo company, for the presenter. Real applicants never need it.
+- **Submit** "Send for review". Each field shows its problem beneath it in `block` with an icon (never colour alone), on blur and on submit; the button is not disabled, it explains. While sending: "Sending…". A refusal from Core (`NAME_TAKEN`, `RATE_LIMITED`, `TOO_MANY_PENDING`) is a `block` banner with what to do.
+- On success the page moves to the status page and remembers the application in this browser.
+
+### 3.3 Application status and onboarding result (`/join/:applicationId`, R-01, R-03)
+
+One page that follows the application and polls every 3 s (and on focus). The id in the address is the applicant's secret.
+
+| State | Shows |
+|---|---|
+| Pending | "Waiting for the regulator" with the company name, a pulsing-free dot and the time sent; "Keep this page's address. You can come back to it." |
+| Rejected | `block` card "Not approved", the regulator's note, "You can apply again with the changes". No key, no id |
+| Approved | A `SANDBOX` chip and "{name} is registered". **Fiduciary address** (Plex Mono, shortened, tap to copy in full). **API key**, once: a card with the key in full (Plex Mono), a **Copy** button, and the warning "Shown once. Sammati keeps only a fingerprint of it, so it cannot be shown again."; after it was read once: "You have already seen your key. Ask the regulator to issue a new one." Then **Integrate in 5 lines**: the quickstart (below) with the address, a placeholder or the key, and the first purpose code filled in, each block with a Copy button. Then "Send your first request" (a `curl` for a targeted request) and "Using the Processor" (a `curl` for `evaluate`). Then a "Sandbox" note: what a sandbox company can and cannot do, and "Ask the regulator to promote you when you are ready" |
+
+The quickstart text is exactly `integration.md` §2 (a web test compares the two). The page keeps the API key for the life of the tab, because Core hands it over on the first read only and the page polls; reload the tab and it is gone, as it should be. The page is available in English, Hindi and Kannada; the rest of the web console is English only. Reduced motion: no pulsing; the status line simply changes. Every status has a word and an icon.
+
+Copy (English / Hindi / Kannada; native-speaker check needed, like §6):
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| join_title | Ask people for consent the right way | लोगों से सही तरीके से सहमति मांगें | ಜನರಿಂದ ಸರಿಯಾದ ರೀತಿಯಲ್ಲಿ ಒಪ್ಪಿಗೆ ಕೇಳಿ |
+| join_company | Company name | कंपनी का नाम | ಕಂಪನಿಯ ಹೆಸರು |
+| join_sector | Sector | क्षेत्र | ವಲಯ |
+| join_email | Contact email | संपर्क ईमेल | ಸಂಪರ್ಕ ಇಮೇಲ್ |
+| join_email_note | Used only for this application. Deleted when the regulator decides. | केवल इस आवेदन के लिए। नियामक के निर्णय पर हटा दिया जाएगा। | ಈ ಅರ್ಜಿಗೆ ಮಾತ್ರ. ನಿಯಂತ್ರಕರು ತೀರ್ಮಾನಿಸಿದಾಗ ಅಳಿಸಲಾಗುತ್ತದೆ. |
+| join_purposes | Purposes you will ask for | आप किन उद्देश्यों के लिए सहमति मांगेंगे | ನೀವು ಕೇಳುವ ಉದ್ದೇಶಗಳು |
+| join_add_purpose | Add a purpose | उद्देश्य जोड़ें | ಉದ್ದೇಶ ಸೇರಿಸಿ |
+| join_processors | Partners that receive data (optional) | डेटा पाने वाले साझेदार (वैकल्पिक) | ಡೇಟಾ ಪಡೆಯುವ ಪಾಲುದಾರರು (ಐಚ್ಛಿಕ) |
+| join_submit | Send for review | समीक्षा के लिए भेजें | ಪರಿಶೀಲನೆಗೆ ಕಳುಹಿಸಿ |
+| join_pending | Waiting for the regulator | नियामक की प्रतीक्षा | ನಿಯಂತ್ರಕರಿಗಾಗಿ ಕಾಯುತ್ತಿದೆ |
+| join_rejected | Not approved | स्वीकृत नहीं | ಅನುಮೋದಿಸಲಾಗಿಲ್ಲ |
+| join_approved | {name} is registered | {name} पंजीकृत है | {name} ನೋಂದಾಯಿಸಲಾಗಿದೆ |
+| join_sandbox | Sandbox | सैंडबॉक्स | ಸ್ಯಾಂಡ್‌ಬಾಕ್ಸ್ |
+| join_key_once | Shown once. Sammati keeps only a fingerprint of it, so it cannot be shown again. | केवल एक बार दिखाया जाता है। Sammati केवल उसका फ़िंगरप्रिंट रखता है, इसलिए इसे दोबारा नहीं दिखाया जा सकता। | ಒಮ್ಮೆ ಮಾತ್ರ ತೋರಿಸಲಾಗುತ್ತದೆ. Sammati ಅದರ ಫಿಂಗರ್‌ಪ್ರಿಂಟ್ ಮಾತ್ರ ಇಟ್ಟುಕೊಳ್ಳುತ್ತದೆ, ಆದ್ದರಿಂದ ಅದನ್ನು ಮತ್ತೆ ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. |
+| join_key_seen | You have already seen your key. Ask the regulator to issue a new one. | आप अपनी कुंजी पहले देख चुके हैं। नियामक से नई कुंजी माँगें। | ನಿಮ್ಮ ಕೀಲಿಯನ್ನು ನೀವು ಈಗಾಗಲೇ ನೋಡಿದ್ದೀರಿ. ಹೊಸದನ್ನು ನೀಡಲು ನಿಯಂತ್ರಕರನ್ನು ಕೇಳಿ. |
+| join_integrate | Integrate in 5 lines | 5 पंक्तियों में जोड़ें | 5 ಸಾಲುಗಳಲ್ಲಿ ಸೇರಿಸಿ |
+| join_copy | Copy | कॉपी करें | ನಕಲಿಸಿ |
+| join_intro | Register your company. The regulator reviews it. Then you can ask customers for consent and check it before you use their data. | अपनी कंपनी पंजीकृत करें। नियामक उसकी समीक्षा करता है। फिर आप ग्राहकों से सहमति मांग सकते हैं और उनका डेटा इस्तेमाल करने से पहले उसे जाँच सकते हैं। | ನಿಮ್ಮ ಕಂಪನಿಯನ್ನು ನೋಂದಾಯಿಸಿ. ನಿಯಂತ್ರಕರು ಅದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಾರೆ. ನಂತರ ನೀವು ಗ್ರಾಹಕರ ಒಪ್ಪಿಗೆ ಕೇಳಬಹುದು ಮತ್ತು ಅವರ ಡೇಟಾ ಬಳಸುವ ಮೊದಲು ಅದನ್ನು ಪರಿಶೀಲಿಸಬಹುದು. |
+| join_remove | Remove | हटाएं | ತೆಗೆದುಹಾಕಿ |
+| join_code | Code | कोड | ಕೋಡ್ |
+| join_title_field | Title | शीर्षक | ಶೀರ್ಷಿಕೆ |
+| join_description | What you will do with the data, in plain words | आप डेटा के साथ क्या करेंगे, सरल शब्दों में | ನೀವು ಡೇಟಾದೊಂದಿಗೆ ಏನು ಮಾಡುತ್ತೀರಿ, ಸರಳ ಮಾತುಗಳಲ್ಲಿ |
+| join_categories | Data categories (comma separated) | डेटा श्रेणियाँ (अल्पविराम से अलग) | ಡೇಟಾ ವರ್ಗಗಳು (ಅಲ್ಪವಿರಾಮದಿಂದ ಬೇರ್ಪಡಿಸಿ) |
+| join_retention | Kept for (days) | कितने दिन रखा जाएगा | ಎಷ್ಟು ದಿನ ಇಡಲಾಗುತ್ತದೆ |
+| join_shares | Shared with third parties | तीसरे पक्ष के साथ साझा | ಮೂರನೇ ಪಕ್ಷಗಳೊಂದಿಗೆ ಹಂಚಲಾಗುತ್ತದೆ |
+| join_required | Needed for the service | सेवा के लिए आवश्यक | ಸೇವೆಗೆ ಅಗತ್ಯ |
+| join_add_processor | Add a partner | साझेदार जोड़ें | ಪಾಲುದಾರರನ್ನು ಸೇರಿಸಿ |
+| join_processor_name | Name | नाम | ಹೆಸರು |
+| join_processor_for | Used for | किसलिए | ಯಾವುದಕ್ಕೆ |
+| join_sending | Sending… | भेजा जा रहा है… | ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ… |
+| join_example | Fill in the DemoBank example | DemoBank का उदाहरण भरें | DemoBank ಉದಾಹರಣೆ ತುಂಬಿ |
+| join_pending_hint | Keep this page's address. You can come back to it. | इस पेज का पता रखें। आप इस पर वापस आ सकते हैं। | ಈ ಪುಟದ ವಿಳಾಸ ಇಟ್ಟುಕೊಳ್ಳಿ. ನೀವು ಇದಕ್ಕೆ ಮರಳಿ ಬರಬಹುದು. |
+| join_rejected_hint | You can apply again with the changes. | आप बदलावों के साथ फिर आवेदन कर सकते हैं। | ಬದಲಾವಣೆಗಳೊಂದಿಗೆ ನೀವು ಮತ್ತೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು. |
+| join_address | Fiduciary address | फिड्यूशियरी पता | ಫಿಡ್ಯೂಷಿಯರಿ ವಿಳಾಸ |
+| join_api_key | API key | एपीआई कुंजी | ಎಪಿಐ ಕೀಲಿ |
+| join_first_request | Send your first request | अपना पहला अनुरोध भेजें | ನಿಮ್ಮ ಮೊದಲ ವಿನಂತಿಯನ್ನು ಕಳುಹಿಸಿ |
+| join_processor_howto | Using the Processor | प्रोसेसर का उपयोग | ಪ್ರೊಸೆಸರ್ ಬಳಕೆ |
+| join_sandbox_note | In the sandbox you can ask, and receive consent from, only the regulator's test customers. Ask the regulator to promote you when you are ready. | सैंडबॉक्स में आप केवल नियामक के परीक्षण ग्राहकों से सहमति मांग और पा सकते हैं। तैयार होने पर नियामक से प्रोन्नत करने को कहें। | ಸ್ಯಾಂಡ್‌ಬಾಕ್ಸ್‌ನಲ್ಲಿ ನೀವು ನಿಯಂತ್ರಕರ ಪರೀಕ್ಷಾ ಗ್ರಾಹಕರನ್ನು ಮಾತ್ರ ಕೇಳಬಹುದು ಮತ್ತು ಅವರಿಂದ ಮಾತ್ರ ಒಪ್ಪಿಗೆ ಪಡೆಯಬಹುದು. ಸಿದ್ಧರಾದಾಗ ಬಡ್ತಿ ನೀಡಲು ನಿಯಂತ್ರಕರನ್ನು ಕೇಳಿ. |
+| join_copied | Copied | कॉपी हो गया | ನಕಲಿಸಲಾಗಿದೆ |
+
 ## 4. Auditor (web)
 
 - **Home:** one card per company with a scorecard (grants, withdrawals, allowed, blocked, avg withdrawal-to-block latency, pending acknowledgements, integrity status).
@@ -174,9 +244,11 @@ Status is never colour alone. Every dynamic line is an `aria-live` region.
 - **Verify integrity:** button per company. Progress rows "Recomputing hash chain… Rebuilding Merkle roots… Comparing with chain anchors…". Result: green "All 148 records match 7 anchors" or red "Mismatch in batch 4, record 63" with a diff of the stored vs expected hash. This is the second hero moment of the demo.
 - **Report:** printable page titled "Consent and access evidence report": company, period, the log integrity check ("Log integrity check", result "MATCH" or "MISMATCH" against the on-chain anchors; the words violation, certification and compliance proof are not used), evidence list, anchor links, and a closing "Scope and limits" note: the report lists evidence from the ledger and the access log, it is not a legal finding, and the mapping of Sammati to the Act, with its unchecked points, is in `docs/dpdp-mapping.md` (L-02). No section number is printed.
 - Scorecards count "Access without valid consent" (allowed use with no valid consent at that moment), not "violations".
+- **Scorecards and filters for any number of companies (R-04):** the home grid wraps (`auto-fill`, 280 px minimum) and the ledger explorer's company filter lists the approved companies from Core, so a fourth or tenth company needs no change.
+- **Registrations (R-02):** a third tab beside Scorecards and Ledger. First the **regulator access code** field (password type, "Ask your administrator. In the demo it is on the stage sheet."), kept in this tab's session only; until it is accepted the tab shows nothing else. Then three filter chips (Pending, Approved, Rejected; Pending has a count badge). A list of applications, newest first: company, sector, time, status chip (icon and word). Selecting one opens the **review panel**: company, sector, contact email, each purpose (code, the three titles and descriptions, categories, retention, sharing, required) and each processor, and a checklist the regulator ticks for themselves (no effect on the system): "Purposes are specific", "Retention is justified", "Sharing is disclosed". Below: a note field (required to reject, optional to approve), a "Start in sandbox" checkbox (ticked), and **Approve** and **Reject** buttons. Approving is one request to Core, so the page shows one honest status line while it runs ("Approving: generating the company's key, registering the company, its purposes and processors on the ledger, creating the API key. This takes a few seconds."), never a timed set of steps; then "Approved. {name} is in the directory", with the ledger transactions as short copyable hashes. A failure says which step failed and that Approve can be repeated. Approved companies appear in a second list with a **Sandbox / Live** control ("Promote to live" and "Return to sandbox", each with a confirm) and **Issue a new API key** (confirm: "The old key stops working at once"). A last card, **Test customers**, lists the customers a sandbox company may ask (Sammati ID if known, else a short address), with "Add" (a Sammati ID or an address) and "Remove". Reduced motion: progress rows change without animation.
 
 ## 5. Stage view (`/stage`, for the live demo)
-Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre three columns for QuickLoan, MediCare+, FoodRush showing live request feeds, right column a ledger ticker (tx, ledger head). The QuickLoan column also shows the confidential-processing timeline (the same chips as the console card, handle shortened) so the audience watches the data go in encrypted, a decision come out and the ciphertext vanish on withdrawal. A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
+Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre columns, one per approved company (three in the seed; a fourth appears the moment it is approved, R-04, and a sandbox company carries the SANDBOX chip), showing live request feeds, right column a ledger ticker (tx, ledger head). The QuickLoan column also shows the confidential-processing timeline (the same chips as the console card, handle shortened) so the audience watches the data go in encrypted, a decision come out and the ciphertext vanish on withdrawal. A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
 
 ### 5.1 Data Flow Inspector (`/stage/flow`, and a panel of `/stage`; V-07, S-04)
 

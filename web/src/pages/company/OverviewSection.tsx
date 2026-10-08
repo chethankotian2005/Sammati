@@ -5,12 +5,12 @@
  */
 
 import { useMemo, type ReactNode } from "react";
-import type { SeedFiduciary, StoredAccessLogEntry, ConsentRow } from "@sammati/shared";
+import type { FiduciaryInfo, StoredAccessLogEntry, ConsentRow } from "@sammati/shared";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import { StatCard, FeedRow, type FeedRowData } from "../../ui";
 
 interface OverviewSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   consents: ConsentRow[];
   accessLogs: StoredAccessLogEntry[];
   newLogIds: Set<string>;

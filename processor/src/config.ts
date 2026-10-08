@@ -13,6 +13,11 @@ export interface ProcessorConfig {
   deployment?: Deployment;
   /** API key -> the company it identifies (lower-case address). */
   apiKeys: Map<string, Hex>;
+  /**
+   * Keys of companies that joined after the Processor started (prd.md R-01), learned from Core when they first call:
+   * company (lower-case address) -> its last API key. Filled at run time, only ever by a Core that vouched for the key.
+   */
+  registeredKeys: Map<Hex, string>;
   /** Company address (lower-case) -> where to tell it about stored and erased vault entries. */
   callbacks: Record<string, string>;
   /** Shared secret for Core's event intake. */
@@ -48,6 +53,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ProcessorConfi
     chainRpc: env.CHAIN_RPC ?? "http://127.0.0.1:8545",
     chainNetwork: env.CHAIN_NETWORK ?? "localhost",
     apiKeys: new Map(Object.entries(keys).map(([k, a]) => [k, a.toLowerCase() as Hex])),
+    registeredKeys: new Map(),
     callbacks: Object.fromEntries(Object.entries(callbacks).map(([a, u]) => [a.toLowerCase(), u])),
     eventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
     sweepMs: Number(env.PROCESSOR_SWEEP_MS ?? 30_000),

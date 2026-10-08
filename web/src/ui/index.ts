@@ -12,5 +12,6 @@ export type { Column } from "./DataTable";
 export { ConsoleLayout } from "./ConsoleLayout";
 export type { RailSection } from "./ConsoleLayout";
 export { WsIndicator } from "./WsIndicator";
+export { SandboxBadge } from "./SandboxBadge";
 export { VaultPanel, VaultTimeline, useVaultTimeline, heldFromEvents, foldTimeline, decidedText, formatInr, VAULT_STEPS } from "./VaultPanel";
 export type { HeldView } from "./VaultPanel";

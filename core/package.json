@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts",
     "fixtures": "tsx scripts/gen-fixtures.ts",
     "e2e": "tsx scripts/e2e.ts",
+    "sample:company": "tsx examples/quickstart.ts",
     "pretest": "pnpm --filter @sammati/contracts compile",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"

@@ -4,14 +4,14 @@
  */
 
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { RegisterPurposeBody, SeedFiduciary } from "@sammati/shared";
+import type { RegisterPurposeBody, FiduciaryInfo } from "@sammati/shared";
 import { Drawer } from "../../ui";
 import { registerPurpose } from "../../api";
 
 interface AddPurposeDrawerProps {
   open: boolean;
   onClose: () => void;
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   onPurposeAdded: () => void;
 }
 

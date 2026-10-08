@@ -2,15 +2,29 @@
  * ProcessorsSection — Downstream processors per purpose list, ack state and time (ui.md §3, C-06).
  */
 
-import { type ReactNode } from "react";
-import type { SeedFiduciary } from "@sammati/shared";
+import { useEffect, useState, type ReactNode } from "react";
+import type { FiduciaryInfo, FiduciaryProcessorsResponse, NoticePurpose } from "@sammati/shared";
+import { fetchProcessors } from "../../api";
 import { StatusChip, HashLabel } from "../../ui";
 
 interface ProcessorsSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
+  purposes: NoticePurpose[];
 }
 
-export function ProcessorsSection({ company }: ProcessorsSectionProps): ReactNode {
+export function ProcessorsSection({ company, purposes }: ProcessorsSectionProps): ReactNode {
+  // Read from Core, so a company that joined through R-01 shows the processors it declared.
+  const [processors, setProcessors] = useState<FiduciaryProcessorsResponse["processors"]>([]);
+  useEffect(() => {
+    let live = true;
+    void fetchProcessors(company.address).then((p) => {
+      if (live) setProcessors(p);
+    });
+    return () => {
+      live = false;
+    };
+  }, [company.address]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -23,12 +37,12 @@ export function ProcessorsSection({ company }: ProcessorsSectionProps): ReactNod
       <div className="rounded-pass border border-line bg-surface p-6 shadow-sm space-y-4">
         <h3 className="font-extrabold text-ink">Registered Processors for {company.name}</h3>
 
-        {company.processors.length === 0 ? (
+        {processors.length === 0 ? (
           <p className="text-sm text-mute">No downstream processors registered for this company.</p>
         ) : (
           <div className="space-y-3">
-            {company.processors.map((proc) => {
-              const matchedPurpose = company.purposes.find((p) => p.code === proc.purposeCode);
+            {processors.map((proc) => {
+              const matchedPurpose = purposes.find((p) => p.code === proc.purposeCode);
               return (
                 <div
                   key={proc.address}

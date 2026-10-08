@@ -81,6 +81,8 @@ export function scorecard(store: StubStore, fiduciary: Hex): Scorecard {
   const rows = store.accessFor(f.address);
   return {
     fiduciary: f.address,
+    slug: f.slug,
+    sandbox: false,
     name: f.name,
     sector: f.sector,
     color: f.color,

@@ -15,6 +15,7 @@ const port = Number(process.env.PORT ?? company.port);
 const gate = sammati({
   coreUrl: process.env.CORE_URL ?? "http://localhost:4000",
   fiduciary: company.address,
+  apiKey: process.env.SAMMATI_API_KEY ?? demoApiKey(company.slug),
   signer: process.env.FIDUCIARY_KEY,
 });
 

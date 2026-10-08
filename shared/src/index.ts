@@ -6,3 +6,4 @@ export * from "./deployments";
 export * from "./seed-chain";
 export * from "./cascade";
 export * from "./seed";
+export * from "./onboarding";

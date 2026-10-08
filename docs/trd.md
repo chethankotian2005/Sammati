@@ -9,7 +9,7 @@
 | Gateway SDK | TypeScript package `@sammati/gateway` | Express middleware |
 | Demo companies | 3 Express apps (ports 4101, 4102, 4103) | Fake data only |
 | Processor | Node 20, TypeScript, Express, `better-sqlite3`, `ethers` v6, Node `crypto` (X25519, HKDF-SHA256, AES-256-GCM), `ws` | Separate process on port 4200 (`processor/`). §4.4, §6.7 |
-| Web | Vite + React + TypeScript + Tailwind, `recharts`, `react-router` | One app, routes `/company/:id`, `/auditor`, `/stage` |
+| Web | Vite + React + TypeScript + Tailwind, `recharts`, `react-router` | One app, routes `/company/:id` (`:id` is a company's slug), `/auditor`, `/stage`, `/join`, `/join/:applicationId` |
 | Wallet | Flutter 3.x | See §5 |
 | Chain | Hardhat node (chainId 31337) for live demo; Polygon Amoy (chainId 80002) for proof | |
 | Tooling | pnpm workspaces, `scrcpy` for phone mirroring on stage | |
@@ -27,7 +27,8 @@ sammati/
   web/              # company console + auditor + stage
   wallet/           # Flutter app
   shared/           # TS types, EIP-712 definitions, canonical JSON, merkle utils, vault envelope
-  docs/             # these specs
+  docs/             # these specs, and `integration.md` for companies joining Sammati
+  core/examples/    # the quickstart sample app (R-03): `pnpm --filter @sammati/core sample:company`, also run by the e2e
 ```
 
 ## 3. Smart contracts
@@ -235,6 +236,7 @@ Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs
 | GET | `/v1/fiduciaries/:fid/purposes` | List registered purposes |
 | POST | `/v1/fiduciaries/:fid/purposes` | Register purpose (writes chain) |
 | POST | `/v1/fiduciaries/:fid/processors` | Register downstream processor |
+| GET | `/v1/fiduciaries/:fid/processors` | The processors a company declared: `{ fiduciary, processors: [{ name, address, purposeCode }] }`. The console's Processors section reads it, so a company that joined through R-01 shows its own |
 | GET | `/v1/fiduciaries/:fid/purposes` | The company's purposes: `{ fiduciary, purposes: NoticePurpose[] }` (id, code, localised title and description, data categories, retention, sharing flag, `required`) |
 | POST | `/v1/fiduciaries/:fid/requests/targeted` | Ask a specific customer (§6.11). Body `{ handle, purposes: [code], message?, expiresInHours? }`. **201 `{ requestId, status: "sent", expiresAt }` in every case where the handle is well formed**, whether or not it exists. 400 `BAD_HANDLE`, `BAD_REQUEST`, 404 `PURPOSE_NOT_FOUND`; 429 `RATE_LIMITED` (with `Retry-After`) when the company is over its own limit. Real mode only (501 in the stub) |
 | GET | `/v1/fiduciaries/:fid/requests/targeted` | The company's sent requests, newest first: `{ requests: [{ requestId, handle, purposes, message, status, createdAt, expiresAt }] }`. `handle` is the text the company typed; there is no principal in it |
@@ -244,6 +246,22 @@ Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs
 | POST | `/v1/gateway/log` | SDK posts each decision entry |
 | GET | `/v1/gateway/consent-state?principal=&fid=&purpose=` | SDK fallback check |
 | POST | `/v1/fiduciaries/:fid/export` | Compliance pack (C-08) |
+
+### 6.2a Company authentication (R-03)
+
+A company's server proves who it is with its **API key**, header `x-sammati-api-key`. Core stores only `SHA-256(key)` (`drd.md` §3, `fiduciary_credentials`); the key is 32 random bytes, so a fast hash is enough and a lookup by hash is exact. A key identifies exactly one fiduciary.
+
+| Endpoint | Key |
+|---|---|
+| `POST /v1/gateway/log`, `GET /v1/gateway/consent-state`, `GET /v1/gateway/whoami` | **Required.** The entry's `fiduciary` (log) or `fid` (consent-state) must be the key's company, else 403 `FIDUCIARY_MISMATCH`. No header or an unknown key: 401 `INVALID_API_KEY` |
+| `POST /v1/fiduciaries/:fid/requests`, `.../requests/targeted`, `GET .../requests/targeted*` | Optional. If the header is present it must belong to `:fid` (403 `FIDUCIARY_MISMATCH`); an unknown key is 401. Without it the call is the demo console's, which has no login in this build (disclosed in `demo.md`) |
+| `GET /v1/fiduciaries/:fid/access` and every other read | none, as before |
+
+- `GET /v1/gateway/whoami` returns `{ fiduciary, slug, name, sandbox }`. The Processor uses it to resolve a key it does not know from its own configuration (§6.7).
+- **Errors of the regulator routes.** 400 `BAD_NOTE` (a note over 280 characters, or missing when rejecting); 409 `DEMO_COMPANY` for a sandbox change or a key reissue on one of the three seed companies (they are always live and use fixed demo keys).
+- **Rate limit.** Calls that carry a key are counted per fiduciary over a rolling 60 s (`GATEWAY_RATE_PER_MINUTE`, default 600): over it, 429 `RATE_LIMITED` with `Retry-After`. The targeted-request limit of §6.11 is separate and unchanged.
+- **Fail closed, clearly.** A missing, unknown or unapproved key is 401 `INVALID_API_KEY` with the message "This API key is not recognised. A company can use Sammati only after the regulator approves its registration." The SDK turns any such answer into `451 LEDGER_UNAVAILABLE` (it cannot verify consent) with that message, and logs one clear warning (§7).
+- **Seed companies** have keys too, `sk_demo_<slug>` (`shared/seed.ts` `demoApiKey`), hashed at seed time like any other. They are public demo secrets, said so in `demo.md`.
 
 ### 6.3 Auditor
 | Method | Path | Purpose |
@@ -290,13 +308,74 @@ Confidential-processing events (V-06). The Processor posts them to Core (`POST /
 
 `decision` here is the Processor's outcome and is not the ALLOWED/BLOCKED of `access.logged`. A blocked evaluate emits both.
 
+### 6.12 Company onboarding (R-01, R-02, R-03)
+
+Real mode only; in stub mode every route here except `GET /v1/fiduciaries` answers 501 `NOT_IMPLEMENTED`.
+
+**Directory.** `GET /v1/fiduciaries` → `{ fiduciaries: [{ address, slug, name, sector, color, sandbox, demo }] }`: every approved company, seed companies first. `slug` is the lower-case name with runs of non-alphanumerics turned into `-` (2 to 30 characters, unique across companies and pending applications); the console route is `/company/<slug>`. `color` is the identity colour for the three seed companies and `#16173F` (`ink`) for the others, so no new colour exists. `demo` is true for the seed companies: only they have a simulator backend (`GUARDED_ENDPOINTS`, `shared/seed.ts`).
+
+**Public (no key, no login).**
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/v1/registrations` | Body `ApplicationInput` below. 201 `{ applicationId, status: "pending" }`. 400 `BAD_APPLICATION` (message names the field); 409 `NAME_TAKEN`; 429 `RATE_LIMITED` (`REGISTRATIONS_PER_HOUR` per client address, default 5) or `TOO_MANY_PENDING` (`MAX_PENDING_APPLICATIONS`, default 50). `applicationId` is 16 random bytes, hex: it is the applicant's bearer secret for the status page |
+| GET | `/v1/registrations/:applicationId` | `{ applicationId, name, sector, status, note, createdAt, decidedAt, result }`. 404 `APPLICATION_NOT_FOUND`. `result` is null until approved; then `{ fiduciary, slug, sandbox, apiKey }` where `apiKey` is the key **the first time it is read** and `null` afterwards, with `apiKeyShown: true` |
+
+```ts
+ApplicationInput = {
+  name: string,                  // 2 to 60 characters, no control characters
+  sector: string,                // 2 to 40
+  contactEmail: string,          // looks like an email, at most 120; demo only (drd.md §3)
+  purposes: Array<{              // 1 to 8; codes unique within the application
+    code: string,                // ^[a-z][a-z0-9_]{2,31}$
+    title: LocalizedText,        // en, hi, kn all required, 1 to 60 characters each
+    description: LocalizedText,  // en, hi, kn all required, 1 to 200 characters each
+    dataCategories: string[],    // 1 to 8 items, 1 to 30 characters each
+    retentionDays: number,       // integer 1 to 3650
+    sharesThirdParty: boolean,
+    required: boolean,
+  }>,
+  processors: Array<{ name: string, purposeCode: string }>,   // 0 to 6; name 2 to 40; purposeCode is one of the application's
+}
+```
+
+**Regulator** (header `x-sammati-regulator-key: <REGULATOR_KEY>`; missing or wrong is 401 `UNAUTHORIZED`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/v1/regulator/registrations?status=` | `{ applications: [ApplicationView + contactEmail] }`, newest first; `status` is `pending`, `approved` or `rejected` |
+| POST | `/v1/regulator/registrations/:id/approve` | Body `{ note?, sandbox? }` (`sandbox` defaults to true). Runs the approval below. 200 `{ application, fiduciary: { address, slug }, txHashes: [Hex] }`. 409 `ALREADY_DECIDED`; 502 `REGISTRATION_FAILED` (a chain step failed; nothing is half-visible, and the same call can be repeated) |
+| POST | `/v1/regulator/registrations/:id/reject` | Body `{ note }`, 1 to 280 characters. 200 `{ application }`. 409 `ALREADY_DECIDED` |
+| POST | `/v1/regulator/fiduciaries/:fid/sandbox` | Body `{ sandbox: boolean }`. Promote (`false`) or demote (`true`). 200 `{ fiduciary, sandbox }` |
+| POST | `/v1/regulator/fiduciaries/:fid/reissue-key` | Replaces the company's API key (the old one stops working at once) and holds the new one for the applicant's next read of `GET /v1/registrations/:id`. 200 `{ ok: true }`. The regulator never sees the key |
+| GET / POST / DELETE | `/v1/regulator/test-principals` (`/:principal`) | The sandbox's test customers. GET `{ principals: [{ principal, handle, addedAt }] }`; POST body `{ handle }` or `{ principal }` answers 201 `{ principals, added }` (a handle must be registered, else 404 `HANDLE_NOT_FOUND`: only the regulator can ask, so this leaks nothing to a company); DELETE removes one and answers `{ principals }`. The demo principal (`DEMO_PRINCIPAL`) and `SANDBOX_TEST_PRINCIPALS` are always test customers |
+
+**Approval, step by step** (`core/src/real/registration.ts`; one approval at a time):
+1. Nothing changes in the directory yet. Generate the company's key pair (`ethers.Wallet.createRandom()`), store it in `fiduciary_keys` and the address on the application row (so a retry reuses it). For each processor generate a key pair the same way (`processor_keys`).
+2. The admin account sends the company `REGISTRATION_FUNDING_ETH` (default 1) and each processor 0.1 ETH of the local chain's test ether, if they are below that.
+3. Admin: `registerFiduciary(address, name, fiduciaryMetaHash)`. Company key: `registerPurpose(purposeId, descHash, retentionDays, shares)` for each purpose; `registerProcessor(purposeId, processor, processorMetaHash)` for each processor. A step whose effect is already on chain (`isFiduciary`, a purpose with an owner, `isProcessor`) is skipped, which makes a retry safe.
+4. In one database transaction: insert the `fiduciaries` (with `slug`, `sandbox`), `purposes` and `processors` rows, insert `fiduciary_credentials` with the hash of a fresh API key, set the application `approved`, store the note, set `decided_at` and erase the contact email. Hold the plain key in memory for the applicant's one read (lost if Core restarts: the regulator reissues).
+5. Run the indexer so the registrations are in the ledger explorer immediately, and publish `fiduciary.registered` (below).
+
+Reject: set `rejected`, store the note and erase the email. Nothing else exists for that company, so `POST /v1/fiduciaries/<anything>/requests` has no company to find: 404 `FIDUCIARY_NOT_FOUND`.
+
+**Sandbox rules** (Core policy, enforced at the relayer and the request routes; the contracts are unchanged, and the policy says so honestly in `architecture.md` §5.7). A sandbox company:
+- cannot address a customer who is not a test customer: `POST .../requests/targeted` still answers 201 `sent` (the anti-enumeration rule of §6.11), but the request is not delivered, exactly like an unknown handle;
+- cannot obtain a notice for a non-test customer: `GET /v1/requests/:id?principal=` answers 403 `SANDBOX_COMPANY` ("This company is in the Sammati test sandbox and can only ask test customers");
+- cannot receive a grant from a non-test customer: `POST /v1/consents/grant` answers 403 `SANDBOX_COMPANY` before anything is relayed.
+Withdrawals are never refused. Promotion removes all three checks.
+
+**New events.** `fiduciary.registered` `{ event, fiduciary, slug, name, sandbox, at }` to the `auditor` topic and `fiduciary:<address>`; `fiduciary.updated` (sandbox changed) `{ event, fiduciary, slug, sandbox, at }` to the same. The web console and Stage refresh their directory on either.
+
+**Env (Core).** `REGULATOR_KEY` (default `demo-regulator-key`, a disclosed demo secret), `ADMIN_KEY` (default Hardhat account #0, the admin the deploy script uses), `REGISTRATION_FUNDING_ETH` (1), `REGISTRATIONS_PER_HOUR` (5), `MAX_PENDING_APPLICATIONS` (50), `GATEWAY_RATE_PER_MINUTE` (600), `SANDBOX_TEST_PRINCIPALS` (comma-separated addresses). **Dependencies:** none new (`node:crypto` for hashing and random bytes, `ethers` for keys).
+
 ### 6.6 Real mode (`STUB_MODE=false`)
 Same paths, shapes and error codes as the stub, backed by SQLite (`drd.md` §3), the chain and a relayer wallet.
 - **Grant/withdraw:** the relayer submits `grantConsent` / `withdrawConsent` and waits for the receipt, so `status` is `"confirmed"`. Contract reverts map to HTTP errors: `InvalidSignature` → 400 `BAD_SIGNATURE`, `InvalidNonce` → 409 `BAD_NONCE`, `SignatureExpired` → 400 `DEADLINE_PASSED`, `InvalidExpiry` → 400 `BAD_EXPIRY`, `UnknownPurpose` → 404 `PURPOSE_NOT_FOUND`, `WrongFiduciary` → 400 `WRONG_FIDUCIARY`, `PurposeInactive` → 409 `PURPOSE_INACTIVE`, `NotActive` → 409 `NOT_ACTIVE`. An unreachable node is 503 `LEDGER_UNAVAILABLE`.
 - **Indexer:** polls chain events into `ledger_events` and `consents_cache` (and `anchor_batches`, `cascade_acks`), pushes `consent.updated`, `cascade.updated` and `anchor.posted`, and resumes from `indexer_state`. It also ingests the receipt of every relayed transaction immediately; the unique `(tx_hash, log_index)` key makes the two paths agree.
 - **`/v1/gateway/consent-state`** reads the chain directly (the cache can lag), and answers 503 `LEDGER_UNAVAILABLE` when it cannot, which the SDK treats as BLOCKED (fail closed).
 - **Request notices:** `GET /v1/requests/:id` expires a request after `REQUEST_TTL_SECONDS` (default 1800) with 410 `REQUEST_EXPIRED`. The seeded `req_demo_quickloan` never expires.
-- **Not built in real mode (501 `NOT_IMPLEMENTED`):** `POST /v1/fiduciaries/:fid/purposes` and `/processors` (the seed registers them); no company onboarding or sandbox company exists, the three seed companies are all there is. The cascade engine (§9) is built and acknowledges on chain. The audit report is not signed (A-04 asks for it); `reportHash` and signing are future work.
+- **Not built yet in real mode (501 `NOT_IMPLEMENTED`):** `POST /v1/fiduciaries/:fid/purposes` and `/processors` (the seed registers the demo companies' purposes; a new company declares its purposes and processors in its application, §6.12). The cascade engine (§9) is built and acknowledges on chain. The audit report is not signed (A-04 asks for it); `reportHash` and signing are future work.
 - **Config:** `STUB_MODE=false`, `CHAIN_RPC` (default `http://127.0.0.1:8545`), `CHAIN_NETWORK` (the key in `shared/deployments.json`, default `localhost`), `RELAYER_KEY` (default the demo relayer), `DB_PATH` (default `./data/sammati.sqlite`). Core waits for the chain and contracts at startup rather than exiting. Start it with `pnpm demo:up` (real mode is its default).
 
 ### 6.7 Sammati Processor (`processor/`, port 4200)
@@ -315,7 +394,7 @@ A separate process from Core and from every company. It is the only place where 
 
 **Submit.** (1) Validate shape: lowercase-hex fields of the right length (`ephPub` 32, `nonce` 12, `tag` 16), `v == 1`, `purposeCode` a short code, envelope at most 4 KiB; else 400 `BAD_ENVELOPE`. (2) Compute `handle`; verify the EIP-191 signature (§4.4.8): else 400 `BAD_SIGNATURE`. Emit `vault.encrypted`. (3) Read `hasValidConsent(principal, fiduciary, purposeIdOf(fiduciary, purposeCode))` **from the chain**, not from Core: Core cannot make the Processor accept data. (Chain access needs `shared/deployments.json` and the registry ABI, like Core.) Not valid: 451 with the reason (`NO_CONSENT`, `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`); chain unreachable: 451 `LEDGER_UNAVAILABLE`. (4) Store `{ handle, principal, fiduciary, purposeCode, ciphertextHash, ciphertext }` (`drd.md` §3); erase older live rows for the same principal, fiduciary and purpose (`cause: "superseded"`) so one live copy exists. Emit `vault.stored`. (5) Tell the company's webhook (below). The Processor does **not** open the envelope at submit: a malformed ciphertext is discovered at evaluate, which answers `CIPHERTEXT_INVALID`.
 
-**Evaluate.** (1) `x-sammati-api-key` identifies a fiduciary (`FIDUCIARY_API_KEYS`); unknown key 401 `UNAUTHORIZED`; `fiduciary` in the body must be that company, `action` must be `loan_decision` (else 400 `UNSUPPORTED_ACTION`). (2) Unknown handle, or a handle of another company: 404 `HANDLE_NOT_FOUND` (the two are indistinguishable). Emit `processor.requested`. (3) Consent, from the chain, for the **requested** `purposeCode`: not valid, or the handle was submitted for a different purpose, is refused with 451 and the reason code (a different purpose answers `NO_CONSENT`); chain unreachable is `LEDGER_UNAVAILABLE` and **erases nothing**. (4) A refusal writes a BLOCKED access-log entry and emits `processor.decided` (`blocked`). When the reason is `CONSENT_WITHDRAWN` or `NO_CONSENT`, the ciphertext is erased now (`vault.erased`); for `CONSENT_EXPIRED` it is erased only once the grace period (below, Erasure) has passed. (5) Consent valid but the row is already erased: 410 `VAULT_ERASED` (the customer must submit again). (6) Emit `processor.decrypting`; open the envelope in memory. Authentication failure or a payload that is not the expected JSON: 422 `CIPHERTEXT_INVALID`, `processor.decided` (`error`), never a guessed decision. (7) Run the rules below, drop the plaintext reference, respond. (8) Write an ALLOWED access-log entry (`endpoint: "POST /v1/processor/evaluate"`, `reason: "OK"`; an authentication failure is ALLOWED too, since consent was valid and the data was handled) and emit `processor.decided`.
+**Evaluate.** (1) `x-sammati-api-key` identifies a fiduciary (`FIDUCIARY_API_KEYS`; a key not in that map is looked up with Core's `GET /v1/gateway/whoami`, §6.2a, and remembered for 60 s, so a company registered through R-01 can call the Processor with the key it got; a Core that cannot be reached means the key is unknown); unknown key 401 `UNAUTHORIZED`; `fiduciary` in the body must be that company, `action` must be `loan_decision` (else 400 `UNSUPPORTED_ACTION`). (2) Unknown handle, or a handle of another company: 404 `HANDLE_NOT_FOUND` (the two are indistinguishable). Emit `processor.requested`. (3) Consent, from the chain, for the **requested** `purposeCode`: not valid, or the handle was submitted for a different purpose, is refused with 451 and the reason code (a different purpose answers `NO_CONSENT`); chain unreachable is `LEDGER_UNAVAILABLE` and **erases nothing**. (4) A refusal writes a BLOCKED access-log entry and emits `processor.decided` (`blocked`). When the reason is `CONSENT_WITHDRAWN` or `NO_CONSENT`, the ciphertext is erased now (`vault.erased`); for `CONSENT_EXPIRED` it is erased only once the grace period (below, Erasure) has passed. (5) Consent valid but the row is already erased: 410 `VAULT_ERASED` (the customer must submit again). (6) Emit `processor.decrypting`; open the envelope in memory. Authentication failure or a payload that is not the expected JSON: 422 `CIPHERTEXT_INVALID`, `processor.decided` (`error`), never a guessed decision. (7) Run the rules below, drop the plaintext reference, respond. (8) Write an ALLOWED access-log entry (`endpoint: "POST /v1/processor/evaluate"`, `reason: "OK"`; an authentication failure is ALLOWED too, since consent was valid and the data was handled) and emit `processor.decided`.
 
 **Rules (deterministic, `processor/src/rules.ts`).** Decision codes are not consent reason codes and never appear in `access_logs.reason`.
 
@@ -330,6 +409,8 @@ A separate process from Core and from every company. It is the only place where 
 | otherwise | approved. `base` = 100000, 250000, 500000 or 1000000 for the four bands. `score >= 750`: `limit = base`, code `SCORE_GOOD`. `650..749`: `limit = base * 60 / 100`, code `SCORE_FAIR` |
 
 For the demo profile (6-9 LPA, salaried, score 742) the answer is `approved`, `limit: 300000`, `["SCORE_FAIR"]`; the same details entered by hand, with no score, give `approved`, `300000`, `["SCORE_FAIR", "SCORE_ASSUMED"]`. A declined answer has `limit: null`. The decision itself reveals coarse facts (a score band): that is the point of data minimisation, and `demo.md` says so.
+
+**Withdrawals of registered companies.** The Processor also subscribes to Core's `auditor` topic, so it hears every `consent.updated`, including those of companies that joined after it started; the periodic sweep remains the backstop.
 
 **Erasure.** A row is erased by overwriting `ciphertext` with `NULL` and setting `erased_at`; the metadata row stays so a later call can still be told why. Triggers: evaluate refusals above; the Processor's subscription to Core's `fiduciary:<address>` topic (a `consent.updated` that is no longer Active for a stored row erases it at once); a sweep every `PROCESSOR_SWEEP_MS` that re-checks every live row on chain (covers expiry and missed events); a newer submission. It never erases when the chain cannot be read. **Expiry has a grace period** (N-03): while a consent has expired but `now < expiresAt + EXPIRY_ERASURE_GRACE_SECONDS` (default 7 days; 60 s in `DEMO_FAST_EXPIRY`) every evaluate is refused with 451 `CONSENT_EXPIRED`, nothing is decrypted, and the ciphertext is **kept**, so a renewal inside the window does not make the customer send the details again; after it, the next evaluate or sweep erases it (`vault.erased`, cause `expired`). Withdrawal has no grace: it erases at once. A renewal that arrives in time makes the kept ciphertext usable again (the purpose, and the customer's consent for it, are the same). The Processor reads `expiresAt` from the same on-chain read.
 
@@ -478,12 +559,14 @@ The Processor's erasure grace and `vault.erased` are specified in §6.7. Core tu
 ```ts
 import { sammati } from '@sammati/gateway';
 
-const gate = sammati({ coreUrl, fiduciary: QUICKLOAN_ADDRESS, signer: fiduciaryKey });
+const gate = sammati({ coreUrl, fiduciary: QUICKLOAN_ADDRESS, apiKey: process.env.SAMMATI_API_KEY });
 
 app.get('/customers/:id/credit-profile',
   gate.requireConsent({ purpose: 'credit_check', principalFrom: req => req.header('x-sammati-principal') }),
   handler);
 ```
+Options: `coreUrl`, `fiduciary`, `apiKey` (R-03: sent as `x-sammati-api-key` on every call to Core except the WebSocket; required by Core's gateway endpoints, §6.2a), optional `signer`, `timeoutMs`, `cacheTtlMs`, `liveCache`, `maxQueuedLogs`.
+
 Behaviour:
 1. Resolve principal address. Missing or malformed principal returns 451 `NO_PRINCIPAL`.
 2. Check the local consent cache. The SDK keeps a WebSocket to Core subscribed to `fiduciary:<address>`; each `consent.updated` replaces that consent's cache entry immediately. If the entry is missing or older than 5 s, call `/v1/gateway/consent-state`.
@@ -491,7 +574,8 @@ Behaviour:
    - A `consent-state` answer that was in flight when an event for the same consent arrived is not cached.
 3. Active and unexpired: `next()`. Otherwise respond `451 { code: "CONSENT_WITHDRAWN" | "CONSENT_EXPIRED" | "NO_CONSENT" | "LEDGER_UNAVAILABLE" | "NO_PRINCIPAL", message }`. If the state cannot be fetched (Core down, 5xx, timeout) the answer is `LEDGER_UNAVAILABLE`: fail closed. Every response, allowed or blocked, carries the log entry's id in the `x-sammati-entry-id` header.
 4. Append a log entry (see `drd.md` §3) and POST it to Core asynchronously, after the response is sent, so logging never blocks it. The SDK owns the per-fiduciary `seq`/`prevHash`: it resumes from `GET /v1/fiduciaries/:fid/access?limit=1` and again after any rejection. At most 5000 entries wait for Core; beyond that new entries are dropped with a warning rather than growing memory without bound.
-5. `gate.close()` stops the WebSocket; `gate.flush()` resolves when queued log entries have been delivered.
+5. **Key errors.** If Core answers 401 or 403 to the key, the SDK treats consent as unverifiable (`451 LEDGER_UNAVAILABLE`, fail closed), the response message says why ("Sammati rejected this company's API key"), and the SDK logs one warning naming the cause (`INVALID_API_KEY` or `FIDUCIARY_MISMATCH`) and what to do, once per cause rather than once per request. An absent key is sent as no header and gets the same answer.
+5a. `gate.close()` stops the WebSocket; `gate.flush()` resolves when queued log entries have been delivered.
 6. Addresses an entry carries (the company's and the principal's) are written in EIP-55 form whatever case the caller used. Core stores them that way and re-derives each entry's hash from the stored row, so an entry hashed with a lower-case address would be rejected as out of sync with its chain.
 7. `gate.logAccess({ purpose, principal, decision, reason, endpoint, latencyMs })` appends an entry decided by someone else to the same hash chain and queue, and returns its id. The Processor uses it: it decides from the chain itself (§6.7) and logs through the normal path. Two processes (a company's app and the Processor) may then write one fiduciary's chain; a sequence collision is rejected by Core (409) and the SDK resumes and retries (up to 5 attempts), so neither loses an entry in normal use.
 
@@ -525,6 +609,7 @@ Real mode, in detail (`core/src/real/cascade.ts`):
 | Env (Core, N-02) | `TARGETED_RATE_PER_MINUTE` (20), `MAX_OPEN_REQUESTS_PER_USER` (3), `IDENTITY_FRESHNESS_SECONDS` (900) |
 | Env (Core, V-07) | `DEMO_PRINCIPAL_KEYS` (JSON `{ "<address>": "<private key>" }`, default Hardhat account #0): customers whose key Core holds so the presenter can withdraw for them; never a real wallet's key |
 | Env (Processor) | `PROCESSOR_PORT` (4200), `PROCESSOR_KEY` (`0x` + 64 hex: the X25519 private key; absent means generate at start. Never logged, never sent anywhere), `PROCESSOR_DB_PATH` (`./data/processor.sqlite`), `CORE_URL`, `CHAIN_RPC`, `CHAIN_NETWORK` (as Core), `FIDUCIARY_API_KEYS` (JSON `{ "<key>": "<fiduciary address>" }`, default `sk_demo_<slug>` for the three seed companies), `FIDUCIARY_CALLBACKS` (JSON `{ "<address>": "<url>" }`), `PROCESSOR_EVENT_KEY`, `PROCESSOR_SWEEP_MS` (30000), `DEMO_MODE` |
+| Env (Core, R-01 to R-03) | `REGULATOR_KEY`, `ADMIN_KEY`, `REGISTRATION_FUNDING_ETH`, `REGISTRATIONS_PER_HOUR`, `MAX_PENDING_APPLICATIONS`, `GATEWAY_RATE_PER_MINUTE`, `SANDBOX_TEST_PRINCIPALS` (§6.12) |
 | Env (QuickLoan) | `PROCESSOR_URL` (default `http://localhost:4200`), `QUICKLOAN_API_KEY` (default `sk_demo_quickloan`) |
 | Seed | `pnpm seed` registers 3 fiduciaries, purposes, processors, funds the relayer (idempotent). Fiduciary keys are Hardhat accounts #1 to #3 (`shared/seed.ts`); the relayer is its own demo key (`RELAYER_KEY`, default `DEMO_RELAYER_KEY` in `shared/seed.ts`), topped up to 100 ETH from the admin (account #0) |
 | Deployments | `shared/deployments.json`, keyed by network name: `{ "<network>": { chainId, admin, consentRegistry, accessAnchor, startBlock, [explorerUrl, links] } }`. `pnpm deploy:local` writes `localhost`, which is deterministic on a fresh node and has no explorer; `pnpm deploy:amoy` writes `amoy` with `explorerUrl` and `links { consentRegistry, accessAnchor, consentRegistryDeployTx, accessAnchorDeployTx }` |
@@ -540,6 +625,8 @@ Real mode, in detail (`core/src/real/cascade.ts`):
 - `E2E_RECORD_FLOW=<path>` makes `pnpm e2e` also write the recorded flow for the Data Flow Inspector's replay mode (§6.9). It records only what the run's WebSocket and the two public reads returned.
 - Confidential processing (V-01 to V-06) extends `pnpm e2e` with: wallet-side seal → `submit` → evaluate approved → the QuickLoan admin view shows a handle and hash only → withdraw → evaluate answers 451 `CONSENT_WITHDRAWN` → the vault row is erased, and the run's WebSocket events, HTTP responses, process output and database files contain no trace of `ABCDE1234F`. Package tests: envelope vectors (`shared`), no endpoint returns plaintext, tampered ciphertext gives `CIPHERTEXT_INVALID`, erasure rules, rules table (`processor`); the same vectors in Dart, plus a wallet integration test that seals with the Dart code and has the real Processor open it (`wallet/test/integration/real_processor_test.dart`, run with `--dart-define=CORE_URL=...` against `pnpm demo:up`). The e2e searches the stack's console output only when it started the stack itself; against a stack that was already running it searches responses, events and database files, and says so.
 
+- Onboarding (R-01 to R-03) extends `pnpm e2e`: register DemoBank, reject a second company, approve DemoBank, read its API key once (a second read shows none), find it in the directory (sandbox) and in the ledger explorer, run the quickstart sample app with the key, send a targeted request to a test customer, grant, ALLOWED, withdraw, BLOCKED; then the refusals: a non-test customer cannot be targeted or grant, a key for another company's id is 403 `FIDUCIARY_MISMATCH`, no key is 401 `INVALID_API_KEY`, the rejected company has no requests. Package tests cover validation, the approval steps and their retry, the key lifecycle (hash only, once, reissue), sandbox promotion, rate limits and the web screens.
+
 ## 12. Security notes (say these out loud to judges)
 - Replay protection via nonces, domain separation, deadlines.
 - Relayer cannot forge consent.
@@ -548,4 +635,5 @@ Real mode, in detail (`core/src/real/cascade.ts`):
 - Demo shortcuts: company and processor keys are held by Core; production would use company-held keys or HSMs.
 - Demo shortcut: the wallet talks to Core over plain HTTP on the venue LAN (Android `usesCleartextTraffic`, iOS `NSAllowsLocalNetworking`), because the laptop has no certificate. Production uses HTTPS only. The wallet sends only addresses, hashes and purpose ids to Core.
 - The wallet key sits in secure storage and is read only after a device-credential prompt (app-level gate, not an OS key bound to biometrics).
+- Onboarding: API keys are 32 random bytes, stored only as SHA-256 hashes, shown once; each key works for one company and is refused for any other id; each company is rate limited; a company with no approved registration has no key, and a gateway call without a valid key fails closed with a clear error. Demo shortcuts, said out loud: Core generates and holds the new company's key pair and its processors' key pairs (production: the company generates its own and registers only the address); the regulator's access code is a shared demo secret, not an identity system; the company console has no login in this build, so the key is enforced on server-to-server calls only; sandbox is Core policy at the relayer, not a contract rule, so a determined user could still submit a signed grant to the chain directly.
 - Confidential processing: only ciphertext leaves the phone, only the Processor can open it, and Core holds no decryption key. Demo shortcut, said out loud: the Processor is an ordinary process with an in-memory key (a simulated enclave), so whoever administers that machine could read memory. The wallet fetches the Processor's public key over plain HTTP from the address Core names; production uses remote attestation of a TEE so the wallet encrypts only to a key the hardware vouches for (`architecture.md` §5.5). The demo profile is fictional.

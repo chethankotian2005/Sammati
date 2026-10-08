@@ -12,6 +12,7 @@ import {
   GRANT_CONSENT_TYPE,
   GUARDED_ENDPOINTS,
   SEED_FIDUCIARIES,
+  demoApiKey,
   WITHDRAW_CONSENT_TYPE,
   ZERO_HASH,
   chainEntry,
@@ -30,6 +31,7 @@ import { createRealApp } from "../src/app";
 import type { Config } from "../src/config";
 import { createRealCore, type RealCore } from "../src/real/core";
 import { WsHub } from "../src/ws";
+import { gatewayHeaders } from "./gatewayKey";
 import { realConfig, startTestChain, type TestChain } from "./harness";
 
 // Hardhat account #0: the seeded demo principal's key (public, test only).
@@ -56,7 +58,7 @@ const events: WsEvent[] = [];
 async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<{ status: number; json: T }> {
   const res = await fetch(base + path, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...gatewayHeaders(path, body) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, json: (await res.json()) as T };
@@ -110,7 +112,7 @@ beforeAll(async () => {
   socket.send(JSON.stringify({ sub: [`principal:${PRINCIPAL}`, `fiduciary:${QUICKLOAN.address}`] }));
 
   // A company backend guarded by the real SDK (with its live consent feed), pointed at the real Core.
-  gate = sammati({ coreUrl: base, fiduciary: QUICKLOAN.address, timeoutMs: 2000, cacheTtlMs: 1000 });
+  gate = sammati({ coreUrl: base, fiduciary: QUICKLOAN.address, apiKey: demoApiKey("quickloan"), timeoutMs: 2000, cacheTtlMs: 1000 });
   const company = express();
   for (const p of QUICKLOAN.purposes) {
     const endpoint = GUARDED_ENDPOINTS[p.code]!;

@@ -4,9 +4,9 @@
  *  company, purpose, tx, ledger head; filters on top."
  */
 
+import { useDirectory } from "../../directory";
 import { useState, useMemo, type ReactNode } from "react";
 import {
-  SEED_FIDUCIARIES,
   type LedgerEventType,
   type LedgerEventView,
 } from "@sammati/shared";
@@ -29,6 +29,7 @@ export function LedgerExplorerSection({
   events,
   onFilterChange,
 }: LedgerExplorerSectionProps): ReactNode {
+  const directory = useDirectory();
   const [selectedFid, setSelectedFid] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -84,9 +85,7 @@ export function LedgerExplorerSection({
       header: "Fiduciary",
       width: "w-36",
       render: (e) => {
-        const found = SEED_FIDUCIARIES.find(
-          (f) => f.address.toLowerCase() === e.fiduciary?.toLowerCase(),
-        );
+        const found = directory.byAddress(e.fiduciary);
         return (
           <div className="flex items-center gap-2">
             {found && (
@@ -194,7 +193,7 @@ export function LedgerExplorerSection({
             className="rounded-row border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink focus:border-marigold focus:outline-none"
           >
             <option value="all">All Fiduciaries</option>
-            {SEED_FIDUCIARIES.map((f) => (
+            {directory.fiduciaries.map((f) => (
               <option key={f.address} value={f.address}>
                 {f.name}
               </option>

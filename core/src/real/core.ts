@@ -8,6 +8,7 @@ import { clearAll, openDb, type Db } from "./db";
 import { FINGERPRINT_KEY, chainFingerprint, storedFingerprint } from "./fingerprint";
 import { ExpiryScheduler } from "./expiry";
 import { Indexer } from "./indexer";
+import { Onboarding } from "./onboarding";
 import { Notifications } from "./notifications";
 import { reconcile, type ReconcileResult } from "./reconcile";
 import { Renewals } from "./renewals";
@@ -48,6 +49,8 @@ export interface RealCore {
   cascade: CascadeEngine;
   /** Sammati IDs and targeted consent requests (trd.md §6.11). */
   targeted: TargetedRequests;
+  /** Company applications, the regulator's decision, API keys and the sandbox (trd.md §6.12). */
+  onboarding: Onboarding;
   /** The wallet's Alerts (trd.md §6.12). */
   notifications: Notifications;
   /** Renewal requests, from a company or from the customer pressing Renew. */
@@ -96,7 +99,8 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
   const anchors = new AnchorJob(config, repo, chain, indexer);
   const cascade = new CascadeEngine(config, repo, chain, indexer, publish);
   indexer.onWithdrawn = (w) => cascade.onWithdrawn(w);
-  const targeted = new TargetedRequests(db, repo, publish, config);
+  const onboarding = new Onboarding(db, repo, chain, config, indexer, publish, log);
+  const targeted = new TargetedRequests(db, repo, publish, config, undefined, undefined, (f, principal) => onboarding.mayDealWith(f, principal));
   const notifications = new Notifications(db, repo, publish, config);
   indexer.onAcknowledged = (a) => notifications.onAcknowledged(a);
   const renewals = new Renewals(db, repo, targeted, notifications, (r) => targeted.publishRequested(r), config);
@@ -125,11 +129,13 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     renewals,
     expiry,
     onVaultEvent: (event) => notifications.onVaultEvent(event),
+    onboarding,
     publish,
     async reset() {
       clearAll(db);
       repo.setState(FINGERPRINT_KEY, await chainFingerprint(chain));
       repo.seedDirectory();
+      onboarding.forget();
       await indexer.resync();
     },
     reconcile: () => reconcile(repo, chain, indexer),
