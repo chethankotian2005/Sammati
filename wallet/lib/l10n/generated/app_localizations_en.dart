@@ -657,4 +657,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auth_reason_id => 'Confirm to register your Sammati ID';
+
+  @override
+  String get protect_link => 'How this protects you';
+
+  @override
+  String get protect_1 =>
+      'Each purpose is your own choice. Nothing is ticked for you.';
+
+  @override
+  String get protect_2 =>
+      'You can withdraw any purpose later in two taps. The company\'s next request is blocked.';
+
+  @override
+  String get protect_3 =>
+      'Every time a company uses your data it is recorded. If the record is edited later, the edit shows.';
+
+  @override
+  String get protect_4 =>
+      'When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this demo the secure processor is simulated.';
+
+  @override
+  String get protect_note =>
+      'Sammati is a prototype with made-up data. It is aligned with the principles of India\'s DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md.';
 }

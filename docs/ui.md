@@ -61,7 +61,8 @@ Camera full screen, QR frame, torch toggle. On success: haptic and slide to W3.
 - Header: company name, sector, "Asking for 3 purposes".
 - Per purpose: title, one-sentence plain description, data categories as small chips, retention ("kept for 12 months"), third-party sharing flag in `block`-tinted chip when true, expiry dropdown, switch (default off).
 - Required-for-service purposes are labelled "Needed for the service".
-- Footer: "You can withdraw any purpose later, as easily as you gave it." Primary button "Give consent (2)" showing count; disabled when nothing is on.
+- Footer: "You can withdraw any purpose later, as easily as you gave it." Under it a text button "How this protects you" (L-02) that opens a bottom sheet, below. Primary button "Give consent (2)" showing count; disabled when nothing is on.
+- **How this protects you** (bottom sheet, `protect_*` in §6): four short points that are each true of the build (nothing pre-ticked; withdraw in two taps and the next request is blocked; every use is recorded and an edit shows; sensitive details are encrypted on the phone, with the secure processor said to be simulated), then one note: a prototype with made-up data, "aligned with the principles of" the Act, not legal advice and not a certification, pointing at `docs/dpdp-mapping.md`. It makes no legal claim that the mapping marks VERIFY: no section numbers, no "compliant", no "certified". It adds no new switch or step to giving consent.
 - On tap: biometric prompt, then W4.
 
 ### W4 Confirmation
@@ -143,7 +144,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **Live requests, QuickLoan only (V-05, V-06):** the simulator gains **Run loan decision**. The result row reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow`, or "Declined · …" in `block`, or the usual "451 · Consent withdrawn". Beside the feed, a **What QuickLoan holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "QuickLoan staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
 - **Consents:** table of customers by purpose with status, filterable.
 - **Processors:** per purpose list, ack state and time.
-- **Evidence:** "Generate compliance pack" button, preview, download.
+- **Evidence:** "Generate evidence pack" button, preview, download. Titles say "evidence", never "compliance" (L-02).
 
 ### 3.1 QuickLoan customer portal (`/portal/quickloan`, C-09)
 
@@ -229,10 +230,11 @@ Copy (English / Hindi / Kannada; native-speaker check needed, like §6):
 
 ## 4. Auditor (web)
 
-- **Home:** one card per company with a compliance scorecard (grants, withdrawals, allowed, blocked, avg withdrawal-to-block latency, pending acknowledgements, integrity status).
+- **Home:** one card per company with a scorecard (grants, withdrawals, allowed, blocked, avg withdrawal-to-block latency, pending acknowledgements, integrity status).
 - **Ledger explorer:** reverse-chronological table with type, principal alias (short address), company, purpose, tx, ledger head; filters on top.
 - **Verify integrity:** button per company. Progress rows "Recomputing hash chain… Rebuilding Merkle roots… Comparing with chain anchors…". Result: green "All 148 records match 7 anchors" or red "Mismatch in batch 4, record 63" with a diff of the stored vs expected hash. This is the second hero moment of the demo.
-- **Report:** printable page: company, period, verification result, evidence list, anchor links.
+- **Report:** printable page titled "Consent and access evidence report": company, period, the log integrity check ("Log integrity check", result "MATCH" or "MISMATCH" against the on-chain anchors; the words violation, certification and compliance proof are not used), evidence list, anchor links, and a closing "Scope and limits" note: the report lists evidence from the ledger and the access log, it is not a legal finding, and the mapping of Sammati to the Act, with its unchecked points, is in `docs/dpdp-mapping.md` (L-02). No section number is printed.
+- Scorecards count "Access without valid consent" (allowed use with no valid consent at that moment), not "violations".
 - **Scorecards and filters for any number of companies (R-04):** the home grid wraps (`auto-fill`, 280 px minimum) and the ledger explorer's company filter lists the approved companies from Core, so a fourth or tenth company needs no change.
 - **Registrations (R-02):** a third tab beside Scorecards and Ledger. First the **regulator access code** field (password type, "Ask your administrator. In the demo it is on the stage sheet."), kept in this tab's session only; until it is accepted the tab shows nothing else. Then three filter chips (Pending, Approved, Rejected; Pending has a count badge). A list of applications, newest first: company, sector, time, status chip (icon and word). Selecting one opens the **review panel**: company, sector, contact email, each purpose (code, the three titles and descriptions, categories, retention, sharing, required) and each processor, and a checklist the regulator ticks for themselves (no effect on the system): "Purposes are specific", "Retention is justified", "Sharing is disclosed". Below: a note field (required to reject, optional to approve), a "Start in sandbox" checkbox (ticked), and **Approve** and **Reject** buttons. Approving is one request to Core, so the page shows one honest status line while it runs ("Approving: generating the company's key, registering the company, its purposes and processors on the ledger, creating the API key. This takes a few seconds."), never a timed set of steps; then "Approved. {name} is in the directory", with the ledger transactions as short copyable hashes. A failure says which step failed and that Approve can be repeated. Approved companies appear in a second list with a **Sandbox / Live** control ("Promote to live" and "Return to sandbox", each with a confirm) and **Issue a new API key** (confirm: "The old key stops working at once"). A last card, **Test customers**, lists the customers a sandbox company may ask (Sammati ID if known, else a short address), with "Add" (a Sammati ID or an address) and "Remove". Reduced motion: progress rows change without animation.
 
@@ -468,6 +470,17 @@ Requests inbox (W11) and Sammati ID (W12), same status as above. `{company}`, `{
 | id_register | Register | पंजीकृत करें | ನೋಂದಾಯಿಸಿ |
 | id_registered | Your ID is {handle} | आपकी ID {handle} है | ನಿಮ್ಮ ID {handle} |
 | auth_reason_id | Confirm to register your Sammati ID | अपनी Sammati ID पंजीकृत करने की पुष्टि करें | ನಿಮ್ಮ Sammati ID ನೋಂದಾಯಿಸಲು ದೃಢೀಕರಿಸಿ |
+
+Legal alignment (L-02): the sheet opened by "How this protects you" on the consent notice. Same status as above: first drafts, native-speaker check needed. The English is deliberately plain and claims nothing the mapping marks VERIFY.
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| protect_link | How this protects you | यह आपको कैसे सुरक्षित रखता है | ಇದು ನಿಮ್ಮನ್ನು ಹೇಗೆ ರಕ್ಷಿಸುತ್ತದೆ |
+| protect_1 | Each purpose is your own choice. Nothing is ticked for you. | हर उद्देश्य आपका अपना चुनाव है। आपके लिए कुछ भी पहले से चुना नहीं गया है। | ಪ್ರತಿ ಉದ್ದೇಶವೂ ನಿಮ್ಮದೇ ಆಯ್ಕೆ. ನಿಮಗಾಗಿ ಯಾವುದನ್ನೂ ಮೊದಲೇ ಆಯ್ಕೆ ಮಾಡಿಲ್ಲ. |
+| protect_2 | You can withdraw any purpose later in two taps. The company's next request is blocked. | आप बाद में दो टैप में किसी भी उद्देश्य की सहमति वापस ले सकते हैं। कंपनी का अगला अनुरोध रोक दिया जाता है। | ನೀವು ನಂತರ ಎರಡು ಟ್ಯಾಪ್‌ಗಳಲ್ಲಿ ಯಾವುದೇ ಉದ್ದೇಶದ ಒಪ್ಪಿಗೆಯನ್ನು ಹಿಂಪಡೆಯಬಹುದು. ಕಂಪನಿಯ ಮುಂದಿನ ವಿನಂತಿಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ. |
+| protect_3 | Every time a company uses your data it is recorded. If the record is edited later, the edit shows. | जब भी कोई कंपनी आपके डेटा का उपयोग करती है, वह दर्ज होता है। बाद में रिकॉर्ड बदला गया तो बदलाव पकड़ में आ जाता है। | ಕಂಪನಿಯು ನಿಮ್ಮ ಡೇಟಾ ಬಳಸಿದಾಗಲೆಲ್ಲ ಅದು ದಾಖಲಾಗುತ್ತದೆ. ನಂತರ ದಾಖಲೆಯನ್ನು ಬದಲಿಸಿದರೆ ಆ ಬದಲಾವಣೆ ಗೊತ್ತಾಗುತ್ತದೆ. |
+| protect_4 | When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this demo the secure processor is simulated. | जब किसी कंपनी को संवेदनशील जानकारी चाहिए, तो वह पहले इसी फ़ोन पर एन्क्रिप्ट होती है। कंपनी को फ़ैसला मिलता है, आपकी जानकारी नहीं। इस डेमो में सुरक्षित प्रोसेसर नकली (सिम्युलेटेड) है। | ಕಂಪನಿಗೆ ಸೂಕ್ಷ್ಮ ವಿವರಗಳು ಬೇಕಾದಾಗ, ಅವು ಮೊದಲು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. ಕಂಪನಿಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಈ ಡೆಮೊದಲ್ಲಿ ಸುರಕ್ಷಿತ ಪ್ರೊಸೆಸರ್ ಅನುಕರಣೆಯಾಗಿದೆ. |
+| protect_note | Sammati is a prototype with made-up data. It is aligned with the principles of India's DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md. | Sammati एक प्रोटोटाइप है और इसमें बनावटी डेटा है। यह भारत के DPDP अधिनियम, 2023 के सिद्धांतों के अनुरूप बनाया गया है। यह क़ानूनी सलाह या प्रमाणन नहीं है। क्या मैप किया गया है और क्या अभी जाँचना बाकी है, यह docs/dpdp-mapping.md में है। | Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿದ್ದು ಕಾಲ್ಪನಿಕ ಡೇಟಾ ಬಳಸುತ್ತದೆ. ಇದನ್ನು ಭಾರತದ DPDP ಕಾಯ್ದೆ, 2023 ರ ತತ್ವಗಳಿಗೆ ಅನುಗುಣವಾಗಿ ರೂಪಿಸಲಾಗಿದೆ. ಇದು ಕಾನೂನು ಸಲಹೆ ಅಥವಾ ಪ್ರಮಾಣೀಕರಣ ಅಲ್ಲ. ಯಾವುದನ್ನು ಹೋಲಿಸಲಾಗಿದೆ ಮತ್ತು ಯಾವುದನ್ನು ಇನ್ನೂ ಪರಿಶೀಲಿಸಬೇಕು ಎಂಬುದು docs/dpdp-mapping.md ನಲ್ಲಿದೆ. |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 

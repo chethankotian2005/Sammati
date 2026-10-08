@@ -14,6 +14,7 @@ import '../../core/preferences.dart';
 import '../../core/wallet_service.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
+import 'protect_sheet.dart';
 import 'receipt_data.dart';
 
 /// W3 consent notice. Everything shown here is what gets hashed and signed;
@@ -393,7 +394,7 @@ class _Footer extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
               Text(t.withdraw_easy, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 12),
+              const ProtectLink(),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

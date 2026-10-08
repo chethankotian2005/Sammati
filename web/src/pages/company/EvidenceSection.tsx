@@ -1,6 +1,6 @@
 /**
  * EvidenceSection — Compliance export pack (C-08):
- * "Evidence: Generate compliance pack button, preview, download."
+ * "Evidence: Generate evidence pack button, preview, download."
  */
 
 import { useState, type ReactNode } from "react";
@@ -48,7 +48,7 @@ export function EvidenceSection({ company }: EvidenceSectionProps): ReactNode {
       {/* Header (Hidden when printing) */}
       <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <div>
-          <h2 className="text-2xl font-extrabold text-ink">Compliance Evidence Pack</h2>
+          <h2 className="text-2xl font-extrabold text-ink">Evidence pack</h2>
           <p className="text-sm text-mute mt-1">
             Export cryptographic audit evidence for regulatory inspection under DPDP.
           </p>
@@ -111,7 +111,7 @@ export function EvidenceSection({ company }: EvidenceSectionProps): ReactNode {
         <>
           {/* Printable Report View (Visible only when printing) */}
           <div className="hidden print:block space-y-6">
-            <h1 className="text-3xl font-extrabold text-ink border-b-2 border-ink pb-4">Compliance Evidence Report</h1>
+            <h1 className="text-3xl font-extrabold text-ink border-b-2 border-ink pb-4">Consent and access evidence report</h1>
             
             <div className="flex justify-between items-end">
               <div>
@@ -307,7 +307,7 @@ export function EvidenceSection({ company }: EvidenceSectionProps): ReactNode {
           </div>
           <h3 className="text-xl font-extrabold text-ink">No pack generated</h3>
           <p className="mt-2 text-sm text-mute max-w-md mx-auto leading-relaxed">
-            Generate a compliance pack to compile consent records, decision logs, Merkle anchors, and the ledger head into a single verifiable regulatory package.
+            Generate a compliance pack to compile consent records, decision logs, Merkle anchors, and the ledger head into a single verifiable evidence package.
           </p>
           <button
             type="button"

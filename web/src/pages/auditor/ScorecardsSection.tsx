@@ -25,7 +25,7 @@ export function ScorecardsSection({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-ink">Fiduciary Compliance Scorecards</h2>
+          <h2 className="text-xl font-extrabold text-ink">Company scorecards</h2>
           <p className="text-sm text-mute">
             Live overview of consent grants, enforcement blocks, and cryptographic integrity state (A-01).
           </p>
@@ -101,9 +101,9 @@ export function ScorecardsSection({
                       </div>
                     </div>
                     <div>
-                      <span className="text-[11px] font-semibold text-mute">Violations</span>
-                      <div className="text-xs font-extrabold text-allow text-right mt-0.5">
-                        {sc.violations} detected
+                      <span className="text-[11px] font-semibold text-mute">Access without valid consent</span>
+                      <div className={`text-xs font-extrabold text-right mt-0.5 ${sc.violations > 0 ? "text-block" : "text-allow"}`}>
+                        {sc.violations}
                       </div>
                     </div>
                   </div>

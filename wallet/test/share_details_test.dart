@@ -13,6 +13,7 @@ import 'package:sammati/core/envelope.dart';
 
 import 'support/fake_core.dart';
 import 'support/fakes.dart';
+import 'support/finders.dart';
 import 'support/pump_app.dart';
 
 const _now = 1760000000;
@@ -187,7 +188,7 @@ void main() {
 
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextButton, 'Send again'), findsOneWidget);
+      expect(textButtonWithText('Send again'), findsOneWidget);
     });
 
     testWidgets('opening the screen again starts empty', (tester) async {
@@ -199,7 +200,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Send again'));
+      await tester.tap(textButtonWithText('Send again'));
       await tester.pumpAndSettle();
       // a fresh form, with nothing in it and no leftover "sent" line
       expect(tester.widget<TextField>(panField()).controller!.text, isEmpty);
