@@ -61,3 +61,13 @@ Record on a **clean** `pnpm dev:reset` run, screen mirrored so both the phone an
 - [ ] Decline, then **Block this company**: further requests from it never arrive.
 - [ ] A company marks a rights request resolved with a reply: an Alerts item appears.
 - [ ] **Screen off / app closed**: record exactly what arrived and what did not. Until this box is ticked with a result, the documented position is that background delivery is not built and not tested.
+
+## Real-phone tests (nothing below has been run on hardware; tick only with a result written next to it)
+Record the phone model, Android version and what happened. A box with no note is not done.
+- [ ] **Clean install, first run:** uninstall, install the release APK, open it. Language picker, then the three-step account creation (name, mobile, PIN or biometric). Note the time to first screen and any crash.
+- [ ] **Biometric:** with a fingerprint enrolled, the unlock and each signing prompt (grant, withdraw, send details) use it; cancel, wrong finger three times and the PIN fallback all behave. Repeat on the spare phone, which may have a different sensor.
+- [ ] **Hotspot:** laptop on the phone's hotspot (and, separately, a third network). The QR address printed by `pnpm demo:up` is reachable; scanning the QuickLoan QR opens the notice in under 2 seconds; the Processor key fetch works over the same network. Note what breaks when the hotspot drops and returns.
+- [ ] **Spare phone:** install the same APK, restore nothing (there is no recovery by design), create a different account, and run the full walkthrough from `docs/demo.md` §2 on it.
+- [ ] **Background push (not built):** Firebase push and a foreground service do not exist. With the app closed and the screen off, record what arrives: local expiry reminders scheduled on the device (expected), and a renewal request or a "data erased" alert sent from a company (expected **not** to arrive until the app is opened). Write the result in `docs/demo.md` §4 "Delivery status" and do not claim more.
+- [ ] **Short expiry on the phone:** switch on Short expiry for testing, grant 2 minutes; the reminder, the expiry, QuickLoan blocked with `CONSENT_EXPIRED`, a renewal request and Renew all work. (The Developer-settings switch is wallet work that was still open when this was written.)
+- [ ] **Offline:** airplane mode on the Consents, Activity and Alerts tabs shows the last known data and the offline banner; actions that need a connection say so.

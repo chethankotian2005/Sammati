@@ -160,5 +160,11 @@ A human should check each item against the official text of the Digital Personal
 | ☐ | VERIFY-13 | The Data Protection Board: its powers of inspection, and whether it can accept independently verifiable records of this kind as evidence. | M-20 and the Auditor persona |
 | ☐ | VERIFY-14 | Data Processors: who is a processor, and what the fiduciary must ensure about them. | M-09 |
 | ☐ | VERIFY-15 | Whether a pseudonymous wallet address on a chain, linkable to a person by a company, is personal data. | M-13 |
+| ☐ | VERIFY-16 | Whether a username bound to a pseudonymous address in a company's own database (QuickLoan) makes that company hold personal data about the person, and what it must then do. | M-13, M-18 |
+| ☐ | VERIFY-17 | Where details are kept only on the person's own phone and sent encrypted for one purpose at a time: who is the fiduciary and who is the processor for that copy, and what the sealed Processor owes the fiduciary. | M-09, M-18 |
+| ☐ | VERIFY-18 | The right to correction: whether re-sending a corrected copy to each company that holds the old one (W-17) satisfies the duty, and who must act on it. | M-11, M-24 |
+| ☐ | VERIFY-19 | Rights requests answered by the company with a status and a reply (`rights.updated`): any prescribed response time, and what counts as resolved. | M-23, M-24 |
+| ☐ | VERIFY-20 | Whether expiry and renewal reminders (N-03 to N-05) satisfy or exceed any duty to keep the person informed, and whether an expired consent must trigger erasure, and when (the grace period before erasure is a product choice). | M-06, M-10 |
+| ☐ | VERIFY-21 | Whether the regulator's approval of a company in this product (a human decision, a sandbox, no licence check) has any legal meaning, or must be described as something else. | M-16 |
 
 Reviewer: ____________  Date checked: ____________  Version of the Act and Rules checked: ____________

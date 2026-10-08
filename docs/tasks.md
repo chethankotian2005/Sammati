@@ -132,6 +132,14 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 - [ ] `pnpm e2e` extended and run against a real stack (the steps are written; see the PR note)
 - [ ] The optional new-company step of `demo.md` rehearsed
 
+### Final round (QuickLoan, notifications, hardening): status
+- [x] X-01 remove demo scaffolding; Q-01 to Q-04 QuickLoan (`companies/quickloan`); reusable company site (`companies/template`); `rights.updated`; e2e rewritten on public APIs with a headless wallet (44 steps, about 35 s of story, under a minute with the stack); `real.test.ts` races fixed.
+- [x] Docs: `demo.md` rewritten as a user and regulator walkthrough with honest limitations and Q&A; `dpdp-mapping.md` VERIFY list refreshed (VERIFY-16 to 21).
+- [ ] Wallet: Developer-settings **Short expiry for testing** and the "Developer option" chip; notification-centre strings for `rights.updated` in en/hi/kn; remove the unused `expiry_demo` key.
+- [ ] Real-phone tests listed in `RELEASE_CHECKLIST.md` (clean install, biometric, hotspot, spare phone, background push). None run yet.
+- [ ] Sign-in with Sammati at QuickLoan (specified, not built); rights inbox in the back-office (waits for R6).
+- [ ] Close the gaps found by the spec audit: wallet copy keys in `ui.md` not yet in the app (`dev_*`, `expiry_short_*`).
+
 ### Git workflow
 - Trunk-based, short branches per feature ID (`feat/W-05-withdraw`), merge to `main` at least hourly.
 - A merges contract or API changes first and announces them in the team chat.

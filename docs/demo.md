@@ -3,53 +3,53 @@
 ## 1. The one sentence
 "UPI made payments simple and trustworthy. Sammati does that for consent: one wallet, instant withdrawal that *actually blocks* data use, data the company never reads, and proof nobody can edit."
 
-## 2. The four-minute script
+## 2. The walkthrough (about 5 minutes)
 
-One presenter talks, one operator clicks the console and Auditor, one holds the phone. Everything below goes through the product's own screens and APIs; `pnpm e2e` plays the same story with a headless wallet before it is rehearsed. There is nothing to fire from a control panel: the company's own server (the sample lender) makes the calls, the way a real company's would.
+Everything here is done as a normal user or as the regulator, through the product's own screens. Nothing is fired from a control panel and nothing is seeded: the company, QuickLoan, registers first. `pnpm e2e` plays the same story with a headless wallet (44 steps, about 35 s of story, under a minute with the stack).
 
-The three **hero moments** are marked ★. If anything goes wrong, protect those first.
+### Before the room fills (once)
+1. `pnpm demo:up`. Open `/join`, register **QuickLoan** (purposes: a required `credit_check`, optional `marketing` and `bureau_share`, with a processor on `bureau_share`). Approve it as the regulator under Auditor > Registrations (promote it out of the sandbox, or add the phone's ID as a test customer). Copy the API key: it is shown once.
+2. Start QuickLoan: `FIDUCIARY=<address> SAMMATI_API_KEY=<key> STAFF_USER=staff STAFF_PASSWORD=<choose> pnpm --filter @sammati/company-quickloan start`.
+3. Optional second and third company: `node scripts/register-company.mjs companies/template/sites/carefirst.json` (and `tiffinbox.json`), and start each site with the command it prints.
+4. Phone: install the app, create the account (name, mobile and so on stay on the phone), set a language.
 
-| Time | Act | What judges see | What you say |
-|---|---|---|---|
-| 0:00 | **Hook** (15 s) | Title slide: "You have said yes to 40 apps. Do you know what you said yes to?" | One line on the problem and the DPDP Act. Name the three roles: wallet, gateway, auditor |
-| 0:15 | **1. Connect** (30 s) | The company's customer page (`/portal/<company>`): sign in with a customer id, tick "Allow {company} to use my data for loan purposes", the QR appears on the page. Phone scans; the notice lists the company's purposes. Switch the phone to Kannada for a second. *(If the camera misbehaves: the console's **Send to user** to the phone's Sammati ID lands in its inbox in under two seconds, tap **Review**)* | "Not one big 'I agree'. Each purpose is its own choice, in my language." |
-| 0:45 | **2. Consent** (20 s) | Turn on the loan purpose, leave a sharing purpose off. Biometric. Receipt with the transaction. The portal turns to "Consent received". | "I signed this with my key. The company cannot forge it." |
-| 1:05 | **3. Allowed, then blocked** (20 s) | The company's server calls its guarded endpoints (the sample lender, one `curl` each): the consented purpose answers **ALLOWED**, the one never consented answers **451 NO_CONSENT**. The console's Live requests and the phone's Activity show both within two seconds | "The gateway checked the ledger before releasing a single byte." |
-| 1:25 | **4. ★ Use without reading** (45 s) | On the phone: receipt → **Share your details securely** → type a made-up PAN, income band and employment → confirm. The portal says "Data submitted securely"; press **Apply**: a decision card. The console's **What {company} holds** card shows only a handle, a ciphertext hash and a status, and its timeline fills: Encrypted, Stored, Requested, Decrypting, Decided | "My PAN and income were encrypted on my phone. The company's staff, its database, anyone on the network: ciphertext. Only the sealed processor opens it, for a second, and returns a decision." Say once: **"The processor is a simulated sealed service. The honest limit is in Q&A."** |
-| 2:10 | **5. ★ The moment: blocked after withdraw** (35 s) | Phone: withdraw the sharing purpose, then the loan purpose (two taps each). The next call from the company's server is **BLOCKED 451**. The phone's cascade list fills: each processor notified, then acknowledged. The console timeline shows **Erased**; the phone says "Your encrypted details were erased." | "Withdraw is two taps. The very next request is blocked. The partner was told and confirmed. And the data I gave for the loan check? Not just blocked: erased." **Pause. Let the red row land.** |
-| 2:45 | **6. A company asks you** (20 s) | Console **Send to user**: the phone's Sammati ID, one purpose, a short message, **Send request**. The phone's bell lights within two seconds; the card shows the message. **Decline**, or **Review** and approve. The console row goes Sent → Seen → Granted/Declined. Then type a made-up ID: the same "Request sent". | "No QR needed. The company never learns my address, and cannot tell whether an ID exists." |
-| 3:05 | **7. Consent has a lifetime** (15 s) | Before the show, in **Me → Developer settings**, **Short expiry for testing** was switched on and a consent was given with 2 minutes; its chip says **Developer option**. **Alerts** tab: "expires in …", then "expired". Console **Expiring consents**: **Request renewal**. Phone: **Renew** → notice → approve → the company's call is **ALLOWED** again | "Consent expires on its own, the user is told, and one tap renews it. The two-minute choice is a switch I turned on for this test; Core has no special mode." |
-| 3:20 | **8. ★ Proof: tamper** (30 s) | Auditor: **Verify** the company, all green (the loan decision is in the log too). The operator, in a terminal, runs `pnpm dev:tamper -- <company> <seq>` (the script prints the record it changed), then presses **Verify** again: **red mismatch in batch N, record M** | "A company edits its own log to hide an access. The regulator catches it without trusting the company. The edit was made to the database file itself: there is no button in any screen that can do this." |
-| 3:50 | **Close** (10 s) | Amoy explorer link, QR to scan | "The same contracts are live on a public testnet. This is the consent layer India's data economy needs." State the production path in one breath |
+### The user's story (a judge can follow this unaided)
+| Step | What the user does | What happens |
+|---|---|---|
+| 1. Sign up | Open QuickLoan (`http://<laptop>:4101`), read the landing page, press **Apply now**. Type a username. | The form asks for nothing else: no name, PAN, income, phone or email |
+| 2. Scan | Tick **Use my Sammati details for loan processing**. A QR appears with "Waiting for you in the Sammati app". Scan it with the wallet | The wallet shows each purpose with its data, retention and sharing flag. Required purposes are marked; optional ones start off |
+| 3. Consent | Choose what to allow, pick an expiry, confirm with fingerprint or PIN | A receipt with the transaction. QuickLoan's page logs the user in as the username and shows consent status live. The wallet prompts for any missing detail, then sends only the fields the ticked purposes need, encrypted |
+| 4. Loan | On the dashboard, choose amount and tenure, press **Apply** | A decision card: approved or declined, limit, rate, reasons. QuickLoan never saw the details |
+| 5. Wallet activity | Open **Activity** in the wallet | Each use by QuickLoan, with ALLOWED or BLOCKED, and which data it used |
+| 6. Withdraw | In the wallet, withdraw `credit_check` (two taps) | Apply on the QuickLoan page is disabled within two seconds: "Consent withdrawn. We can no longer process your application." The encrypted details are erased and the wallet says so |
+| 7. Rights | In **Rights**, file an erasure request and a grievance | The company marks them in progress or resolved with a reply; the wallet shows an alert |
+| 8. Notifications | Open **Alerts** | Expiry reminders, renewal requests, "data erased", processor acknowledgements, rights replies. To watch expiry live, switch on **Short expiry for testing** in Developer settings and grant 2 minutes: the reminder, the expiry, then QuickLoan's next call is blocked with `CONSENT_EXPIRED`; **Request renewal** from the console, **Renew** in the wallet, and it works again |
+| 9. A company asks | From a company console, **Send to user** with the phone's Sammati ID | The request is in the phone's inbox in under two seconds. **Decline**, or **Block this company**: later requests never arrive |
 
-Total 4:00. Judges' questions come after.
+### The back-office (shows that staff cannot read the data)
+Open `http://<laptop>:4101/staff` and sign in. The applications list has username, amount, tenure and decision. A customer page says **Personal details: protected by Sammati** and shows only a handle and a ciphertext hash, plus consent status per purpose. There is no button that reveals or exports anything else.
 
-**Optional, 30 s, the first to cut when late: a new company joins.** On a second screen, `/join`: fill in a company (nothing is prefilled) and press **Send for review**. Auditor > **Registrations** > **Approve** (sandbox on). The status page shows the address, the API key once and the 5-line quickstart; the company appears in the console switcher with a **SANDBOX** chip. Say: "Anyone can apply. The regulator decides who may ask people for consent. A new company starts in a sandbox with five lines of code and one key, and gets the same enforcement and the same proof."
+### The regulator's view
+1. **Auditor > Registrations**: the company's application, its purposes and processors, the approval and the sandbox switch.
+2. **Scorecards**: grants, withdrawals, allowed and blocked, withdrawal-to-block latency, unacknowledged cascades. **Ledger explorer** lists the consent events with transactions.
+3. **Verify** QuickLoan: all green.
+4. In a terminal, `DEV_TOOLS=true pnpm dev:tamper -- quickloan 3` edits one stored log row (it prints the record). **Verify** again: red, naming the batch and the record. There is no button in any screen that can do this: the edit is made to the database file.
 
-### The three-minute version
-Cut, in this order, until it fits: **Act 7** (−15 s), the optional new-company step, **Act 6** (−20 s), then trim **Act 4** to 30 s by skipping the timeline walk-through (−15 s) and shorten the **Hook** to 10 s (−5 s) and the **Close** to 5 s (−5 s). That is 3:00 with all three hero moments intact: blocked after withdraw, a decision from data the company never saw, tamper detected. Never cut a hero moment.
+### Time cuts
+Skip steps 7 and 9 first, then the optional extra companies. Never cut withdrawal-then-blocked, the back-office view, or tamper-then-Verify.
 
 ## 3. Rehearsal rules
-- Rehearse the exact flow **at least 5 times**, with `pnpm e2e` passing before each.
-- Use `pnpm dev:reset` between runs (it needs `DEV_TOOLS=true` and a stopped or idle stack; see `trd.md` §6.4).
-- Decide who speaks and who clicks: one presenter, one operator (console, Auditor, terminal), one on standby for the phone and recovery.
-- Memorise the three hero moments: **blocked after withdraw**, **a decision from data the company never saw**, **tamper detected**.
+- Run `pnpm e2e` before every rehearsal (it starts its own stack on the same ports: stop `demo:up` first).
+- `DEV_TOOLS=true pnpm dev:reset` between runs, then register QuickLoan again (it starts empty by design).
+- One person speaks, one drives the laptop (console, Auditor, terminal), one holds the phone.
 
 ## 4. Setup checklist
-- [ ] Laptop on charger. `pnpm demo:up` is running (chain, Core, **Processor on :4200**, web). It starts empty
-- [ ] `pnpm e2e` passed on this laptop today (it starts its own throwaway stack on other ports, so it is safe beside the demo stack, but run it before the show, not during)
-- [ ] One company registered through `/join` and approved in the Auditor beforehand, with its API key saved; the sample lender running for it: `FIDUCIARY=<address> SAMMATI_API_KEY=<key> pnpm --filter @sammati/example-lender start`. Its customer page `/portal/<company>` opens
-- [ ] Phone on the same hotspot, and the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (if the laptop is on two networks the banner lists both: set `CORE_PUBLIC_URL` to the right one); relayer funded
-- [ ] The Processor answers: `curl http://<lan-ip>:4200/health` says `simulated-enclave`, and the phone can reach it on the same hotspot
-- [ ] The phone has an account (W-15: ID chosen, device lock set) with **made-up** details in My details, so the share screen asks for nothing it has already been given, and the regulator has added its Sammati ID as a **test customer** (Auditor > Registrations > Test customers), because a new company is in the sandbox until promoted
-- [ ] For Act 7: **Short expiry for testing** switched on in the phone's Developer settings, and a 2-minute consent given about two minutes before the act
-- [ ] Phone shown to the room (mirrored or held up), brightness up, Do Not Disturb **off for this app only** if you want to show the phone notification, otherwise on
-- [ ] Browser tabs preloaded: the company console (open on **Send to user**), the customer page signed out, Auditor, Amoy explorer. A terminal open in the repo with `DEV_TOOLS=true` set, for `pnpm dev:tamper`
-- [ ] Wallet language English, Kannada one tap away
-- [ ] Screen recording of the full demo saved locally (fallback), see `RELEASE_CHECKLIST.md`
-- [ ] Amoy deployment addresses and explorer links verified the same day
-- [ ] A second phone with the APK installed as a spare
-- [ ] **Do not restart the Processor between rehearsal and stage without `pnpm dev:reset`**: its key is in memory, so old ciphertext becomes unreadable (`CIPHERTEXT_INVALID`) until the phone sends again
+- [ ] Laptop on charger, `pnpm demo:up` running; QuickLoan registered, approved and started (above); the Processor answers: `curl http://<lan-ip>:4200/health` says `simulated-enclave`
+- [ ] Phone on the same hotspot; the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (set `CORE_PUBLIC_URL` if the laptop has two networks); the phone's Core address in Me > Developer settings matches
+- [ ] The phone has an account, a Sammati ID, and (if QuickLoan is in the sandbox) is a regulator-added test customer
+- [ ] Browser tabs: QuickLoan landing, QuickLoan `/staff`, a company console, Auditor, Amoy explorer; a terminal in the repo with `DEV_TOOLS=true`
+- [ ] Screen recording of the full walkthrough saved locally; spare phone with the APK; Amoy addresses and explorer links verified the same day
+- [ ] **Do not restart the Processor between rehearsal and stage without `pnpm dev:reset`**: its key is in memory, so old ciphertext answers `CIPHERTEXT_INVALID` until the phone sends again
 
 ### Delivery status of notifications (honest)
 - **Built and tested in code:** the WebSocket path (foreground), the expiry scheduler, renewal requests, rights replies (`rights.updated`) and the Alerts tab. Core's tests and `pnpm e2e` cover them.
@@ -73,6 +73,16 @@ Cut, in this order, until it fits: **Act 7** (−15 s), the optional new-company
 2. **The Sammati Processor is a simulated sealed service**: an ordinary process with an in-memory key, until it runs in a TEE with remote attestation.
 
 Separately, and as limits of this build rather than shortcuts: the regulator's access code is a shared secret, the company console has no login, the sandbox is enforced by Core and not by the contracts, and the wallet takes the Processor's public key on trust over the venue network.
+
+### Honest limitations (say them before you are asked)
+- **The Processor is a simulated sealed service**: an ordinary process with its key in memory. Whoever runs that machine could read its memory. Production: a TEE with remote attestation (`architecture.md` §5.5).
+- **Core holds company and processor keys** in this build, including for companies that join through registration. Production: each company holds its own.
+- **There is no account recovery.** Lose the phone and the profile and the key are gone; the app says so. The production path is an encrypted backup the customer holds (`architecture.md` §5.9).
+- **The chain is a local Hardhat node.** The same contracts are deployed to Polygon Amoy as public proof; the live run does not depend on it.
+- **Background notifications are not built or tested on hardware**: no Firebase push, no foreground service (see above).
+- **Sign-in with Sammati ("Confirm in Sammati")** at QuickLoan is specified (`trd.md` §6.14), not built. The rights inbox in the back-office stays empty until Core passes rights requests to companies.
+- The regulator's access code is a shared secret, the company console and QuickLoan's back-office use simple shared credentials, the sandbox is enforced by Core and not by the contracts, and the wallet takes the Processor's public key on trust over the venue network.
+- Not legal advice, not a registered consent manager: `dpdp-mapping.md` lists what is unchecked.
 
 ## 5. Failure plan
 
@@ -163,6 +173,21 @@ Separately, and as limits of this build rather than shortcuts: the regulator's a
 
 **So the company can't even see my income. How does it lend?**
 "It gets the answer to the question it is allowed to ask: approved or declined, and a limit. The decision does reveal something, like a score band. That is the data minimisation: the company receives the output, not the inputs."
+
+**Who can read the data?**
+"The customer, on their phone, and the Processor, for the moment it takes to compute a decision. QuickLoan, its staff and its database, Sammati's core service, the auditor and anyone holding a copy of any database see a handle, a hash or a decision, never the details. `pnpm e2e` submits a profile of distinctive values and searches every response, event, log and database file of the run for them."
+
+**What does the consent manager see?**
+"Consent records and access metadata: a pseudonymous address, which purpose, allowed or blocked, and when. It does not receive the encrypted details and holds no key to open them. The company-side name stays in the company's own system."
+
+**What happens on withdrawal?**
+"Two taps in the wallet. The company's very next request is blocked with a reason, the QuickLoan page disables Apply within two seconds, the downstream processors are told and confirm on chain, and the Processor erases the encrypted copy. Decisions already made stay on file; the details behind them are gone."
+
+**Why a ledger?**
+"Consent is a dispute between a person and a company, so the company cannot be the one holding the evidence. A user-signed ledger that the company does not control means nobody can quietly rewrite a withdrawal or backdate a grant, and the regulator can check the company's own access log against anchors the company cannot edit. Only hashes and statuses are on the chain."
+
+**How does a new company join?**
+"It applies at the join page with its purposes and processors. The regulator reviews and approves; nothing exists for the company until then. It starts in a sandbox where it can only reach regulator-designated test customers, gets one API key shown once, and integrates with five lines of the SDK. The regulator can promote it. In this build the review is a human decision; we do not verify licences."
 
 ## 8. Lines worth repeating
 - "Withdraw is not a setting, it's a switch that cuts the pipe."
