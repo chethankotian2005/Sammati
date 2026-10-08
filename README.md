@@ -9,7 +9,7 @@ Needs Node 20+, pnpm 9 (`npm i -g pnpm@9`) and, for the wallet, Flutter 3.x.
 
 ```
 pnpm install
-pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
+pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, Processor :4200, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
 ```
 
 `demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Core runs in **real mode** (`docs/trd.md` §6.6): the same routes as the stub, backed by SQLite, the chain and a relayer wallet.
@@ -37,12 +37,20 @@ POST /v1/audit/verify/<fid>   # ok: false, firstMismatch names the exact record
 pnpm e2e            # starts the stack itself if none is running, and stops it afterwards
 ```
 
-It plays the demo once, against real services: reset → a company creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → tamper with one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step. It prints each step with its time and exits non-zero, naming the step, if anything is off.
+It plays the demo once, against real services: reset → a company creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → tamper with one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step. It then plays the confidential-processing acts (`docs/prd.md` V-01 to V-06): the profile is sealed and sent to the Processor, QuickLoan's admin view shows a handle and a hash only, an apply returns a decision, a withdrawal makes the next apply a 451 and erases the vault entry, and every response, event, log line and database file of the run is searched for the demo PAN. It prints each step with its time and exits non-zero, naming the step, if anything is off.
 
 - With `pnpm demo:up` already running it reuses that stack and resets it first (about 6 s); with nothing running it starts one (about 12 s more). The 30 s budget (`E2E_BUDGET_MS`) covers the story, not starting the stack. A typical run takes 8 to 10 s.
 - It refuses a Core in stub mode, and `--no-start` makes it fail instead of starting a stack.
 - It ends with the QuickLoan log deliberately tampered with, so run `pnpm demo:reset` before rehearsing.
 - Set `E2E_CORE_URL` to point it at another Core.
+
+### Customer portal (`/portal/quickloan`)
+
+QuickLoan's customer page for the demo: sign in with a name, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
+
+### Data Flow Inspector (`/stage/flow`)
+
+`http://localhost:5173/stage/flow` shows, from real events and real answers, the customer's data going in encrypted, what QuickLoan's staff and database can reach (ciphertext only) and the sealed Processor deciding (`docs/ui.md` §5.1). `/stage` has the same screen as a **Data flow** panel. With no stack running, `/stage/flow?replay=1` plays `web/public/flow-replay.json`, a recording of a real run; regenerate it with `E2E_RECORD_FLOW=web/public/flow-replay.json pnpm e2e`.
 
 ### Deploy to Polygon Amoy (public proof)
 
@@ -83,7 +91,7 @@ Useful for stub development:
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
 - Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
 
-Layout: `contracts/` `core/` `gateway/` `shared/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
+Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
 
 ## Problem statement (CB-04)
 Build a consent manager where users grant, view and withdraw purpose-specific consent across several companies, every action is recorded on a tamper-evident ledger, and companies' systems check consent before using data.
@@ -96,6 +104,7 @@ Build a consent manager where users grant, view and withdraw purpose-specific co
 | 2 | **Sammati Gateway + Company Console** (SDK + web) | Companies (Data Fiduciaries) | The enforcement. Every data request is ALLOWED or BLOCKED in real time |
 | 3 | **Sammati Auditor** (web) | Regulator (Data Protection Board) | The proof. Verify compliance and detect tampering without trusting the company |
 | 4 | **ConsentRegistry + AccessAnchor** (Solidity) | Everyone | The shared source of truth |
+| 5 | **Sammati Processor** (Node, port 4200) | Companies, via a decision API | Use without reading: the customer's data is encrypted on the phone, stored as ciphertext, opened only here, and a company gets a decision back. A simulated enclave in this build (`architecture.md` §5.5) |
 
 Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), **MediCare+** (health), **FoodRush** (delivery).
 
@@ -115,7 +124,7 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 
 | File | Purpose |
 |---|---|
-| `prd.md` | What and why: personas, features with IDs, priorities, acceptance criteria |
+| `prd.md` | What and why: personas, features with IDs (W, C, A, B, V), priorities, acceptance criteria |
 | `architecture.md` | System design, trust model, data flows, why blockchain |
 | `trd.md` | Stack, contract interface, EIP-712 types, APIs, events, deployment |
 | `drd.md` | Data requirements: on-chain and off-chain schemas, hashing, seed data, privacy rules |

@@ -6,7 +6,8 @@
 
 import express, { type Request, type Response } from "express";
 import { sammati } from "@sammati/gateway";
-import { SEED_FIDUCIARIES } from "@sammati/shared";
+import { ENTRY_ID_HEADER, PROCESSOR_PORT, SEED_FIDUCIARIES, demoApiKey, type VaultView } from "@sammati/shared";
+import { VaultHandles } from "./vault-handles";
 
 const company = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
 const port = Number(process.env.PORT ?? company.port);
@@ -17,13 +18,17 @@ const gate = sammati({
   signer: process.env.FIDUCIARY_KEY,
 });
 
+const processorUrl = (process.env.PROCESSOR_URL ?? `http://localhost:${PROCESSOR_PORT}`).replace(/\/+$/, "");
+const apiKey = process.env.QUICKLOAN_API_KEY ?? demoApiKey(company.slug);
+const handles = new VaultHandles();
+
 const app = express();
 app.use(express.json());
 
 // CORS headers so browser console at localhost:5173 can call directly
 app.use((_req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-sammati-principal");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-sammati-principal, x-sammati-api-key");
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (_req.method === "OPTIONS") {
     res.sendStatus(200);
@@ -54,24 +59,58 @@ app.get("/health", (_req, res) => {
 });
 
 // --- 2. Purpose: credit_check (Credit eligibility) ---
+// QuickLoan never holds the customer's PAN or income (trd.md §6.8). The wallet encrypts them for the Sammati
+// Processor, which tells this backend only a handle (POST /vault/events). What staff and the admin API can see
+// is that handle, its hash and a status.
 app.get(
   "/customers/:id/credit-profile",
   gate.requireConsent({ purpose: "credit_check", principalFrom: getPrincipal }),
   async (req: Request, res: Response) => {
     await delay(70);
-    res.json({
-      customerId: req.params.id || "CUST-4821",
-      pan: "ABCDE1234F",
-      incomeBand: "6-9 LPA",
-      score: 742,
-      eligibleLimit: 500000,
-      riskCategory: "low",
-      statementsAnalyzed: 12,
-      decisionTimeMs: 70,
-      timestamp: Math.floor(Date.now() / 1000),
-    });
+    res.json(handles.view(getPrincipal(req) ?? "") satisfies VaultView);
   },
 );
+
+// The Processor's webhook: it stored (or erased) the ciphertext behind a handle.
+app.post("/vault/events", (req: Request, res: Response) => {
+  if (req.header("x-sammati-api-key") !== apiKey) {
+    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "A valid x-sammati-api-key is required" } });
+    return;
+  }
+  res.status(handles.apply(req.body) ? 202 : 400).json({ ok: true });
+});
+
+// Apply for a loan: the decision is computed inside the Processor from data QuickLoan never sees. Not wrapped in
+// requireConsent on purpose: the Processor checks consent on chain and writes the access-log entry (so the use is
+// logged once, by the party that touched the data); a refusal is passed through unchanged (451 + reason code).
+app.post("/customers/:id/apply", async (req: Request, res: Response) => {
+  const principal = getPrincipal(req);
+  if (!principal || !/^0x[0-9a-fA-F]{40}$/.test(principal)) {
+    gate.logAccess({ purpose: "credit_check", principal: principal ?? "", decision: "BLOCKED", reason: "NO_PRINCIPAL", endpoint: "POST /customers/:id/apply", latencyMs: 0 });
+    res.status(451).json({ code: "NO_PRINCIPAL", message: "The request did not identify a data principal." });
+    return;
+  }
+  const held = handles.get(principal);
+  if (!held) {
+    res.status(409).json({ error: { code: "NO_SUBMISSION", message: "This customer has not sent their details yet" } });
+    return;
+  }
+  let answer: globalThis.Response;
+  try {
+    answer = await fetch(`${processorUrl}/v1/processor/evaluate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-sammati-api-key": apiKey },
+      body: JSON.stringify({ handle: held.handle, fiduciary: company.address, purposeCode: "credit_check", action: "loan_decision" }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    res.status(502).json({ error: { code: "PROCESSOR_UNREACHABLE", message: "The Sammati Processor did not answer" } });
+    return;
+  }
+  const entryId = answer.headers.get(ENTRY_ID_HEADER);
+  if (entryId) res.setHeader(ENTRY_ID_HEADER, entryId);
+  res.status(answer.status).json(await answer.json().catch(() => ({})));
+});
 
 // --- 3. Purpose: marketing (Loan offers & promotions) ---
 app.all(

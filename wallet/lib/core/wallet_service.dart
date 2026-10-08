@@ -2,6 +2,11 @@
 // created once, kept in secure storage, and is only ever read after the user
 // has just passed a device-credential check. The key never leaves this class.
 
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:eth_sig_util/eth_sig_util.dart';
+
 import 'eip712.dart';
 import 'wallet_key.dart';
 
@@ -83,6 +88,15 @@ class WalletService {
 
     final privateKey = await _readKey();
     return [for (final json in typedDataJsons) signTypedDataV4(privateKey, json)];
+  }
+
+  /// Signs a text message as EIP-191 `personal_sign` (the Processor verifies submissions this way, trd.md §4.4.8) and
+  /// returns 0x r||s||v. Prompts like every signature; nothing is cached. Not an EIP-712 type: none of those change.
+  Future<String> signMessage(String message, {required String reason}) async {
+    if (await _readAddress() == null) throw const WalletException(WalletFailure.notCreated);
+    if (!await _presence.confirm(reason)) throw const WalletException(WalletFailure.authFailed);
+    final privateKey = await _readKey();
+    return EthSigUtil.signPersonalMessage(privateKey: privateKey, message: Uint8List.fromList(utf8.encode(message)));
   }
 
   Future<String?> _readAddress() async {

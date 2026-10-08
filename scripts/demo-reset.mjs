@@ -7,10 +7,13 @@
 //
 // Resetting the chain (rather than deploying on top of it) keeps the contract addresses identical to the
 // ones in shared/deployments.json. Needs the chain from `pnpm demo:up`; a stopped Core is not an error.
-import { CHAIN_RPC, CORE_URL, deployAndSeed, resetCore, rpc, syncClock } from "./chain.mjs";
+import { CHAIN_RPC, CORE_URL, PROCESSOR_URL, deployAndSeed, resetCore, resetProcessor, rpc, syncClock } from "./chain.mjs";
 
 const before = await resetCore();
 console.log(before === null ? `Core reset at ${CORE_URL} (before the chain)` : `Core not reachable (${before}): its database is rebuilt when it starts`);
+
+const vault = await resetProcessor();
+console.log(vault === null ? `Processor vault emptied at ${PROCESSOR_URL}` : `Processor not reachable (${vault}): its vault starts empty or is swept`);
 
 try {
   await rpc("hardhat_reset");

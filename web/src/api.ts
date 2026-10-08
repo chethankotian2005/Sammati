@@ -26,9 +26,25 @@ import type {
   Scorecard,
   StoredAccessLogEntry,
   TamperResponse,
+  TargetedRequestBody,
+  TargetedRequestResponse,
+  TargetedRequestRow,
+  TargetedRequestsResponse,
   VerifyResponse,
+  WithdrawResponse,
 } from "@sammati/shared";
 import { CORE_URL } from "./core";
+
+/** A refusal from Core with its machine code, e.g. `NOT_A_DEMO_PRINCIPAL`. Still an Error with Core's message. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(message);
+  }
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${CORE_URL}${path}`, {
@@ -41,15 +57,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     let errMessage = `HTTP ${res.status} ${res.statusText}`;
+    let code: string | null = null;
     try {
       const data = await res.json();
       if (data?.error?.message) {
         errMessage = data.error.message;
       }
+      if (typeof data?.error?.code === "string") code = data.error.code;
     } catch {
       // Non-JSON error body
     }
-    throw new Error(errMessage);
+    throw new ApiError(errMessage, res.status, code);
   }
 
   return (await res.json()) as T;
@@ -116,11 +134,31 @@ export async function createConsentRequest(
   });
 }
 
+/** Ask a specific customer by Sammati ID (trd.md §6.11). Whatever the ID, a well-formed request gets the same answer. */
+export async function sendTargetedRequest(fiduciary: string, body: TargetedRequestBody): Promise<TargetedRequestResponse> {
+  return request<TargetedRequestResponse>(`/v1/fiduciaries/${fiduciary}/requests/targeted`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function fetchTargetedRequests(fiduciary: string): Promise<TargetedRequestRow[]> {
+  return (await request<TargetedRequestsResponse>(`/v1/fiduciaries/${fiduciary}/requests/targeted`)).requests;
+}
+
 export async function demoFire(body: DemoFireBody): Promise<DemoFireResponse> {
   return request<DemoFireResponse>("/v1/demo/fire", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+/** Where the Sammati Processor is (`GET /v1/processor`, trd.md §6.1). */
+export async function fetchProcessorUrl(): Promise<string> {
+  const data = await request<{ url: string }>("/v1/processor");
+  return data.url.replace(/\/+$/, "");
+}
+
+/** The presenter's withdraw for the demo customer (`POST /v1/demo/withdraw`, trd.md §6.4). Throws ApiError `NOT_A_DEMO_PRINCIPAL` for a real wallet. */
+export async function demoWithdraw(body: { principal: string; fiduciary: string; purposeCode: string }): Promise<WithdrawResponse> {
+  return request<WithdrawResponse>("/v1/demo/withdraw", { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function fetchExport(fiduciary: string): Promise<ExportResponse> {

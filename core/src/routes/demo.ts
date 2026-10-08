@@ -60,7 +60,15 @@ export function demoRoutes(ctx: Ctx): Router {
       endpoint: row.endpoint,
       at: row.at,
     });
-    res.json({ decision: row.decision, reason: row.reason, entryId: row.id } satisfies DemoFireResponse);
+    // The stub has no Processor: an allowed loan decision is the fixture answer for the demo profile.
+    const result: DemoFireResponse["result"] =
+      o.action === "loan_decision" && row.decision === "ALLOWED" ? { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] } : undefined;
+    res.json({ decision: row.decision, reason: row.reason, entryId: row.id, ...(result ? { result } : {}) } satisfies DemoFireResponse);
+  });
+
+  // Needs a chain to sign against; the stub has none (trd.md §6.4).
+  r.post("/demo/withdraw", () => {
+    throw new HttpError(501, "NOT_IMPLEMENTED", "Withdrawing for the demo customer needs real mode");
   });
 
   return r;

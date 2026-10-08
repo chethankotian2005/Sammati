@@ -48,7 +48,7 @@ export function HashLabel({
       onClick={handleCopy}
       title={copied ? "Copied!" : `Copy full hash: ${value}`}
       aria-label={copied ? "Copied to clipboard" : `Copy hash ${value}`}
-      className={`group inline-flex items-center gap-1.5 rounded font-mono text-xs text-mute transition-colors hover:text-ink focus-visible:ring-0 ${className}`}
+      className={`group inline-flex items-center gap-1.5 rounded font-mono ${/text-(xs|sm|base|lg|xl|2xl|3xl)/.test(className) ? "" : "text-xs"} text-mute transition-colors hover:text-ink focus-visible:ring-0 ${className}`}
     >
       <span className="select-all">{short}</span>
       <span

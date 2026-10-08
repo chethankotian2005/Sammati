@@ -5,8 +5,10 @@ import {
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
+  checksumAddress,
   purposeIdOf,
   type AccessLogEntry,
+  type AccessReason,
   type ConsentStateResponse,
   type Hex,
   type ReasonCode,
@@ -36,8 +38,20 @@ export interface RequireConsentOptions {
   principalFrom: (req: Request) => string | undefined;
 }
 
+/** An access decided by someone else (the Processor, trd.md §6.7) that still belongs in this company's log. */
+export interface LogAccessInput {
+  purpose: string;
+  principal: string;
+  decision: "ALLOWED" | "BLOCKED";
+  reason: AccessReason;
+  endpoint: string;
+  latencyMs: number;
+}
+
 export interface SammatiGate {
   requireConsent(opts: RequireConsentOptions): RequestHandler;
+  /** Appends an entry to this company's hash chain through the same queue as requireConsent; returns its id. Never throws and never waits for Core. */
+  logAccess(input: LogAccessInput): string;
   /** Resolves when every queued access-log entry has been delivered (or given up on). */
   flush(): Promise<void>;
   /** Stops the consent feed. Call on shutdown. */
@@ -49,6 +63,7 @@ export { ENTRY_ID_HEADER };
 const DEFAULT_TIMEOUT_MS = 3000;
 const DEFAULT_CACHE_TTL_MS = 5000;
 const DEFAULT_MAX_QUEUED_LOGS = 5000;
+const MAX_APPEND_ATTEMPTS = 5;
 const NO_PRINCIPAL_ADDRESS: Hex = "0x" + "00".repeat(20);
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const MESSAGES: Record<ReasonCode, string> = {
@@ -61,7 +76,9 @@ const MESSAGES: Record<ReasonCode, string> = {
 
 const UNAVAILABLE: ConsentVerdict = { valid: false, reason: "LEDGER_UNAVAILABLE", expiresAt: null };
 
-export function sammati(options: SammatiOptions): SammatiGate {
+export function sammati(rawOptions: SammatiOptions): SammatiGate {
+  // Core stores addresses in EIP-55 form and a log entry's hash covers them, so everything this gate writes uses it too.
+  const options = { ...rawOptions, fiduciary: checksumAddress(rawOptions.fiduciary) };
   const core = options.coreUrl.replace(/\/+$/, "");
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const log = new LogChain(core, options.fiduciary, timeout, options.maxQueuedLogs ?? DEFAULT_MAX_QUEUED_LOGS);
@@ -104,7 +121,7 @@ export function sammati(options: SammatiOptions): SammatiGate {
       return async (req: Request, res: Response, next: NextFunction) => {
         const started = Date.now();
         const raw = principalFrom(req)?.trim();
-        const principal = raw && ADDRESS.test(raw) ? raw : undefined;
+        const principal = raw && ADDRESS.test(raw) ? checksumAddress(raw) : undefined;
         const verdict = principal ? await verdictFor(principal, purposeId) : null;
         const denied: ReasonCode | null = !principal ? "NO_PRINCIPAL" : verdict!.valid ? null : (verdict!.reason ?? "LEDGER_UNAVAILABLE");
 
@@ -129,6 +146,20 @@ export function sammati(options: SammatiOptions): SammatiGate {
         }
         log.enqueue(entry);
       };
+    },
+    logAccess(input) {
+      const id = randomUUID();
+      log.enqueue({
+        at: Math.floor(Date.now() / 1000),
+        decision: input.decision,
+        endpoint: input.endpoint,
+        id,
+        latencyMs: input.latencyMs,
+        principal: ADDRESS.test(input.principal) ? checksumAddress(input.principal) : NO_PRINCIPAL_ADDRESS,
+        purposeCode: input.purpose,
+        reason: input.reason,
+      });
+      return id;
     },
     flush: () => log.flush(),
     close: () => feed.stop(),
@@ -181,7 +212,9 @@ class LogChain {
   }
 
   private async append(entry: PendingEntry): Promise<void> {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // More than one writer may share a company's chain (its app and the Processor): a sequence collision is
+    // rejected with 409, we resume from Core and try again.
+    for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt++) {
       const head = this.head ?? (await this.resume());
       const full: AccessLogEntry = { ...entry, fiduciary: this.fiduciary, seq: head.seq + 1 };
       const chained = chainEntry(head.hash, full);
@@ -196,7 +229,7 @@ class LogChain {
         this.head = { seq: row.seq, hash: row.hash };
         return;
       }
-      this.head = null; // out of sync: resume from Core and retry once
+      this.head = null; // out of sync: resume from Core and retry
       if (res.status !== 409) throw new Error(`Core rejected log entry: ${res.status}`);
     }
     throw new Error("Core kept rejecting the log entry");

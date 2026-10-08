@@ -9,6 +9,7 @@ import { FINGERPRINT_KEY, chainFingerprint, storedFingerprint } from "./fingerpr
 import { Indexer } from "./indexer";
 import { reconcile, type ReconcileResult } from "./reconcile";
 import { Repo } from "./repo";
+import { TargetedRequests } from "./targeted";
 
 const LOW_RELAYER_BALANCE = parseEther("0.1");
 const SEED_WAIT_MS = 60_000;
@@ -42,6 +43,8 @@ export interface RealCore {
   anchors: AnchorJob;
   /** Tells processors about withdrawals and records their acknowledgements (trd.md §9). */
   cascade: CascadeEngine;
+  /** Sammati IDs and targeted consent requests (trd.md §6.11). */
+  targeted: TargetedRequests;
   publish: (event: WsEvent) => void;
   /** Wipes Core's database back to the seed and re-reads the chain (the chain itself is untouched). */
   reset(): Promise<void>;
@@ -101,6 +104,7 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     indexer,
     anchors,
     cascade,
+    targeted: new TargetedRequests(db, repo, publish, config),
     publish,
     async reset() {
       clearAll(db);

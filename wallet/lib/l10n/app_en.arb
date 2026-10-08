@@ -59,6 +59,8 @@
   "scan_torch": "Torch",
   "scan_camera_denied": "Allow camera access to scan QR codes.",
   "scan_invalid_qr": "This is not a Sammati QR code.",
+  "scan_paste_hint": "Paste the QR text here",
+  "scan_paste_open": "Open",
   "error_unreachable": "Could not reach Sammati. Check Wi-Fi.",
   "request_gone": "This request is no longer valid. Ask the company for a new QR code.",
   "notice_mismatch": "This notice could not be verified, so nothing was signed. Ask the company for a new QR code.",
@@ -257,5 +259,141 @@
         "type": "int"
       }
     }
-  }
+  },
+
+  "vault_profile_title": "My demo details",
+  "vault_profile_note": "Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.",
+  "vault_pan": "PAN",
+  "vault_income": "Income",
+  "vault_score": "Credit score",
+  "vault_simulated": "Demo processor (simulated enclave, not real hardware protection)",
+  "vault_send": "Send securely",
+  "vault_send_again": "Send again",
+  "vault_send_hint": "{company} gets a decision, not your details. Only the Sammati Processor can open them.",
+  "@vault_send_hint": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "vault_sending": "Encrypting and sending…",
+  "vault_sent": "Sent encrypted. {company} holds only a reference.",
+  "@vault_sent": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "vault_erased": "Your encrypted details were erased.",
+  "vault_failed": "Could not send securely. Try again.",
+  "auth_reason_vault": "Confirm to send your details securely",
+
+  "share_title": "Share your details securely",
+  "share_intro": "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.",
+  "@share_intro": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "share_use_demo": "Use demo details",
+  "share_pan": "PAN",
+  "share_pan_hint": "Like ABCDE1234F",
+  "share_pan_invalid": "Enter a PAN like ABCDE1234F",
+  "share_income": "Income band",
+  "income_0_3": "Up to 3 LPA",
+  "income_3_6": "3 to 6 LPA",
+  "income_6_9": "6 to 9 LPA",
+  "income_9_plus": "9 LPA and above",
+  "share_employment": "Employment",
+  "emp_salaried": "Salaried",
+  "emp_self_employed": "Self-employed",
+  "emp_student": "Student",
+  "emp_unemployed": "Not employed",
+  "share_cta": "Share your details securely",
+
+  "inbox_title": "Requests",
+  "inbox_badge_label": "{count, plural, =1{1 request} other{{count} requests}}",
+  "@inbox_badge_label": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_empty": "No requests. When a company asks for your consent it will appear here.",
+  "inbox_asks": "{company} is asking for {count, plural, =1{1 purpose} other{{count} purposes}}",
+  "@inbox_asks": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_message_from": "Message from {company}",
+  "@inbox_message_from": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "inbox_expires_hours": "{hours, plural, =1{Expires in 1 hour} other{Expires in {hours} hours}}",
+  "@inbox_expires_hours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_expires_soon": "Expires in under an hour",
+  "inbox_offline": "No connection. Showing last known requests.",
+  "request_review": "Review",
+  "request_decline": "Decline",
+  "request_block": "Block this company",
+  "request_block_confirm": "Block {company}? They will not be able to send you requests.",
+  "@request_block_confirm": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "request_declined": "Request declined.",
+  "request_blocked": "{company} is blocked.",
+  "@request_blocked": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "blocked_title": "Blocked companies",
+  "blocked_empty": "You have not blocked anyone.",
+  "request_unblock": "Unblock",
+  "auth_reason_decline": "Confirm to decline this request",
+  "auth_reason_block": "Confirm to block this company",
+  "id_title": "Your Sammati ID",
+  "id_none": "No Sammati ID yet",
+  "id_explain": "Companies can send you consent requests here. They never see your wallet address until you say yes.",
+  "id_choose": "Choose your ID",
+  "id_hint": "3 to 30 letters, numbers, dots or dashes",
+  "id_invalid": "Use 3 to 30 letters, numbers, dots or dashes",
+  "id_taken": "That ID is taken. Try another.",
+  "id_register": "Register",
+  "id_registered": "Your ID is {handle}",
+  "@id_registered": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "auth_reason_id": "Confirm to register your Sammati ID"
 }

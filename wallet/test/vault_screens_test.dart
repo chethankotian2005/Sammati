@@ -1,0 +1,221 @@
+// V1 my demo details and V2 send securely (ui.md): what the user sees, in each state and language.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sammati/core/consents.dart';
+import 'package:sammati/core/core_api.dart';
+import 'package:sammati/core/envelope.dart';
+import 'package:sammati/core/live_events.dart';
+import 'package:sammati/core/processor_api.dart';
+
+import 'support/fake_core.dart';
+import 'support/fakes.dart';
+import 'support/pump_app.dart';
+
+const _now = 1760000000;
+const _day = 86400;
+const _principal = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+
+FakeCoreApi seeded() => FakeCoreApi()
+  ..seed(creditCheckId, expiresAt: _now + 150 * _day)
+  ..seed(marketingId, expiresAt: _now + 90 * _day);
+
+VaultNotice notice(VaultNoticeKind kind, String handle, {String purposeCode = 'credit_check'}) => VaultNotice(
+      kind: kind,
+      principal: _principal,
+      fiduciary: fiduciaryAddress,
+      purposeCode: purposeCode,
+      handle: handle,
+    );
+
+Future<void> openPass(WidgetTester tester) async {
+  await tester.tap(find.text('QuickLoan'));
+  await tester.pumpAndSettle();
+}
+
+Finder sendButton() => find.widgetWithText(TextButton, 'Send securely');
+
+/// The pass's button opens W10; there the customer fills the demo details and sends. Comes back to the pass when it worked.
+Future<void> shareDemo(WidgetTester tester) async {
+  await tester.tap(sendButton());
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Use demo details'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, 'Send securely'));
+  await tester.pumpAndSettle();
+  if (find.text('Done').evaluate().isNotEmpty) {
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  }
+}
+
+void main() {
+  group('V1 my demo details', () {
+    testWidgets('shows the fictional profile, says it stays on the phone and that the Processor is simulated', (tester) async {
+      await pumpApp(tester);
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My demo details'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ABCDE1234F'), findsOneWidget);
+      expect(find.text('6-9 LPA'), findsOneWidget);
+      expect(find.text('742'), findsOneWidget);
+      expect(find.text('Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.'), findsOneWidget);
+      expect(find.text('Demo processor (simulated enclave, not real hardware protection)'), findsOneWidget);
+      // read only: nothing to edit or share
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byIcon(Icons.copy), findsNothing);
+    });
+
+    testWidgets('is available in Hindi and Kannada', (tester) async {
+      await pumpApp(tester, stored: {'locale': 'hi'});
+      await tester.tap(find.text('मैं'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('मेरा डेमो विवरण'));
+      await tester.pumpAndSettle();
+      expect(find.text('क्रेडिट स्कोर'), findsOneWidget);
+      expect(find.textContaining('सिम्युलेटेड एन्क्लेव'), findsOneWidget);
+    });
+  });
+
+  group('V2 send securely', () {
+    testWidgets('is offered on the credit check, with the hint, and not on a purpose that carries no data', (tester) async {
+      await pumpApp(tester, core: seeded());
+      await openPass(tester);
+
+      expect(sendButton(), findsOneWidget);
+      expect(find.text('QuickLoan gets a decision, not your details. Only the Sammati Processor can open them.'), findsOneWidget);
+    });
+
+    testWidgets('encrypts, sends, and then says what QuickLoan holds: a reference', (tester) async {
+      final processor = FakeProcessorApi();
+      await pumpApp(tester, core: seeded(), processor: processor);
+      await openPass(tester);
+
+      await shareDemo(tester);
+
+      expect(processor.submissions, hasLength(1));
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Send again'), findsOneWidget);
+      expect(sendButton(), findsNothing);
+      // the handle is shown shortened, like every hash
+      expect(find.textContaining('…'), findsWidgets);
+      expect(find.text('ABCDE1234F'), findsNothing);
+    });
+
+    testWidgets('the Processor erasing it shows on the phone', (tester) async {
+      final live = FakeLiveEvents();
+      final processor = FakeProcessorApi();
+      await pumpApp(tester, core: seeded(), live: live, processor: processor);
+      await openPass(tester);
+      await shareDemo(tester);
+      final handle = _handleOf(processor);
+
+      live.emitVault(notice(VaultNoticeKind.erased, handle));
+      await tester.pumpAndSettle();
+      expect(find.text('Your encrypted details were erased.'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Send again'), findsNothing);
+    });
+
+    testWidgets('an erase of an older copy changes nothing', (tester) async {
+      final live = FakeLiveEvents();
+      await pumpApp(tester, core: seeded(), live: live);
+      await openPass(tester);
+      await shareDemo(tester);
+
+      live.emitVault(notice(VaultNoticeKind.erased, '0x${'11' * 32}'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
+    });
+
+    testWidgets('a copy stored from another device shows as sent', (tester) async {
+      final live = FakeLiveEvents();
+      await pumpApp(tester, core: seeded(), live: live);
+      await openPass(tester);
+      live.emitVault(notice(VaultNoticeKind.stored, '0x${'22' * 32}'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
+    });
+
+    testWidgets('withdrawing the purpose takes the button away and says the details were erased', (tester) async {
+      final live = FakeLiveEvents();
+      final core = seeded();
+      await pumpApp(tester, core: core, live: live);
+      await openPass(tester);
+      await shareDemo(tester);
+
+      live.emit(ConsentUpdated(
+        principal: _principal,
+        fiduciary: fiduciaryAddress,
+        purposeId: creditCheckId,
+        status: ConsentStatus.withdrawn,
+        expiresAt: null,
+        txHash: '0xdd',
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Your encrypted details were erased.'), findsOneWidget);
+      expect(sendButton(), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Send again'), findsNothing);
+    });
+
+    testWidgets('no button, and nothing said, for a purpose that was never sent and is withdrawn', (tester) async {
+      final core = FakeCoreApi()..seed(creditCheckId, status: 'Withdrawn', expiresAt: _now + 150 * _day);
+      await pumpApp(tester, core: core);
+      await openPass(tester);
+      expect(sendButton(), findsNothing);
+      expect(find.text('Your encrypted details were erased.'), findsNothing);
+    });
+
+    testWidgets('says what went wrong, and offers to try again', (tester) async {
+      final processor = FakeProcessorApi()..submitError = const CoreException(CoreFailure.server);
+      await pumpApp(tester, core: seeded(), processor: processor);
+      await openPass(tester);
+      await shareDemo(tester);
+      expect(find.text('Could not send securely. Try again.'), findsOneWidget);
+
+      // the screen keeps what was typed, so trying again is one tap
+      processor.submitError = null;
+      await tester.tap(find.widgetWithText(FilledButton, 'Send securely'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
+    });
+
+    testWidgets('an unreachable Processor is "could not reach Sammati"', (tester) async {
+      final core = seeded()..processorUrlError = const CoreException(CoreFailure.unreachable);
+      await pumpApp(tester, core: core);
+      await openPass(tester);
+      await shareDemo(tester);
+      expect(find.text('Could not reach Sammati. Check Wi-Fi.'), findsOneWidget);
+    });
+
+    testWidgets('the Processor refusing (consent not valid) is a failure, not a success', (tester) async {
+      final processor = FakeProcessorApi()..submitError = const VaultRefusedException('CONSENT_WITHDRAWN');
+      await pumpApp(tester, core: seeded(), processor: processor);
+      await openPass(tester);
+      await shareDemo(tester);
+      expect(find.text('Could not send securely. Try again.'), findsOneWidget);
+      expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsNothing);
+    });
+
+    testWidgets('declining the device prompt sends nothing', (tester) async {
+      final processor = FakeProcessorApi();
+      await pumpApp(tester, core: seeded(), processor: processor, presence: FakePresence(approve: false));
+      await openPass(tester);
+      await shareDemo(tester);
+      expect(processor.submissions, isEmpty);
+      expect(find.text('Could not confirm it is you. Try again.'), findsOneWidget);
+    });
+
+    testWidgets('reads in Hindi', (tester) async {
+      await pumpApp(tester, core: seeded(), stored: {'locale': 'hi'});
+      await tester.tap(find.text('QuickLoan'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextButton, 'सुरक्षित रूप से भेजें'), findsOneWidget);
+    });
+  });
+}
+
+/// The handle of the last envelope the fake Processor was given.
+String _handleOf(FakeProcessorApi processor) =>
+    Envelope.fromJson((processor.submissions.last['envelope'] as Map).cast<String, dynamic>()).handle;

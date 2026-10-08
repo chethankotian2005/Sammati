@@ -5,7 +5,9 @@ import {
   type LedgerEventView,
 } from "@sammati/shared";
 import { CoreChip } from "../components";
-import { HashLabel } from "../ui";
+import { HashLabel, VaultTimeline, useVaultTimeline } from "../ui";
+import { useSearchParams } from "react-router-dom";
+import { FlowPanel } from "../flow/FlowInspector";
 import { fetchAccessLogs, fetchLedgerEvents } from "../api";
 import {
   useAccessLogged,
@@ -53,11 +55,29 @@ function LedgerEventRow({ evt }: { evt: LedgerEventView }) {
   );
 }
 
+/** The acts of docs/demo.md §2, for the presenter hint (`/stage?act=3b`). */
+export const ACTS: Readonly<Record<string, string>> = {
+  "1": "Act 1: Connect",
+  "2": "Act 2: Consent",
+  "3": "Act 3: Allowed",
+  "3b": "Act 3b: Use without reading",
+  "4": "Act 4: The moment",
+  "5": "Act 5: Three companies, one wallet",
+  "6": "Act 6: Proof",
+  "7": "Act 7: Close",
+};
+
 export function Stage() {
+  const [params] = useSearchParams();
+  const act = ACTS[params.get("act") ?? ""];
   const [accessLogsByFid, setAccessLogsByFid] = useState<Record<string, StoredAccessLogEntry[]>>({});
   const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set());
   
   const [ledgerEvents, setLedgerEvents] = useState<LedgerEventView[]>([]);
+  // S-04: the Data Flow Inspector as a panel beside the company feeds, toggled by the presenter.
+  const [showFlow, setShowFlow] = useState(false);
+  const quickLoan = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
+  const vaultEvents = useVaultTimeline(quickLoan.address);
   
   // Custom wallet events
   const [walletEvents, setWalletEvents] = useState<{ id: string; text: string; time: number; txHash?: string }[]>([]);
@@ -165,16 +185,32 @@ export function Stage() {
     <main className="h-screen w-screen overflow-hidden bg-ink text-paper flex flex-col font-manrope selection:bg-marigold selection:text-ink">
       {/* Optional presenter hint banner */}
       <div className="bg-marigold text-ink text-center py-1.5 font-bold text-sm tracking-wide shadow-sm">
-        Sammati Live Demo · The Golden Path
+        Sammati Live Demo · {act ?? "The Golden Path"}
       </div>
       
       <div className="flex-1 flex flex-col p-6 min-h-0">
         <header className="mb-6 flex items-center justify-between">
           <h1 className="text-[32px] font-extrabold tracking-tight">Sammati</h1>
-          <CoreChip />
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              aria-pressed={showFlow}
+              onClick={() => setShowFlow((v) => !v)}
+              className="min-h-[48px] rounded-pill border-2 border-marigold px-5 text-lg font-extrabold text-marigold aria-pressed:bg-marigold aria-pressed:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-paper"
+            >
+              Data flow
+            </button>
+            <CoreChip />
+          </div>
         </header>
 
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.3fr] gap-6 flex-1 min-h-0">
+        {showFlow && (
+          <div className="flex-1 min-h-0 overflow-y-auto" data-testid="stage-flow-panel">
+            <FlowPanel embedded />
+          </div>
+        )}
+
+        <div className={`${showFlow ? "hidden" : "grid"} grid-cols-[1.2fr_1fr_1fr_1fr_1.3fr] gap-6 flex-1 min-h-0`}>
           
           {/* Column 1: Citizen */}
           <section className="flex flex-col min-h-0">
@@ -223,6 +259,15 @@ export function Stage() {
                   <span className="h-4 w-4 rounded-full shadow-sm" style={{ backgroundColor: f.color }} />
                   <h2 className="text-xl font-extrabold">{f.name}</h2>
                 </div>
+                {f.slug === "quickloan" && (
+                  <div className="mb-3 rounded-row border border-line bg-surface p-3" data-testid="stage-vault">
+                    <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-mute">
+                      <span>Confidential processing</span>
+                      <span title="A separate service with an in-memory key, not real hardware protection">simulated enclave</span>
+                    </div>
+                    <VaultTimeline events={vaultEvents} compact />
+                  </div>
+                )}
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                   <Feed rows={rows} newIds={newLogIds} emptyMessage="No requests yet." />
                 </div>

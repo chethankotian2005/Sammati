@@ -4,11 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'consent_flow.dart';
 import 'core_api.dart';
 import 'notice.dart';
+import 'processor_api.dart';
+import 'vault_flow.dart';
 import 'withdraw_flow.dart';
 import 'wallet_providers.dart';
 
 /// Builds a client for a Core base URL. Overridden in tests.
 final coreApiFactoryProvider = Provider<CoreApi Function(String baseUrl)>((ref) => DioCoreApi.new);
+
+/// Builds a client for the Processor's base URL, which Core tells the wallet. Overridden in tests.
+final processorApiFactoryProvider = Provider<ProcessorApi Function(String baseUrl)>((ref) => DioProcessorApi.new);
+
+final vaultFlowProvider = Provider<VaultFlow>((ref) => VaultFlow(
+      wallet: ref.watch(walletServiceProvider),
+      coreFor: ref.watch(coreApiFactoryProvider),
+      processorFor: ref.watch(processorApiFactoryProvider),
+    ));
 
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 

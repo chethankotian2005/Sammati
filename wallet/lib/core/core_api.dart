@@ -8,6 +8,7 @@ import 'activity.dart';
 import 'consents.dart';
 import 'notice.dart';
 import 'proof.dart';
+import 'requests.dart';
 import 'rights.dart';
 
 enum CoreFailure { unreachable, notFound, rejected, server }
@@ -91,6 +92,27 @@ abstract interface class CoreApi {
   Future<List<RightsRequestRow>> getRights(String principal);
   
   Future<void> submitRightsRequest(String principal, String fiduciary, String type, String note);
+
+  /// `GET /v1/processor` (trd.md §6.1): where the Sammati Processor is. Core only points at it.
+  Future<String> getProcessorUrl();
+
+  /// `GET /v1/principals/:addr/identity`: this wallet's Sammati ID, or null.
+  Future<String?> getIdentity(String principal);
+
+  /// `POST /v1/identities` with the signed message of trd.md §4.5. Throws CoreException `HANDLE_TAKEN` for a taken one.
+  Future<void> registerIdentity({required String handle, required String principal, required int issuedAt, required String signature});
+
+  /// `GET /v1/principals/:addr/requests`: the inbox. Rows the wallet cannot read are skipped.
+  Future<List<InboxRequest>> getInbox(String principal);
+
+  /// `POST /v1/requests/:id/decline`.
+  Future<void> declineRequest({required String requestId, required String principal, required int issuedAt, required String signature});
+
+  /// `GET /v1/principals/:addr/blocks`.
+  Future<List<BlockedCompany>> getBlocks(String principal);
+
+  /// `POST /v1/principals/:addr/blocks`; [action] is `block` or `unblock`.
+  Future<void> setBlocked({required String principal, required String fiduciary, required String action, required int issuedAt, required String signature});
 }
 
 class DioCoreApi implements CoreApi {
@@ -180,7 +202,8 @@ class DioCoreApi implements CoreApi {
     final json = await _send(() => _dio.get<Map<String, dynamic>>(
           '/v1/principals/${Uri.encodeComponent(principal)}/cascade/${Uri.encodeComponent(purposeId)}',
         ));
-    final rows = json['acks'];
+    // Core's CascadeResponse calls the list `processors`; `acks` was an earlier guess and is still accepted.
+    final rows = json['processors'] ?? json['acks'];
     if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed cascade acks');
     return [for (final r in rows) if (CascadeAckRow.tryParse(r) case final row?) row];
   }
@@ -206,6 +229,65 @@ class DioCoreApi implements CoreApi {
             'note': note,
           },
         ));
+  }
+
+  @override
+  Future<String?> getIdentity(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/principals/${Uri.encodeComponent(principal)}/identity'));
+    final handle = json['handle'];
+    return handle is String ? handle : null;
+  }
+
+  @override
+  Future<void> registerIdentity({required String handle, required String principal, required int issuedAt, required String signature}) async {
+    await _send(() => _dio.post<Map<String, dynamic>>('/v1/identities', data: {
+          'handle': handle,
+          'principal': principal,
+          'issuedAt': issuedAt,
+          'signature': signature,
+        }));
+  }
+
+  @override
+  Future<List<InboxRequest>> getInbox(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/principals/${Uri.encodeComponent(principal)}/requests'));
+    final rows = json['requests'];
+    if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed inbox');
+    return [for (final r in rows) ?InboxRequest.tryParse(r)];
+  }
+
+  @override
+  Future<void> declineRequest({required String requestId, required String principal, required int issuedAt, required String signature}) async {
+    await _send(() => _dio.post<Map<String, dynamic>>(
+          '/v1/requests/${Uri.encodeComponent(requestId)}/decline',
+          data: {'principal': principal, 'issuedAt': issuedAt, 'signature': signature},
+        ));
+  }
+
+  @override
+  Future<List<BlockedCompany>> getBlocks(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/principals/${Uri.encodeComponent(principal)}/blocks'));
+    final rows = json['blocked'];
+    if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed blocks');
+    return [for (final r in rows) ?BlockedCompany.tryParse(r)];
+  }
+
+  @override
+  Future<void> setBlocked({required String principal, required String fiduciary, required String action, required int issuedAt, required String signature}) async {
+    await _send(() => _dio.post<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/blocks',
+          data: {'fiduciary': fiduciary, 'action': action, 'issuedAt': issuedAt, 'signature': signature},
+        ));
+  }
+
+  @override
+  Future<String> getProcessorUrl() async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/processor'));
+    final url = json['url'];
+    if (url is! String || !RegExp(r'^https?://').hasMatch(url)) {
+      throw const CoreException(CoreFailure.server, message: 'Malformed Processor address');
+    }
+    return url.replaceAll(RegExp(r'/+$'), '');
   }
 
   Future<TxResult> _postSigned(String path, Map<String, Object> request, String signature) async {

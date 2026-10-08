@@ -53,7 +53,25 @@
     <text x="25" y="100" class="text">🚨 Detects log tampering</text>
   </g>
 
+  <!-- 5. Sammati Processor (confidential processing) -->
+  <g transform="translate(730, 430)">
+    <rect width="220" height="120" class="box" />
+    <text x="30" y="40" class="header">Processor</text>
+    <text x="30" y="70" class="text">🔐 Opens data in memory</text>
+    <text x="30" y="95" class="text">Returns a decision only</text>
+    <rect x="70" y="-15" width="80" height="24" class="badge" />
+    <text x="78" y="2" class="badge-text">Simulated</text>
+  </g>
+
   <!-- Connections -->
+  <!-- Wallet to Processor: ciphertext only -->
+  <path d="M 150 250 L 150 580 L 840 580 L 840 555" class="line" marker-end="url(#arrowhead)" />
+  <text x="160" y="570" class="text" style="font-size: 14px; font-style: italic;">Ciphertext only</text>
+
+  <!-- Company to Processor: handle in, decision out -->
+  <path d="M 840 430 L 840 255" class="line" marker-end="url(#arrowhead)" />
+  <text x="700" y="420" class="text" style="font-size: 14px; font-style: italic;">Handle in, decision out</text>
+
   <!-- Wallet to Ledger -->
   <path d="M 210 250 L 210 325 L 380 325" class="line" marker-end="url(#arrowhead)" />
   <text x="220" y="315" class="text" style="font-size: 14px; font-style: italic;">Signs Grants/Withdrawals</text>

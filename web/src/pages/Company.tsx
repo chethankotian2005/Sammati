@@ -190,6 +190,7 @@ function CompanyConsole({ company }: { company: SeedFiduciary }): ReactNode {
           onConsentReceived={() => {
             void fetchConsents(company.address).then((c) => setConsents(c));
           }}
+          onOpenConsents={() => setActiveSection("consents")}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { Router, type Request, type RequestHandler, type Response } from "express";
-import { isAddress, isHexString } from "ethers";
+import { Wallet, isAddress, isHexString } from "ethers";
 import type {
   AccessProofResponse,
   AccessReason,
@@ -29,11 +29,12 @@ import type {
   VerifyResponse,
   WithdrawResponse,
 } from "@sammati/shared";
-import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, buildDomain, noticeHash } from "@sammati/shared";
+import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, LOAN_DECISION_ENDPOINT, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, WITHDRAW_CONSENT_TYPE, buildDomain, noticeHash, withdrawTypedData } from "@sammati/shared";
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
 import { buildNotice, noticeInput } from "../notice";
 import { now } from "../store";
 import { address, bytes32, parseGrant, parseLogEntry, parseRightsBody, parseWithdraw } from "../validate";
+import { sanitiseResult } from "../routes/vault";
 import { accessProof, report, scorecard, tamper, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
@@ -115,9 +116,11 @@ export function realRoutes(core: RealCore): Router {
   }));
 
   r.get("/requests/:requestId", handle(async (req, res) => {
-    const request = repo.request(param(req, "requestId"), config.requestTtlSeconds);
-    const f = repo.fiduciary(request.fiduciary);
     const principal = typeof req.query.principal === "string" ? address(req.query.principal, "principal") : null;
+    // A request addressed to one customer answers to that customer only, and does not use the QR code's 30 minutes.
+    const { targeted } = core.targeted.openNotice(param(req, "requestId"), principal);
+    const request = repo.request(param(req, "requestId"), targeted ? Number.MAX_SAFE_INTEGER : config.requestTtlSeconds);
+    const f = repo.fiduciary(request.fiduciary);
     const nonce = principal ? String(await onChain(() => chain.registry.nonces(principal))) : "0";
     res.json(
       buildNotice({
@@ -143,6 +146,7 @@ export function realRoutes(core: RealCore): Router {
     const grant = parseGrant(body.request);
     const receipt = await relayer.send("grantConsent", [grant, signatureOf(body)]);
     await settle(receipt);
+    core.targeted.onGrant(grant.principal, grant.fiduciary, grant.noticeHash); // a request addressed to this customer is now Granted
     res.json({ txHash: receipt.hash, status: "confirmed" } satisfies GrantResponse);
   }));
 
@@ -298,6 +302,25 @@ export function realRoutes(core: RealCore): Router {
   }));
 
   // Anchors pending log entries now instead of at the next timer tick: for rehearsals and the e2e script.
+  // The presenter's "Withdraw and re-run": withdraws for a customer whose key Core holds (the demo principal). A real
+  // wallet's key never leaves its phone, so for anyone else this refuses and the page waits for the phone instead.
+  r.post("/demo/withdraw", handle(async (req, res) => {
+    const o = requireBody(req.body);
+    const f = repo.fiduciary(requireString(o, "fiduciary"));
+    const purpose = repo.purpose(f, requireString(o, "purposeCode"));
+    const principal = address(requireString(o, "principal"), "principal");
+    const key = config.demoPrincipalKeys[principal.toLowerCase()];
+    if (!key) throw new HttpError(403, "NOT_A_DEMO_PRINCIPAL", "Core holds no key for this customer: withdraw on their phone");
+
+    const nonce = await onChain(() => chain.registry.nonces(principal));
+    const message = { principal, fiduciary: f.address, purposeId: purpose.id, nonce: String(nonce), deadline: now() + 300 };
+    const typed = withdrawTypedData(domain(), message);
+    const signature = await new Wallet(key).signTypedData(typed.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, typed.message);
+    const receipt = await relayer.send("withdrawConsent", [message, signature]);
+    await settle(receipt);
+    res.json({ txHash: receipt.hash, status: "confirmed" } satisfies WithdrawResponse);
+  }));
+
   r.post("/demo/anchor", handle(async (req, res) => {
     const body = (req.body ?? {}) as Partial<DemoAnchorBody>;
     const fiduciary = typeof body.fiduciary === "string" ? repo.fiduciary(body.fiduciary).address : undefined;
@@ -316,22 +339,28 @@ export function realRoutes(core: RealCore): Router {
     const principal = address(requireString(o, "principal"), "principal");
 
     // The company's own guarded endpoint decides and logs (through the gateway SDK); Core only reports the outcome.
-    const target = GUARDED_ENDPOINTS[purpose.code];
+    const loan = o.action === "loan_decision";
+    if (o.action !== undefined && !loan) throw badRequest('"action" must be "loan_decision" when given');
+    if (loan && purpose.code !== "credit_check") throw badRequest('"loan_decision" is a credit_check action');
+    const target = loan ? LOAN_DECISION_ENDPOINT : { ...GUARDED_ENDPOINTS[purpose.code], method: "GET" as const };
     const base = companyBaseUrl(config, f.address);
-    if (!target || !base) throw new HttpError(404, "NO_ENDPOINT", `${f.name} has no guarded endpoint for ${purpose.code}`);
+    if (!target.path || !base) throw new HttpError(404, "NO_ENDPOINT", `${f.name} has no guarded endpoint for ${purpose.code}`);
     const url = base + target.path.replace(":id", SIMULATOR_CUSTOMER_ID);
 
     let response: globalThis.Response;
     try {
-      response = await fetch(url, { headers: { "x-sammati-principal": principal }, signal: AbortSignal.timeout(COMPANY_TIMEOUT_MS) });
+      response = await fetch(url, { method: target.method, headers: { "x-sammati-principal": principal }, signal: AbortSignal.timeout(COMPANY_TIMEOUT_MS) });
     } catch {
       throw new HttpError(502, "COMPANY_UNREACHABLE", `${f.name}'s backend did not answer at ${base}; is it running?`);
     }
 
     let decision: Decision;
     let reason: AccessReason;
+    let result: DemoFireResponse["result"];
     if (response.status === 200) {
       [decision, reason] = ["ALLOWED", "OK"];
+      // Only the two QuickLoan endpoints that return no personal data by construction are relayed (trd.md §6.4).
+      if (purpose.code === "credit_check") result = sanitiseResult(await response.json().catch(() => undefined));
     } else if (response.status === 451) {
       const body = (await response.json().catch(() => ({}))) as { code?: string };
       if (!(REASON_CODES as readonly string[]).includes(body.code ?? "")) {
@@ -341,7 +370,7 @@ export function realRoutes(core: RealCore): Router {
     } else {
       throw new HttpError(502, "COMPANY_ERROR", `${f.name} answered ${response.status}`);
     }
-    res.json({ decision, reason, entryId: response.headers.get(ENTRY_ID_HEADER) ?? "" } satisfies DemoFireResponse);
+    res.json({ decision, reason, entryId: response.headers.get(ENTRY_ID_HEADER) ?? "", ...(result ? { result } : {}) } satisfies DemoFireResponse);
   }));
   // --- not built yet in real mode (trd.md §6.6) ---
 

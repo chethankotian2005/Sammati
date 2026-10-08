@@ -5,6 +5,8 @@ import { Auditor } from "./pages/Auditor";
 import { Company } from "./pages/Company";
 import { Gallery } from "./pages/Gallery";
 import { Stage } from "./pages/Stage";
+import { StageFlow } from "./pages/StageFlow";
+import { PortalPage } from "./portal/PortalPage";
 
 // Subscribe to all fiduciary topics + auditor so every page gets live events.
 const WS_TOPICS = [
@@ -20,6 +22,8 @@ export function AppRoutes() {
         <Route path="/company/:id" element={<Company />} />
         <Route path="/auditor" element={<Auditor />} />
         <Route path="/stage" element={<Stage />} />
+        <Route path="/stage/flow" element={<StageFlow />} />
+        <Route path="/portal/quickloan" element={<PortalPage />} />
         <Route path="/gallery" element={<Gallery />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

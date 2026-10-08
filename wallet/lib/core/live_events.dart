@@ -8,6 +8,7 @@ import 'package:web_socket_channel/io.dart';
 
 import 'activity.dart';
 import 'consents.dart';
+import 'requests.dart';
 
 /// One processor acknowledgement row from the `cascade.updated` WebSocket event
 /// (trd.md §6.5, drd.md §3 cascade_acks).
@@ -17,6 +18,7 @@ class CascadeAck {
     required this.purposeId,
     required this.processor,
     required this.notifiedAt,
+    this.processorName,
     this.ackedAt,
     this.txHash,
   });
@@ -29,7 +31,10 @@ class CascadeAck {
         principal: decoded['principal'] as String,
         purposeId: decoded['purposeId'] as String,
         processor: decoded['processor'] as String,
-        notifiedAt: decoded['notifiedAt'] as int,
+        // Core sends notifiedAt: null for an acknowledgement replayed from chain history (it never saw the
+        // notification): that is still an acknowledgement, so fall back to when it was acknowledged.
+        notifiedAt: (decoded['notifiedAt'] ?? decoded['ackedAt']) as int,
+        processorName: decoded['processorName'] as String?,
         ackedAt: decoded['ackedAt'] as int?,
         txHash: decoded['txHash'] as String?,
       );
@@ -41,6 +46,7 @@ class CascadeAck {
   final String principal;
   final String purposeId;
   final String processor;
+  final String? processorName;
 
   /// Unix seconds when the processor was notified.
   final int notifiedAt;
@@ -54,6 +60,36 @@ class CascadeAck {
   bool get acknowledged => ackedAt != null;
 }
 
+enum VaultNoticeKind { stored, erased }
+
+/// A vault.stored or vault.erased event for this customer (trd.md §6.5): handles and codes, never data.
+class VaultNotice {
+  const VaultNotice({required this.kind, required this.principal, required this.fiduciary, required this.purposeCode, required this.handle});
+
+  /// Null for every other frame, and for the erasure of a copy that a newer one replaced (nothing for the user to see).
+  static VaultNotice? tryParse(Object? decoded) {
+    if (decoded is! Map<String, dynamic>) return null;
+    final kind = switch (decoded['event']) {
+      'vault.stored' => VaultNoticeKind.stored,
+      'vault.erased' => decoded['cause'] == 'superseded' ? null : VaultNoticeKind.erased,
+      _ => null,
+    };
+    if (kind == null) return null;
+    final principal = decoded['principal'];
+    final fiduciary = decoded['fiduciary'];
+    final purposeCode = decoded['purposeCode'];
+    final handle = decoded['handle'];
+    if (principal is! String || fiduciary is! String || purposeCode is! String || handle is! String) return null;
+    return VaultNotice(kind: kind, principal: principal, fiduciary: fiduciary, purposeCode: purposeCode, handle: handle);
+  }
+
+  final VaultNoticeKind kind;
+  final String principal;
+  final String fiduciary;
+  final String purposeCode;
+  final String handle;
+}
+
 abstract interface class LiveEvents {
   /// `consent.updated` events for the subscribed principal.
   Stream<ConsentUpdated> get consentUpdates;
@@ -63,6 +99,12 @@ abstract interface class LiveEvents {
 
   /// `cascade.updated` events: each processor acknowledgement as it arrives.
   Stream<CascadeAck> get cascadeUpdates;
+
+  /// `vault.stored` and `vault.erased` events: the customer's encrypted details arrived, or were erased.
+  Stream<VaultNotice> get vaultUpdates;
+
+  /// `consent.requested`: a company asked this wallet for consent (trd.md §6.5).
+  Stream<ConsentRequested> get requestEvents;
 
   /// True each time the socket (re)connects, false each time it drops.
   Stream<bool> get connection;
@@ -93,6 +135,8 @@ class WsLiveEvents implements LiveEvents {
   final _updates = StreamController<ConsentUpdated>.broadcast();
   final _access = StreamController<ActivityItem>.broadcast();
   final _cascade = StreamController<CascadeAck>.broadcast();
+  final _vault = StreamController<VaultNotice>.broadcast();
+  final _requests = StreamController<ConsentRequested>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   bool _disposed = false;
   IOWebSocketChannel? _channel;
@@ -105,6 +149,12 @@ class WsLiveEvents implements LiveEvents {
 
   @override
   Stream<CascadeAck> get cascadeUpdates => _cascade.stream;
+
+  @override
+  Stream<VaultNotice> get vaultUpdates => _vault.stream;
+
+  @override
+  Stream<ConsentRequested> get requestEvents => _requests.stream;
 
   @override
   Stream<bool> get connection => _connection.stream;
@@ -147,6 +197,10 @@ class WsLiveEvents implements LiveEvents {
       if (access != null) _emit(_access, access);
       final cascade = CascadeAck.tryParse(decoded);
       if (cascade != null) _emit(_cascade, cascade);
+      final vault = VaultNotice.tryParse(decoded);
+      if (vault != null) _emit(_vault, vault);
+      final requested = ConsentRequested.tryParse(decoded);
+      if (requested != null) _emit(_requests, requested);
     } on FormatException {
       // A malformed frame must not take the socket down.
     }
@@ -165,6 +219,8 @@ class WsLiveEvents implements LiveEvents {
     unawaited(_updates.close());
     unawaited(_access.close());
     unawaited(_cascade.close());
+    unawaited(_vault.close());
+    unawaited(_requests.close());
     unawaited(_connection.close());
   }
 }

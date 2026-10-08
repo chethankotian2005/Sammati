@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/activity.dart';
 import 'package:sammati/core/consents.dart';
 import 'package:sammati/core/live_events.dart';
+import 'package:sammati/core/requests.dart';
 
 import 'support/fake_core.dart';
 
@@ -83,6 +84,59 @@ void main() {
     expect(webSocketUri('http://192.168.1.5:4000/').toString(), 'ws://192.168.1.5:4000/ws');
   });
 
+  group('VaultNotice.tryParse (vault.stored and vault.erased, trd.md §6.5)', () {
+    Map<String, Object?> frame(String event, {Object? cause}) => {
+          'event': event,
+          'principal': _principal,
+          'fiduciary': fiduciaryAddress,
+          'purposeCode': 'credit_check',
+          'handle': '0x${'ab' * 32}',
+          'at': 1760000000,
+          'cause': ?cause,
+        };
+
+    test('reads a stored and an erased event', () {
+      expect(VaultNotice.tryParse(frame('vault.stored'))?.kind, VaultNoticeKind.stored);
+      final erased = VaultNotice.tryParse(frame('vault.erased', cause: 'withdrawn'))!;
+      expect([erased.kind, erased.purposeCode, erased.handle], [VaultNoticeKind.erased, 'credit_check', '0x${'ab' * 32}']);
+    });
+
+    test('ignores the erasure of a copy that a newer one replaced, other events and malformed frames', () {
+      expect(VaultNotice.tryParse(frame('vault.erased', cause: 'superseded')), isNull);
+      expect(VaultNotice.tryParse(frame('vault.encrypted')), isNull);
+      expect(VaultNotice.tryParse(frame('processor.decided')), isNull);
+      expect(VaultNotice.tryParse({...frame('vault.stored'), 'handle': 7}), isNull);
+      expect(VaultNotice.tryParse({...frame('vault.stored')}..remove('principal')), isNull);
+      expect(VaultNotice.tryParse('vault.stored'), isNull);
+    });
+  });
+
+  group('ConsentRequested.tryParse (consent.requested, trd.md §6.5)', () {
+    Map<String, Object?> frame() => {
+          'event': 'consent.requested',
+          'principal': _principal,
+          'requestId': 'req_ab12cd34',
+          'fiduciary': fiduciaryAddress,
+          'fiduciaryName': 'QuickLoan',
+          'purposeCodes': ['credit_check'],
+          'message': 'hello',
+          'expiresAt': 1760086400,
+          'at': 1760000000,
+        };
+
+    test('reads a request', () {
+      final r = ConsentRequested.tryParse(frame())!;
+      expect([r.requestId, r.fiduciary, r.fiduciaryName], ['req_ab12cd34', fiduciaryAddress, 'QuickLoan']);
+    });
+
+    test('ignores other events and malformed frames', () {
+      expect(ConsentRequested.tryParse({...frame(), 'event': 'consent.updated'}), isNull);
+      expect(ConsentRequested.tryParse({...frame(), 'requestId': 5}), isNull);
+      expect(ConsentRequested.tryParse({...frame()}..remove('fiduciaryName')), isNull);
+      expect(ConsentRequested.tryParse('consent.requested'), isNull);
+    });
+  });
+
   group('WsLiveEvents against a real socket', () {
     late _Server server;
     late WsLiveEvents live;
@@ -108,6 +162,54 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(updates.single.status, ConsentStatus.withdrawn);
       expect(updates.single.purposeId, creditCheckId);
+    });
+
+    test('delivers vault.stored and vault.erased for this customer only', () async {
+      final firstConnection = server.nextConnection();
+      live = WsLiveEvents(server.url, _principal);
+      final notices = <VaultNotice>[];
+      live.vaultUpdates.listen(notices.add);
+      final socket = await firstConnection.timeout(const Duration(seconds: 5));
+
+      String frame(String event, String principal, {String? cause}) => jsonEncode({
+            'event': event,
+            'principal': principal,
+            'fiduciary': fiduciaryAddress,
+            'purposeCode': 'credit_check',
+            'handle': '0x${'ab' * 32}',
+            'at': 1,
+            'cause': ?cause,
+          });
+      socket
+        ..add(frame('vault.stored', _principal))
+        ..add(frame('vault.stored', '0x0000000000000000000000000000000000000001'))
+        ..add(frame('vault.erased', _principal, cause: 'withdrawn'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(notices.map((n) => n.kind), [VaultNoticeKind.stored, VaultNoticeKind.erased]);
+    });
+
+    test('delivers consent.requested for this customer only', () async {
+      final firstConnection = server.nextConnection();
+      live = WsLiveEvents(server.url, _principal);
+      final seen = <ConsentRequested>[];
+      live.requestEvents.listen(seen.add);
+      final socket = await firstConnection.timeout(const Duration(seconds: 5));
+      String frame(String principal) => jsonEncode({
+            'event': 'consent.requested',
+            'principal': principal,
+            'requestId': 'req_ab12cd34',
+            'fiduciary': fiduciaryAddress,
+            'fiduciaryName': 'QuickLoan',
+            'purposeCodes': ['credit_check'],
+            'message': null,
+            'expiresAt': 1760086400,
+            'at': 1760000000,
+          });
+      socket
+        ..add(frame('0x0000000000000000000000000000000000000001'))
+        ..add(frame(_principal));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(seen.map((r) => r.requestId), ['req_ab12cd34']);
     });
 
     test('ignores other event types, other principals and junk frames without dropping the socket', () async {

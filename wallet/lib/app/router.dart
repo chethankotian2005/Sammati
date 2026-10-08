@@ -17,6 +17,10 @@ import '../features/onboarding/language_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/onboarding/splash_screen.dart';
 import '../features/rights/rights_screen.dart';
+import '../features/requests/requests_screen.dart';
+import '../features/requests/sammati_id_screen.dart';
+import '../features/vault/demo_profile_screen.dart';
+import '../features/vault/share_details_screen.dart';
 import '../features/scan/scan_screen.dart';
 import '../features/shell/home_shell.dart';
 
@@ -30,6 +34,11 @@ abstract final class Routes {
   static const rights = '/rights';
   static const me = '/me';
   static const devSettings = '/dev-settings';
+  static const demoProfile = '/demo-profile';
+  static const requests = '/requests';
+  static const sammatiId = '/sammati-id';
+  static const share = '/share/:fiduciary/:purpose';
+  static String shareFor(String fiduciary, String purposeCode) => '/share/$fiduciary/$purposeCode';
   static const scan = '/scan';
   static const pass = '/pass/:fiduciary';
   static String passFor(String fiduciary) => '/pass/$fiduciary';
@@ -93,6 +102,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.pass, builder: (_, state) => PassDetailScreen(fiduciary: state.pathParameters['fiduciary']!)),
       GoRoute(path: Routes.devSettings, builder: (_, _) => const DevSettingsScreen()),
+      GoRoute(path: Routes.demoProfile, builder: (_, _) => const DemoProfileScreen()),
+      GoRoute(path: Routes.requests, builder: (_, _) => const RequestsScreen()),
+      GoRoute(path: Routes.sammatiId, builder: (_, _) => const SammatiIdScreen()),
+      GoRoute(
+        path: Routes.share,
+        builder: (_, state) => ShareDetailsScreen(
+          fiduciary: state.pathParameters['fiduciary']!,
+          purposeCode: state.pathParameters['purpose']!,
+          companyName: state.extra as String?,
+        ),
+      ),
     ],
   );
 });

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../../core/format.dart';
 import '../../core/preferences.dart';
+import '../../core/requests_controller.dart';
 import '../../core/wallet_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
@@ -47,6 +48,21 @@ class MeScreen extends ConsumerWidget {
                     messenger.showSnackBar(SnackBar(content: Text(t.copied)));
                   },
                 ),
+              ListTile(
+                minTileHeight: 56,
+                leading: const Icon(Icons.alternate_email),
+                title: Text(t.id_title),
+                subtitle: Text(ref.watch(identityProvider).value ?? t.id_none),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.sammatiId),
+              ),
+              ListTile(
+                minTileHeight: 56,
+                leading: const Icon(Icons.badge_outlined),
+                title: Text(t.vault_profile_title),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.demoProfile),
+              ),
               ListTile(
                 minTileHeight: 56,
                 leading: const Icon(Icons.code),

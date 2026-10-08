@@ -1,0 +1,152 @@
+{
+  "v": 1,
+  "recordedAt": "2026-10-08T16:48:20.562Z",
+  "note": "Recorded from a real `pnpm e2e` run: real events, the real ciphertext row, QuickLoan's real admin answer.",
+  "events": [
+    {
+      "t": 0,
+      "event": {
+        "event": "vault.encrypted",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478099,
+        "atMs": 1791478099637,
+        "ciphertextHash": "0xe6b1786f2b2005d3863882e34592433d39f20c6b04286aa5c49ed0473c820db6",
+        "sizeBytes": 293
+      }
+    },
+    {
+      "t": 23,
+      "event": {
+        "event": "vault.stored",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478099,
+        "atMs": 1791478099684,
+        "ciphertextHash": "0xe6b1786f2b2005d3863882e34592433d39f20c6b04286aa5c49ed0473c820db6",
+        "sizeBytes": 293
+      }
+    },
+    {
+      "t": 276,
+      "event": {
+        "event": "processor.requested",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478099,
+        "atMs": 1791478099942,
+        "action": "loan_decision",
+        "requestedAt": 1791478099942
+      }
+    },
+    {
+      "t": 310,
+      "event": {
+        "event": "processor.decrypting",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478099,
+        "atMs": 1791478099971,
+        "decryptingAt": 1791478099971
+      }
+    },
+    {
+      "t": 315,
+      "event": {
+        "event": "processor.decided",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478099,
+        "atMs": 1791478099975,
+        "decision": "approved",
+        "limit": 300000,
+        "reasonCodes": [
+          "SCORE_FAIR"
+        ],
+        "entryId": "4ffb1eca-0179-44bf-9083-70d32e64650a",
+        "durationMs": 34
+      }
+    },
+    {
+      "t": 513,
+      "event": {
+        "event": "processor.requested",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478100,
+        "atMs": 1791478100175,
+        "action": "loan_decision",
+        "requestedAt": 1791478100175
+      }
+    },
+    {
+      "t": 561,
+      "event": {
+        "event": "processor.decided",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478100,
+        "atMs": 1791478100224,
+        "decision": "blocked",
+        "limit": null,
+        "reasonCodes": [
+          "CONSENT_WITHDRAWN"
+        ],
+        "entryId": "9dc70b8f-bb49-40fd-9987-58dd834e5c04",
+        "durationMs": 49
+      }
+    },
+    {
+      "t": 563,
+      "event": {
+        "event": "vault.erased",
+        "principal": "0xdf54029cca70Ab38C0AB541E3b870F81B3527FAe",
+        "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "purposeCode": "credit_check",
+        "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+        "at": 1791478100,
+        "atMs": 1791478100225,
+        "cause": "withdrawn"
+      }
+    }
+  ],
+  "vaultRow": {
+    "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+    "principal": "0xdf54029cca70ab38c0ab541e3b870f81b3527fae",
+    "fiduciary": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+    "purposeCode": "credit_check",
+    "ciphertextHash": "0xe6b1786f2b2005d3863882e34592433d39f20c6b04286aa5c49ed0473c820db6",
+    "status": "stored",
+    "createdAt": 1791478099,
+    "erasedAt": null,
+    "envelope": {
+      "ciphertext": "0xd83f890768627e09b0d1feaae477fdadf9a8c0bcd31be9ff9f3d2f2f9cef39b3c4d156ce0d522b1debacdac1b6cfb892b373f21bb73301",
+      "ephPub": "0x5d2c27d941cac4d538ad0f3f561a4874b04b4e037ee3b918a267beb85c74cd20",
+      "nonce": "0x2a074028f8950008ba01d02d",
+      "tag": "0x9606395278e132d57ad299f220a4ee04",
+      "v": 1
+    }
+  },
+  "staffView": {
+    "status": 200,
+    "body": {
+      "handle": "0x489bcb5337441bdc081465b2131c489ffec763c8ea43e9ceb613d11776872086",
+      "ciphertextHash": "0xe6b1786f2b2005d3863882e34592433d39f20c6b04286aa5c49ed0473c820db6",
+      "status": "stored"
+    }
+  }
+}

@@ -394,6 +394,18 @@ abstract class AppLocalizations {
   /// **'This is not a Sammati QR code.'**
   String get scan_invalid_qr;
 
+  /// No description provided for @scan_paste_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the QR text here'**
+  String get scan_paste_hint;
+
+  /// No description provided for @scan_paste_open.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get scan_paste_open;
+
   /// No description provided for @error_unreachable.
   ///
   /// In en, this message translates to:
@@ -501,6 +513,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ledger transaction'**
   String get receipt_tx;
+
+  /// No description provided for @receipt_view_proof.
+  ///
+  /// In en, this message translates to:
+  /// **'View proof'**
+  String get receipt_view_proof;
 
   /// No description provided for @done.
   ///
@@ -662,6 +680,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No connection. Showing last known activity.'**
   String get offline_activity_banner;
+
+  /// No description provided for @proof_headline.
+  ///
+  /// In en, this message translates to:
+  /// **'This access was recorded and locked on the ledger.'**
+  String get proof_headline;
+
+  /// No description provided for @proof_record_hash.
+  ///
+  /// In en, this message translates to:
+  /// **'Record hash'**
+  String get proof_record_hash;
+
+  /// No description provided for @proof_batch_anchor.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch anchor'**
+  String get proof_batch_anchor;
+
+  /// No description provided for @proof_merkle_verified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified ✓'**
+  String get proof_merkle_verified;
+
+  /// No description provided for @proof_merkle_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed'**
+  String get proof_merkle_failed;
+
+  /// No description provided for @proof_merkle_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get proof_merkle_checking;
+
+  /// No description provided for @proof_open_explorer.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in block explorer'**
+  String get proof_open_explorer;
+
+  /// No description provided for @proof_consent_signer.
+  ///
+  /// In en, this message translates to:
+  /// **'Signer (you)'**
+  String get proof_consent_signer;
+
+  /// No description provided for @proof_ledger_head.
+  ///
+  /// In en, this message translates to:
+  /// **'Ledger head'**
+  String get proof_ledger_head;
+
+  /// No description provided for @proof_consent_tx.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction'**
+  String get proof_consent_tx;
+
+  /// No description provided for @proof_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading proof…'**
+  String get proof_loading;
+
+  /// No description provided for @proof_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load proof. Try again.'**
+  String get proof_failed;
+
+  /// No description provided for @cascade_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Also told'**
+  String get cascade_title;
+
+  /// No description provided for @cascade_waiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting…'**
+  String get cascade_waiting;
+
+  /// No description provided for @cascade_acked.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} s ago'**
+  String cascade_acked(int n);
+
+  /// No description provided for @vault_profile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My demo details'**
+  String get vault_profile_title;
+
+  /// No description provided for @vault_profile_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.'**
+  String get vault_profile_note;
+
+  /// No description provided for @vault_pan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN'**
+  String get vault_pan;
+
+  /// No description provided for @vault_income.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get vault_income;
+
+  /// No description provided for @vault_score.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit score'**
+  String get vault_score;
+
+  /// No description provided for @vault_simulated.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo processor (simulated enclave, not real hardware protection)'**
+  String get vault_simulated;
+
+  /// No description provided for @vault_send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send securely'**
+  String get vault_send;
+
+  /// No description provided for @vault_send_again.
+  ///
+  /// In en, this message translates to:
+  /// **'Send again'**
+  String get vault_send_again;
+
+  /// No description provided for @vault_send_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} gets a decision, not your details. Only the Sammati Processor can open them.'**
+  String vault_send_hint(String company);
+
+  /// No description provided for @vault_sending.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypting and sending…'**
+  String get vault_sending;
+
+  /// No description provided for @vault_sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent encrypted. {company} holds only a reference.'**
+  String vault_sent(String company);
+
+  /// No description provided for @vault_erased.
+  ///
+  /// In en, this message translates to:
+  /// **'Your encrypted details were erased.'**
+  String get vault_erased;
+
+  /// No description provided for @vault_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send securely. Try again.'**
+  String get vault_failed;
+
+  /// No description provided for @auth_reason_vault.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to send your details securely'**
+  String get auth_reason_vault;
+
+  /// No description provided for @share_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your details securely'**
+  String get share_title;
+
+  /// No description provided for @share_intro.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.'**
+  String share_intro(String company);
+
+  /// No description provided for @share_use_demo.
+  ///
+  /// In en, this message translates to:
+  /// **'Use demo details'**
+  String get share_use_demo;
+
+  /// No description provided for @share_pan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN'**
+  String get share_pan;
+
+  /// No description provided for @share_pan_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Like ABCDE1234F'**
+  String get share_pan_hint;
+
+  /// No description provided for @share_pan_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a PAN like ABCDE1234F'**
+  String get share_pan_invalid;
+
+  /// No description provided for @share_income.
+  ///
+  /// In en, this message translates to:
+  /// **'Income band'**
+  String get share_income;
+
+  /// No description provided for @income_0_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 3 LPA'**
+  String get income_0_3;
+
+  /// No description provided for @income_3_6.
+  ///
+  /// In en, this message translates to:
+  /// **'3 to 6 LPA'**
+  String get income_3_6;
+
+  /// No description provided for @income_6_9.
+  ///
+  /// In en, this message translates to:
+  /// **'6 to 9 LPA'**
+  String get income_6_9;
+
+  /// No description provided for @income_9_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'9 LPA and above'**
+  String get income_9_plus;
+
+  /// No description provided for @share_employment.
+  ///
+  /// In en, this message translates to:
+  /// **'Employment'**
+  String get share_employment;
+
+  /// No description provided for @emp_salaried.
+  ///
+  /// In en, this message translates to:
+  /// **'Salaried'**
+  String get emp_salaried;
+
+  /// No description provided for @emp_self_employed.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-employed'**
+  String get emp_self_employed;
+
+  /// No description provided for @emp_student.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get emp_student;
+
+  /// No description provided for @emp_unemployed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not employed'**
+  String get emp_unemployed;
+
+  /// No description provided for @share_cta.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your details securely'**
+  String get share_cta;
+
+  /// No description provided for @inbox_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get inbox_title;
+
+  /// No description provided for @inbox_badge_label.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 request} other{{count} requests}}'**
+  String inbox_badge_label(int count);
+
+  /// No description provided for @inbox_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests. When a company asks for your consent it will appear here.'**
+  String get inbox_empty;
+
+  /// No description provided for @inbox_asks.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} is asking for {count, plural, =1{1 purpose} other{{count} purposes}}'**
+  String inbox_asks(String company, int count);
+
+  /// No description provided for @inbox_message_from.
+  ///
+  /// In en, this message translates to:
+  /// **'Message from {company}'**
+  String inbox_message_from(String company);
+
+  /// No description provided for @inbox_expires_hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours, plural, =1{Expires in 1 hour} other{Expires in {hours} hours}}'**
+  String inbox_expires_hours(int hours);
+
+  /// No description provided for @inbox_expires_soon.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in under an hour'**
+  String get inbox_expires_soon;
+
+  /// No description provided for @inbox_offline.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Showing last known requests.'**
+  String get inbox_offline;
+
+  /// No description provided for @request_review.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get request_review;
+
+  /// No description provided for @request_decline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get request_decline;
+
+  /// No description provided for @request_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Block this company'**
+  String get request_block;
+
+  /// No description provided for @request_block_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Block {company}? They will not be able to send you requests.'**
+  String request_block_confirm(String company);
+
+  /// No description provided for @request_declined.
+  ///
+  /// In en, this message translates to:
+  /// **'Request declined.'**
+  String get request_declined;
+
+  /// No description provided for @request_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} is blocked.'**
+  String request_blocked(String company);
+
+  /// No description provided for @blocked_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked companies'**
+  String get blocked_title;
+
+  /// No description provided for @blocked_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not blocked anyone.'**
+  String get blocked_empty;
+
+  /// No description provided for @request_unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get request_unblock;
+
+  /// No description provided for @auth_reason_decline.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to decline this request'**
+  String get auth_reason_decline;
+
+  /// No description provided for @auth_reason_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to block this company'**
+  String get auth_reason_block;
+
+  /// No description provided for @id_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Sammati ID'**
+  String get id_title;
+
+  /// No description provided for @id_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No Sammati ID yet'**
+  String get id_none;
+
+  /// No description provided for @id_explain.
+  ///
+  /// In en, this message translates to:
+  /// **'Companies can send you consent requests here. They never see your wallet address until you say yes.'**
+  String get id_explain;
+
+  /// No description provided for @id_choose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your ID'**
+  String get id_choose;
+
+  /// No description provided for @id_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'3 to 30 letters, numbers, dots or dashes'**
+  String get id_hint;
+
+  /// No description provided for @id_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 3 to 30 letters, numbers, dots or dashes'**
+  String get id_invalid;
+
+  /// No description provided for @id_taken.
+  ///
+  /// In en, this message translates to:
+  /// **'That ID is taken. Try another.'**
+  String get id_taken;
+
+  /// No description provided for @id_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get id_register;
+
+  /// No description provided for @id_registered.
+  ///
+  /// In en, this message translates to:
+  /// **'Your ID is {handle}'**
+  String id_registered(String handle);
+
+  /// No description provided for @auth_reason_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to register your Sammati ID'**
+  String get auth_reason_id;
 }
 
 class _AppLocalizationsDelegate

@@ -167,6 +167,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get scan_invalid_qr => 'यह Sammati का QR कोड नहीं है।';
 
   @override
+  String get scan_paste_hint => 'यहाँ QR का पाठ पेस्ट करें';
+
+  @override
+  String get scan_paste_open => 'खोलें';
+
+  @override
   String get error_unreachable => 'Sammati तक नहीं पहुँच सके। Wi-Fi जाँचें।';
 
   @override
@@ -248,6 +254,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get receipt_tx => 'लेजर लेन-देन';
+
+  @override
+  String get receipt_view_proof => 'प्रमाण देखें';
 
   @override
   String get done => 'हो गया';
@@ -374,4 +383,273 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get offline_activity_banner =>
       'कनेक्शन नहीं है। पिछली ज्ञात गतिविधि दिख रही है।';
+
+  @override
+  String get proof_headline =>
+      'यह एक्सेस रिकॉर्ड किया गया और लेजर पर लॉक किया गया।';
+
+  @override
+  String get proof_record_hash => 'रिकॉर्ड हैश';
+
+  @override
+  String get proof_batch_anchor => 'बैच एंकर';
+
+  @override
+  String get proof_merkle_verified => 'सत्यापित ✓';
+
+  @override
+  String get proof_merkle_failed => 'सत्यापन विफल';
+
+  @override
+  String get proof_merkle_checking => 'जाँच हो रही है…';
+
+  @override
+  String get proof_open_explorer => 'ब्लॉक एक्सप्लोरर में खोलें';
+
+  @override
+  String get proof_consent_signer => 'हस्ताक्षरकर्ता (आप)';
+
+  @override
+  String get proof_ledger_head => 'लेजर हेड';
+
+  @override
+  String get proof_consent_tx => 'लेन-देन';
+
+  @override
+  String get proof_loading => 'प्रमाण लोड हो रहा है…';
+
+  @override
+  String get proof_failed => 'प्रमाण लोड नहीं हो सका। दोबारा कोशिश करें।';
+
+  @override
+  String get cascade_title => 'इन्हें भी बताया गया';
+
+  @override
+  String get cascade_waiting => 'प्रतीक्षा में…';
+
+  @override
+  String cascade_acked(int n) {
+    return '$n सेकंड पहले';
+  }
+
+  @override
+  String get vault_profile_title => 'मेरा डेमो विवरण';
+
+  @override
+  String get vault_profile_note =>
+      'डेमो के लिए बनाए गए विवरण। ये इसी फ़ोन पर रहते हैं और कहीं भी भेजने से पहले एन्क्रिप्ट हो जाते हैं।';
+
+  @override
+  String get vault_pan => 'PAN';
+
+  @override
+  String get vault_income => 'आय';
+
+  @override
+  String get vault_score => 'क्रेडिट स्कोर';
+
+  @override
+  String get vault_simulated =>
+      'डेमो प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं)';
+
+  @override
+  String get vault_send => 'सुरक्षित रूप से भेजें';
+
+  @override
+  String get vault_send_again => 'दोबारा भेजें';
+
+  @override
+  String vault_send_hint(String company) {
+    return '$company को फ़ैसला मिलता है, आपका विवरण नहीं। उन्हें सिर्फ़ Sammati Processor खोल सकता है।';
+  }
+
+  @override
+  String get vault_sending => 'एन्क्रिप्ट करके भेज रहे हैं…';
+
+  @override
+  String vault_sent(String company) {
+    return 'एन्क्रिप्ट करके भेजा गया। $company के पास सिर्फ़ एक संदर्भ है।';
+  }
+
+  @override
+  String get vault_erased => 'आपका एन्क्रिप्टेड विवरण मिटा दिया गया।';
+
+  @override
+  String get vault_failed => 'सुरक्षित रूप से नहीं भेज सके। दोबारा कोशिश करें।';
+
+  @override
+  String get auth_reason_vault =>
+      'अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें';
+
+  @override
+  String get share_title => 'अपना विवरण सुरक्षित रूप से साझा करें';
+
+  @override
+  String share_intro(String company) {
+    return '$company को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए $company इन्हें कभी नहीं देखती।';
+  }
+
+  @override
+  String get share_use_demo => 'डेमो विवरण भरें';
+
+  @override
+  String get share_pan => 'PAN';
+
+  @override
+  String get share_pan_hint => 'जैसे ABCDE1234F';
+
+  @override
+  String get share_pan_invalid => 'ABCDE1234F जैसा PAN दर्ज करें';
+
+  @override
+  String get share_income => 'आय वर्ग';
+
+  @override
+  String get income_0_3 => '3 LPA तक';
+
+  @override
+  String get income_3_6 => '3 से 6 LPA';
+
+  @override
+  String get income_6_9 => '6 से 9 LPA';
+
+  @override
+  String get income_9_plus => '9 LPA और अधिक';
+
+  @override
+  String get share_employment => 'रोज़गार';
+
+  @override
+  String get emp_salaried => 'वेतनभोगी';
+
+  @override
+  String get emp_self_employed => 'स्वरोज़गार';
+
+  @override
+  String get emp_student => 'विद्यार्थी';
+
+  @override
+  String get emp_unemployed => 'बेरोज़गार';
+
+  @override
+  String get share_cta => 'अपना विवरण सुरक्षित रूप से साझा करें';
+
+  @override
+  String get inbox_title => 'अनुरोध';
+
+  @override
+  String inbox_badge_label(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count अनुरोध',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_empty =>
+      'कोई अनुरोध नहीं। जब कोई कंपनी आपकी सहमति माँगेगी, वह यहाँ दिखेगा।';
+
+  @override
+  String inbox_asks(String company, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count उद्देश्यों के लिए सहमति माँग रही है',
+    );
+    return '$company $_temp0';
+  }
+
+  @override
+  String inbox_message_from(String company) {
+    return '$company का संदेश';
+  }
+
+  @override
+  String inbox_expires_hours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours घंटे में समाप्त',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_expires_soon => 'एक घंटे से कम में समाप्त';
+
+  @override
+  String get inbox_offline =>
+      'कनेक्शन नहीं है। पिछले ज्ञात अनुरोध दिख रहे हैं।';
+
+  @override
+  String get request_review => 'देखें';
+
+  @override
+  String get request_decline => 'अस्वीकार करें';
+
+  @override
+  String get request_block => 'इस कंपनी को ब्लॉक करें';
+
+  @override
+  String request_block_confirm(String company) {
+    return '$company को ब्लॉक करें? वे आपको अनुरोध नहीं भेज सकेंगी।';
+  }
+
+  @override
+  String get request_declined => 'अनुरोध अस्वीकार किया गया।';
+
+  @override
+  String request_blocked(String company) {
+    return '$company ब्लॉक है।';
+  }
+
+  @override
+  String get blocked_title => 'ब्लॉक की गई कंपनियाँ';
+
+  @override
+  String get blocked_empty => 'आपने किसी को ब्लॉक नहीं किया है।';
+
+  @override
+  String get request_unblock => 'अनब्लॉक करें';
+
+  @override
+  String get auth_reason_decline => 'इस अनुरोध को अस्वीकार करने की पुष्टि करें';
+
+  @override
+  String get auth_reason_block => 'इस कंपनी को ब्लॉक करने की पुष्टि करें';
+
+  @override
+  String get id_title => 'आपकी Sammati ID';
+
+  @override
+  String get id_none => 'अभी कोई Sammati ID नहीं';
+
+  @override
+  String get id_explain =>
+      'कंपनियाँ आपको यहाँ सहमति अनुरोध भेज सकती हैं। जब तक आप हाँ नहीं कहते, वे आपका वॉलेट पता नहीं देखतीं।';
+
+  @override
+  String get id_choose => 'अपनी ID चुनें';
+
+  @override
+  String get id_hint => '3 से 30 अक्षर, अंक, बिंदु या डैश';
+
+  @override
+  String get id_invalid => '3 से 30 अक्षर, अंक, बिंदु या डैश इस्तेमाल करें';
+
+  @override
+  String get id_taken => 'यह ID ली जा चुकी है। दूसरी आज़माएँ।';
+
+  @override
+  String get id_register => 'पंजीकृत करें';
+
+  @override
+  String id_registered(String handle) {
+    return 'आपकी ID $handle है';
+  }
+
+  @override
+  String get auth_reason_id => 'अपनी Sammati ID पंजीकृत करने की पुष्टि करें';
 }

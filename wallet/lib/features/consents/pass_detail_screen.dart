@@ -5,6 +5,7 @@ import '../../core/consent_providers.dart';
 import '../../core/consents.dart';
 import '../../core/consents_controller.dart';
 import '../../core/core_api.dart';
+import '../../core/format.dart';
 import '../../core/cascade_controller.dart';
 import '../../core/preferences.dart';
 import '../../core/wallet_providers.dart';
@@ -12,8 +13,10 @@ import '../../core/wallet_service.dart';
 import '../../core/withdraw_flow.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
+import '../../core/demo_profile.dart';
 import '../consent/receipt_data.dart';
 import '../shell/empty_state.dart';
+import '../vault/vault_send_section.dart';
 import 'consent_text.dart';
 
 /// W5 pass detail: the company's purposes, each with a switch that withdraws.
@@ -101,6 +104,7 @@ class _PassDetailScreenState extends ConsumerState<PassDetailScreen> {
           for (final consent in company.consents) ...[
             _PurposeRow(
               company: company.fiduciary.name,
+              fiduciary: company.fiduciary.address,
               consent: consent,
               now: now,
               busy: _busy.contains(consent.purposeId),
@@ -117,10 +121,10 @@ class _PassDetailScreenState extends ConsumerState<PassDetailScreen> {
 /// A purpose row. When it becomes withdrawn, a grey "cut" sweeps across it in 250 ms
 /// (ui.md §1.3); with reduced motion the change is instant. It animates on a live change
 /// too, so a withdrawal made elsewhere shows the same way.
-/// too, so a withdrawal made elsewhere shows the same way.
 class _PurposeRow extends ConsumerWidget {
   const _PurposeRow({
     required this.company,
+    required this.fiduciary,
     required this.consent,
     required this.now,
     required this.busy,
@@ -130,6 +134,7 @@ class _PurposeRow extends ConsumerWidget {
   static const cutDuration = Duration(milliseconds: 250);
 
   final String company;
+  final String fiduciary;
   final ConsentView consent;
   final DateTime now;
   final bool busy;
@@ -168,55 +173,64 @@ class _PurposeRow extends ConsumerWidget {
                 ),
               ),
             ),
-            AnimatedOpacity(
-              opacity: cut ? 0.6 : 1,
-              duration: duration,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: style.titleLarge),
-                          const SizedBox(height: 8),
-                          StatusChip(state: state),
-                          if (line != null) ...[
-                            const SizedBox(height: 8),
-                            Text(line, style: style.bodyMedium?.copyWith(color: SammatiColors.mute)),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (busy)
-                      const SizedBox(width: 48, height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 3)))
-                    else
-                      MergeSemantics(
-                        child: Semantics(
-                          label: t.purpose_switch_label(title, company),
-                          // Only an active consent can be switched off; giving consent again goes through a new scan.
-                          child: Switch(
-                            value: state == ConsentState.active,
-                            onChanged: state == ConsentState.active
-                                ? (on) {
-                                    if (!on) onWithdraw();
-                                  }
-                                : null,
+            // One column, so the pieces stack instead of drawing over each other (a Stack would put them all at the top).
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AnimatedOpacity(
+                  opacity: cut ? 0.6 : 1,
+                  duration: duration,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: style.titleLarge),
+                              const SizedBox(height: 8),
+                              StatusChip(state: state),
+                              if (line != null) ...[
+                                const SizedBox(height: 8),
+                                Text(line, style: style.bodyMedium?.copyWith(color: SammatiColors.mute)),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                  ],
+                        const SizedBox(width: 8),
+                        if (busy)
+                          const SizedBox(width: 48, height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 3)))
+                        else
+                          MergeSemantics(
+                            child: Semantics(
+                              label: t.purpose_switch_label(title, company),
+                              // Only an active consent can be switched off; giving consent again goes through a new scan.
+                              child: Switch(
+                                value: state == ConsentState.active,
+                                onChanged: state == ConsentState.active
+                                    ? (on) {
+                                        if (!on) onWithdraw();
+                                      }
+                                    : null,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                if (vaultPurposes.contains(consent.code))
+                  VaultSendSection(
+                    fiduciary: fiduciary,
+                    company: company,
+                    purposeCode: consent.code,
+                    consentActive: state == ConsentState.active,
+                  ),
+                // After a withdrawal this is the "who else was told" list (W-08); empty, it takes no room.
+                _CascadeList(purposeId: consent.purposeId, now: now),
+              ],
             ),
-            if (!cut)
-              AnimatedOpacity(
-                opacity: 1.0,
-                duration: duration,
-                child: _CascadeList(purposeId: consent.purposeId, now: now),
-              ),
           ],
         ),
       ),
@@ -253,7 +267,7 @@ class _CascadeList extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
                 children: [
-                  Expanded(child: Text(ack.processor, style: style.bodyMedium)),
+                  Expanded(child: Text(ack.processorName ?? shortHex(ack.processor), style: style.bodyMedium)),
                   if (ack.ackedAt != null)
                     Text(
                       t.cascade_acked(now.difference(DateTime.fromMillisecondsSinceEpoch(ack.ackedAt! * 1000)).inSeconds.clamp(0, 999999)),

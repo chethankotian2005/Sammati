@@ -137,6 +137,19 @@ export const GUARDED_ENDPOINTS: Readonly<Record<string, GuardedEndpoint>> = {
   partner_share: { path: "/orders/partner-dispatch" },
 };
 
+/** QuickLoan's apply endpoint, called by /v1/demo/fire with action "loan_decision" (trd.md §6.8). */
+export const LOAN_DECISION_ENDPOINT = { path: "/customers/:id/apply", method: "POST" } as const;
+/** Purposes whose data the wallet can send to the Processor (ui.md V2). */
+export const VAULT_PURPOSES: readonly string[] = ["credit_check"];
+/** Demo company API keys for the Processor: public on purpose, like the demo chain keys (trd.md §10). */
+export const demoApiKey = (slug: string): string => `sk_demo_${slug}`;
+export const PROCESSOR_PORT = 4200;
+/** The fictional profile the wallet encrypts (drd.md §5). It exists nowhere else but the Processor's memory. */
+export const DEMO_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
+/** The income bands and employment statuses the loan rules know (trd.md §6.7, §6.10). */
+export const INCOME_BANDS = ["0-3 LPA", "3-6 LPA", "6-9 LPA", "9+ LPA"] as const;
+export const EMPLOYMENT_STATUSES = ["salaried", "self-employed", "student", "unemployed"] as const;
+
 /** Company-side customer id used by the simulator; the real id never leaves the company (drd.md §1). */
 export const SIMULATOR_CUSTOMER_ID = "1";
 /**
@@ -146,6 +159,12 @@ export const SIMULATOR_CUSTOMER_ID = "1";
  */
 export const DEMO_RELAYER_KEY = "0xfbe32bfa0c2ff2102e9a5f0cc05b7d469749f75ee21bdca151642f85525b2ecf";
 export const DEMO_RELAYER_ADDRESS = "0xf448D3bbB6B8F2d1780215F8a1137B896d69Be60";
+
+/**
+ * Hardhat account #0's public test key, the demo principal's. Core holds it so the presenter's "Withdraw and re-run"
+ * can withdraw for the demo customer without a phone (trd.md §6.4): a disclosed demo shortcut, like the company keys.
+ */
+export const DEMO_PRINCIPAL_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 /** Hardhat account #0; the real phone generates its own key (drd.md §5). */
 export const DEMO_PRINCIPAL = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";

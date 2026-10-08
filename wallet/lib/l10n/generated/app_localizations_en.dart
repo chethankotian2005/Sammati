@@ -165,6 +165,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scan_invalid_qr => 'This is not a Sammati QR code.';
 
   @override
+  String get scan_paste_hint => 'Paste the QR text here';
+
+  @override
+  String get scan_paste_open => 'Open';
+
+  @override
   String get error_unreachable => 'Could not reach Sammati. Check Wi-Fi.';
 
   @override
@@ -249,6 +255,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get receipt_tx => 'Ledger transaction';
+
+  @override
+  String get receipt_view_proof => 'View proof';
 
   @override
   String get done => 'Done';
@@ -378,4 +387,274 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get offline_activity_banner =>
       'No connection. Showing last known activity.';
+
+  @override
+  String get proof_headline =>
+      'This access was recorded and locked on the ledger.';
+
+  @override
+  String get proof_record_hash => 'Record hash';
+
+  @override
+  String get proof_batch_anchor => 'Batch anchor';
+
+  @override
+  String get proof_merkle_verified => 'Verified ✓';
+
+  @override
+  String get proof_merkle_failed => 'Verification failed';
+
+  @override
+  String get proof_merkle_checking => 'Checking…';
+
+  @override
+  String get proof_open_explorer => 'Open in block explorer';
+
+  @override
+  String get proof_consent_signer => 'Signer (you)';
+
+  @override
+  String get proof_ledger_head => 'Ledger head';
+
+  @override
+  String get proof_consent_tx => 'Transaction';
+
+  @override
+  String get proof_loading => 'Loading proof…';
+
+  @override
+  String get proof_failed => 'Could not load proof. Try again.';
+
+  @override
+  String get cascade_title => 'Also told';
+
+  @override
+  String get cascade_waiting => 'Waiting…';
+
+  @override
+  String cascade_acked(int n) {
+    return '$n s ago';
+  }
+
+  @override
+  String get vault_profile_title => 'My demo details';
+
+  @override
+  String get vault_profile_note =>
+      'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.';
+
+  @override
+  String get vault_pan => 'PAN';
+
+  @override
+  String get vault_income => 'Income';
+
+  @override
+  String get vault_score => 'Credit score';
+
+  @override
+  String get vault_simulated =>
+      'Demo processor (simulated enclave, not real hardware protection)';
+
+  @override
+  String get vault_send => 'Send securely';
+
+  @override
+  String get vault_send_again => 'Send again';
+
+  @override
+  String vault_send_hint(String company) {
+    return '$company gets a decision, not your details. Only the Sammati Processor can open them.';
+  }
+
+  @override
+  String get vault_sending => 'Encrypting and sending…';
+
+  @override
+  String vault_sent(String company) {
+    return 'Sent encrypted. $company holds only a reference.';
+  }
+
+  @override
+  String get vault_erased => 'Your encrypted details were erased.';
+
+  @override
+  String get vault_failed => 'Could not send securely. Try again.';
+
+  @override
+  String get auth_reason_vault => 'Confirm to send your details securely';
+
+  @override
+  String get share_title => 'Share your details securely';
+
+  @override
+  String share_intro(String company) {
+    return '$company needs these to decide your loan. They are encrypted on this phone, so $company never sees them.';
+  }
+
+  @override
+  String get share_use_demo => 'Use demo details';
+
+  @override
+  String get share_pan => 'PAN';
+
+  @override
+  String get share_pan_hint => 'Like ABCDE1234F';
+
+  @override
+  String get share_pan_invalid => 'Enter a PAN like ABCDE1234F';
+
+  @override
+  String get share_income => 'Income band';
+
+  @override
+  String get income_0_3 => 'Up to 3 LPA';
+
+  @override
+  String get income_3_6 => '3 to 6 LPA';
+
+  @override
+  String get income_6_9 => '6 to 9 LPA';
+
+  @override
+  String get income_9_plus => '9 LPA and above';
+
+  @override
+  String get share_employment => 'Employment';
+
+  @override
+  String get emp_salaried => 'Salaried';
+
+  @override
+  String get emp_self_employed => 'Self-employed';
+
+  @override
+  String get emp_student => 'Student';
+
+  @override
+  String get emp_unemployed => 'Not employed';
+
+  @override
+  String get share_cta => 'Share your details securely';
+
+  @override
+  String get inbox_title => 'Requests';
+
+  @override
+  String inbox_badge_label(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests',
+      one: '1 request',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_empty =>
+      'No requests. When a company asks for your consent it will appear here.';
+
+  @override
+  String inbox_asks(String company, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count purposes',
+      one: '1 purpose',
+    );
+    return '$company is asking for $_temp0';
+  }
+
+  @override
+  String inbox_message_from(String company) {
+    return 'Message from $company';
+  }
+
+  @override
+  String inbox_expires_hours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: 'Expires in $hours hours',
+      one: 'Expires in 1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_expires_soon => 'Expires in under an hour';
+
+  @override
+  String get inbox_offline => 'No connection. Showing last known requests.';
+
+  @override
+  String get request_review => 'Review';
+
+  @override
+  String get request_decline => 'Decline';
+
+  @override
+  String get request_block => 'Block this company';
+
+  @override
+  String request_block_confirm(String company) {
+    return 'Block $company? They will not be able to send you requests.';
+  }
+
+  @override
+  String get request_declined => 'Request declined.';
+
+  @override
+  String request_blocked(String company) {
+    return '$company is blocked.';
+  }
+
+  @override
+  String get blocked_title => 'Blocked companies';
+
+  @override
+  String get blocked_empty => 'You have not blocked anyone.';
+
+  @override
+  String get request_unblock => 'Unblock';
+
+  @override
+  String get auth_reason_decline => 'Confirm to decline this request';
+
+  @override
+  String get auth_reason_block => 'Confirm to block this company';
+
+  @override
+  String get id_title => 'Your Sammati ID';
+
+  @override
+  String get id_none => 'No Sammati ID yet';
+
+  @override
+  String get id_explain =>
+      'Companies can send you consent requests here. They never see your wallet address until you say yes.';
+
+  @override
+  String get id_choose => 'Choose your ID';
+
+  @override
+  String get id_hint => '3 to 30 letters, numbers, dots or dashes';
+
+  @override
+  String get id_invalid => 'Use 3 to 30 letters, numbers, dots or dashes';
+
+  @override
+  String get id_taken => 'That ID is taken. Try another.';
+
+  @override
+  String get id_register => 'Register';
+
+  @override
+  String id_registered(String handle) {
+    return 'Your ID is $handle';
+  }
+
+  @override
+  String get auth_reason_id => 'Confirm to register your Sammati ID';
 }
