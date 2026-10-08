@@ -170,6 +170,8 @@ export function scorecard(core: RealCore, fiduciary: Hex): Scorecard {
 
   return {
     fiduciary: f.address,
+    slug: f.slug,
+    sandbox: f.sandbox,
     name: f.name,
     sector: f.sector,
     color: f.color,

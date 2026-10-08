@@ -4,12 +4,12 @@
  */
 
 import { useState, type ReactNode } from "react";
-import type { ExportResponse, SeedFiduciary } from "@sammati/shared";
+import type { ExportResponse, FiduciaryInfo } from "@sammati/shared";
 import { HashLabel } from "../../ui";
 import { fetchExport } from "../../api";
 
 interface EvidenceSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
 }
 
 export function EvidenceSection({ company }: EvidenceSectionProps): ReactNode {

@@ -31,6 +31,7 @@ import type { Config } from "../src/config";
 import { AnchorJob } from "../src/real/anchor";
 import { createRealCore, type RealCore } from "../src/real/core";
 import { toHashedEntry } from "../src/store";
+import { gatewayHeaders } from "./gatewayKey";
 import { realConfig, startTestChain, type TestChain } from "./harness";
 
 // Hardhat account #0 is the data principal throughout.
@@ -54,7 +55,7 @@ const events: WsEvent[] = [];
 async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<{ status: number; json: T }> {
   const res = await fetch(base + path, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...gatewayHeaders(path, body) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, json: (await res.json()) as T };

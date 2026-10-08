@@ -23,6 +23,9 @@ export function topicsFor(e: WsEvent): WsTopic[] {
       return [principalTopic(e.principal)];
     case "request.updated":
       return [fiduciaryTopic(e.fiduciary)];
+    case "fiduciary.registered":
+    case "fiduciary.updated":
+      return [fiduciaryTopic(e.fiduciary), AUDITOR_TOPIC];
     case "vault.encrypted":
     case "vault.stored":
     case "vault.erased":

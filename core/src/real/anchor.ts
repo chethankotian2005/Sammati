@@ -109,7 +109,7 @@ export class AnchorJob {
   }
 
   private contractFor(fiduciary: Hex): Contract | null {
-    const key = this.config.fiduciaryKeys[fiduciary.toLowerCase()];
+    const key = this.config.fiduciaryKeys[fiduciary.toLowerCase()] ?? this.repo.fiduciaryKey(fiduciary);
     if (!key) return null;
     let contract = this.wallets.get(fiduciary);
     if (!contract) {

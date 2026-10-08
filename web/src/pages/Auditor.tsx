@@ -20,6 +20,8 @@ import {
   triggerTamper,
 } from "../api";
 import { useAnchorPosted, useConsentUpdated, useTamperAlert } from "../ws";
+import { useDirectory } from "../directory";
+import { RegistrationsSection } from "./auditor/RegistrationsSection";
 
 import { ScorecardsSection } from "./auditor/ScorecardsSection";
 import { LedgerExplorerSection } from "./auditor/LedgerExplorerSection";
@@ -27,7 +29,8 @@ import { VerifyModal } from "./auditor/VerifyModal";
 import { ReportModal } from "./auditor/ReportModal";
 
 export function Auditor(): ReactNode {
-  const [activeTab, setActiveTab] = useState<"scorecards" | "ledger">("scorecards");
+  const [activeTab, setActiveTab] = useState<"scorecards" | "ledger" | "registrations">("scorecards");
+  const firstCompany = useDirectory().fiduciaries[0];
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
   const [ledgerEvents, setLedgerEvents] = useState<LedgerEventView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,6 +175,17 @@ export function Auditor(): ReactNode {
               >
                 Ledger Explorer (A-02)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("registrations")}
+                className={`rounded-pill px-3 py-1.5 transition-colors ${
+                  activeTab === "registrations"
+                    ? "bg-ink text-paper"
+                    : "text-mute hover:text-ink"
+                }`}
+              >
+                Registrations (R-02)
+              </button>
             </div>
 
             {/* Presenter Action Buttons */}
@@ -198,7 +212,7 @@ export function Auditor(): ReactNode {
             <CoreChip />
 
             <Link
-              to="/company/quickloan"
+              to={firstCompany ? `/company/${firstCompany.slug}` : "/"}
               className="rounded-row border border-line bg-surface px-3 py-1.5 text-xs font-bold text-ink hover:bg-paper transition-colors"
             >
               Company consoles →
@@ -209,7 +223,9 @@ export function Auditor(): ReactNode {
 
       {/* Main Content Area */}
       <main className="mx-auto max-w-7xl px-6 pt-8">
-        {loading ? (
+        {activeTab === "registrations" ? (
+          <RegistrationsSection />
+        ) : loading ? (
           <div className="py-24 text-center text-sm font-semibold text-mute">
             Loading regulator audit data…
           </div>

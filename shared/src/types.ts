@@ -1,5 +1,6 @@
 // API contracts for Core (trd.md §6). Changing anything here is a shared
 // interface change: tell the other lanes.
+import type { FiduciaryRegisteredEvent, FiduciaryUpdatedEvent } from "./onboarding";
 import type { Eip712Domain, GrantConsent, TypedData, WithdrawConsent } from "./eip712";
 
 // --- Primitives ---
@@ -334,6 +335,10 @@ export type IntegrityState = "verified" | "unverified" | "tampered";
 
 export interface Scorecard {
   fiduciary: Hex;
+  /** Console route /company/<slug> (R-04). */
+  slug: string;
+  /** In the sandbox (R-03): only test customers can be asked. */
+  sandbox: boolean;
   name: string;
   sector: string;
   color: string;
@@ -705,5 +710,7 @@ export type WsEvent =
   | CascadeUpdatedEvent
   | AnchorPostedEvent
   | TamperAlertEvent
-  | VaultEvent;
+  | VaultEvent
+  | FiduciaryRegisteredEvent
+  | FiduciaryUpdatedEvent;
 export type WsEventName = WsEvent["event"];

@@ -186,9 +186,26 @@ export class ProcessorService {
 
   // --- evaluate (V-03) ---
 
+  /** Companies registered after the Processor started are asked of Core, which alone knows their keys (trd.md §6.2a). */
+  private async companyOf(apiKey: string): Promise<Hex | undefined> {
+    const configured = this.config.apiKeys.get(apiKey);
+    if (configured) return configured;
+    try {
+      const res = await fetch(`${this.config.coreUrl}/v1/gateway/whoami`, { headers: { "x-sammati-api-key": apiKey }, signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return undefined;
+      const { fiduciary } = (await res.json()) as { fiduciary?: string };
+      if (typeof fiduciary !== "string" || !isAddress(fiduciary)) return undefined;
+      const company = fiduciary.toLowerCase() as Hex;
+      this.config.registeredKeys.set(company, apiKey);
+      return company;
+    } catch {
+      return undefined; // Core unreachable: an unknown key stays unknown, so the call fails closed
+    }
+  }
+
   async evaluate(apiKey: string | undefined, body: unknown): Promise<EvaluateResult> {
     const started = this.clock();
-    const company = apiKey ? this.config.apiKeys.get(apiKey) : undefined;
+    const company = apiKey ? await this.companyOf(apiKey) : undefined;
     if (!company) throw new ApiFailure(401, "UNAUTHORIZED", "A valid x-sammati-api-key is required");
 
     const o = record(body);

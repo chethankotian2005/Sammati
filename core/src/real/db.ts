@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS fiduciaries (
   name TEXT NOT NULL,
   sector TEXT NOT NULL,
   color TEXT,
-  registered_tx TEXT
+  registered_tx TEXT,
+  slug TEXT,
+  sandbox INTEGER NOT NULL DEFAULT 0,
+  demo INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS purposes (
@@ -134,6 +137,39 @@ CREATE TABLE IF NOT EXISTS rights_requests (
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS fiduciary_applications (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  sector TEXT NOT NULL,
+  contact_email TEXT,
+  purposes TEXT NOT NULL,
+  processors TEXT NOT NULL,
+  status TEXT NOT NULL,
+  note TEXT,
+  fiduciary TEXT,
+  sandbox INTEGER,
+  created_at INTEGER NOT NULL, decided_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS fiduciary_credentials (
+  fiduciary TEXT PRIMARY KEY REFERENCES fiduciaries(address),
+  api_key_hash TEXT NOT NULL UNIQUE,
+  issued_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fiduciary_keys (
+  address TEXT PRIMARY KEY, private_key TEXT NOT NULL, created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS processor_keys (
+  address TEXT PRIMARY KEY, private_key TEXT NOT NULL, created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sandbox_testers (
+  principal TEXT PRIMARY KEY, added_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_access_principal ON access_logs (principal, at);
 CREATE INDEX IF NOT EXISTS idx_ledger_key ON ledger_events (principal, fiduciary, purpose_id, block_number);
 `;
@@ -148,6 +184,11 @@ const ALL_TABLES = [
   "identities",
   "requests",
   "rights_requests",
+  "fiduciary_applications",
+  "fiduciary_credentials",
+  "fiduciary_keys",
+  "processor_keys",
+  "sandbox_testers",
   "processors",
   "purposes",
   "fiduciaries",
@@ -159,7 +200,17 @@ export function openDb(path: string): Db {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** A database created before R-01 has no onboarding columns: add them, then the unique index that needs them. */
+function migrate(db: Db): void {
+  const have = new Set((db.prepare("PRAGMA table_info(fiduciaries)").all() as Array<{ name: string }>).map((c) => c.name));
+  if (!have.has("slug")) db.exec("ALTER TABLE fiduciaries ADD COLUMN slug TEXT");
+  if (!have.has("sandbox")) db.exec("ALTER TABLE fiduciaries ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0");
+  if (!have.has("demo")) db.exec("ALTER TABLE fiduciaries ADD COLUMN demo INTEGER NOT NULL DEFAULT 0");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_fiduciaries_slug ON fiduciaries (slug)");
 }
 
 export function clearChainDerived(db: Db): void {

@@ -94,11 +94,12 @@ If time runs short, cut from the bottom, never from the top:
 
 ### Onboarding checklist (R-01 to R-04)
 - [x] Specs first: prd §6.6, trd §6.12 and §6.2a, drd §3, ui §3.2, §3.3 and §4, architecture §5.7, demo Act 6b, `integration.md`
-- [ ] Core: key store, API-key auth, rate limit, `GET /v1/fiduciaries`, registration, regulator routes, sandbox, test customers, migration
-- [ ] Gateway SDK `apiKey` and the clear fail-closed message; companies and Processor use their keys
-- [ ] Web: directory in the console, Stage, Auditor, ledger filter; `/join`; status page; Registrations tab; SANDBOX badge
-- [ ] `integration.md` linked from README; sample app runs
-- [ ] `pnpm e2e` extended; package tests green
+- [x] Core: key store, API-key auth, rate limit, `GET /v1/fiduciaries`, registration, regulator routes, sandbox, test customers, migration
+- [x] Gateway SDK `apiKey` and the clear fail-closed message; companies and Processor use their keys
+- [x] Web: directory in the console, Stage, Auditor, ledger filter; `/join`; status page; Registrations tab; SANDBOX badge
+- [x] `integration.md` linked from README; sample app runs
+- [x] Package tests green (shared, gateway, processor, core, web)
+- [ ] `pnpm e2e` extended and run against a real stack (the steps are written; see the PR note)
 - [ ] Act 6b rehearsed
 
 ### Git workflow

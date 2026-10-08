@@ -17,6 +17,7 @@ import type {
   DemoResetResponse,
   ExportResponse,
   FiduciaryAccessResponse,
+  FiduciaryProcessorsResponse,
   FiduciaryPurposesResponse,
   FiduciaryConsentsResponse,
   GatewayLogResponse,
@@ -38,6 +39,7 @@ import { sanitiseResult } from "../routes/vault";
 import { accessProof, report, scorecard, tamper, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
+import { companyKey, mustOwn } from "./onboarding-routes";
 import { addr, NOTICE_VERSION } from "./repo";
 
 const DEFAULT_ACTIVITY_LIMIT = 50;
@@ -99,8 +101,9 @@ export function realRoutes(core: RealCore): Router {
 
   // --- 6.1 consent flow ---
 
-  r.post("/fiduciaries/:fid/requests", handle((req, res) => {
+  r.post("/fiduciaries/:fid/requests", companyKey(core, false), handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
     const body = requireBody(req.body);
     const codes = body.purposes;
     if (!Array.isArray(codes) || codes.length === 0 || !codes.every((c) => typeof c === "string")) {
@@ -121,6 +124,7 @@ export function realRoutes(core: RealCore): Router {
     const { targeted } = core.targeted.openNotice(param(req, "requestId"), principal);
     const request = repo.request(param(req, "requestId"), targeted ? Number.MAX_SAFE_INTEGER : config.requestTtlSeconds);
     const f = repo.fiduciary(request.fiduciary);
+    sandboxGate(f, principal);
     const nonce = principal ? String(await onChain(() => chain.registry.nonces(principal))) : "0";
     res.json(
       buildNotice({
@@ -135,6 +139,13 @@ export function realRoutes(core: RealCore): Router {
     );
   }));
 
+  /** A sandbox company deals only with test customers (trd.md §6.12). Withdrawals are never refused. */
+  const sandboxGate = (f: ReturnType<typeof repo.fiduciary>, principal: Hex | null): void => {
+    if (!core.onboarding.mayDealWith(f, principal)) {
+      throw new HttpError(403, "SANDBOX_COMPANY", "This company is in the Sammati test sandbox and can only ask test customers");
+    }
+  };
+
   const signatureOf = (body: Record<string, unknown>): string => {
     const sig = requireString(body, "signature");
     if (!isHexString(sig)) throw new HttpError(400, "BAD_SIGNATURE", "Signature must be a hex string");
@@ -144,6 +155,7 @@ export function realRoutes(core: RealCore): Router {
   r.post("/consents/grant", handle(async (req, res) => {
     const body = requireBody(req.body);
     const grant = parseGrant(body.request);
+    sandboxGate(repo.fiduciary(grant.fiduciary), grant.principal);
     const receipt = await relayer.send("grantConsent", [grant, signatureOf(body)]);
     await settle(receipt);
     core.targeted.onGrant(grant.principal, grant.fiduciary, grant.noticeHash); // a request addressed to this customer is now Granted
@@ -207,6 +219,11 @@ export function realRoutes(core: RealCore): Router {
     res.json({ fiduciary: f.address, purposes: repo.purposesOf(f.address) } satisfies FiduciaryPurposesResponse);
   }));
 
+  r.get("/fiduciaries/:fid/processors", handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    res.json({ fiduciary: f.address, processors: repo.processorsOfFiduciary(f.address) } satisfies FiduciaryProcessorsResponse);
+  }));
+
   r.get("/fiduciaries/:fid/consents", handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, rows: repo.consentRows(f) } satisfies FiduciaryConsentsResponse);
@@ -219,8 +236,9 @@ export function realRoutes(core: RealCore): Router {
     res.json({ fiduciary: f.address, items: repo.accessFor(f.address, accessLimit(req.query.limit, DEFAULT_ACCESS_LIMIT)) } satisfies FiduciaryAccessResponse);
   }));
 
-  r.post("/gateway/log", handle((req, res) => {
+  r.post("/gateway/log", companyKey(core, true), handle((req, res) => {
     const row = parseLogEntry(req.body);
+    mustOwn(res, row.fiduciary);
     repo.appendLog(row);
     core.publish({
       event: "access.logged",
@@ -239,12 +257,13 @@ export function realRoutes(core: RealCore): Router {
     core.anchors.notify(repo.fiduciary(row.fiduciary).address);
   }));
 
-  r.get("/gateway/consent-state", handle(async (req, res) => {
+  r.get("/gateway/consent-state", companyKey(core, true), handle(async (req, res) => {
     const { principal, fid, purpose } = req.query;
     if (typeof principal !== "string" || typeof fid !== "string" || typeof purpose !== "string") {
       throw badRequest("principal, fid and purpose query parameters are required");
     }
     const f = repo.fiduciary(fid);
+    mustOwn(res, f.address);
     res.json(await consentState(address(principal, "principal"), f.address, repo.purpose(f, purpose).id));
   }));
 

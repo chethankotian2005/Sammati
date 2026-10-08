@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  SEED_FIDUCIARIES,
   type StoredAccessLogEntry,
   type LedgerEventView,
 } from "@sammati/shared";
@@ -9,6 +8,8 @@ import { HashLabel, VaultTimeline, useVaultTimeline } from "../ui";
 import { useSearchParams } from "react-router-dom";
 import { FlowPanel } from "../flow/FlowInspector";
 import { fetchAccessLogs, fetchLedgerEvents } from "../api";
+import { useDirectory } from "../directory";
+import { SandboxBadge } from "../ui";
 import {
   useAccessLogged,
   useAnchorPosted,
@@ -76,30 +77,26 @@ export function Stage() {
   const [ledgerEvents, setLedgerEvents] = useState<LedgerEventView[]>([]);
   // S-04: the Data Flow Inspector as a panel beside the company feeds, toggled by the presenter.
   const [showFlow, setShowFlow] = useState(false);
-  const quickLoan = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
-  const vaultEvents = useVaultTimeline(quickLoan.address);
+  const { fiduciaries, byAddress } = useDirectory();
+  // The confidential-processing demo is QuickLoan's (the Processor's seed customer); every other column is generic.
+  const vaultEvents = useVaultTimeline(fiduciaries.find((f) => f.slug === "quickloan")?.address ?? "");
   
   // Custom wallet events
   const [walletEvents, setWalletEvents] = useState<{ id: string; text: string; time: number; txHash?: string }[]>([]);
 
-  // Initial Data Load
+  // Initial data load: the ledger once, then each company's recent log as the company appears (R-04).
   useEffect(() => {
-    async function load() {
-      try {
-        const evts = await fetchLedgerEvents();
-        setLedgerEvents(evts.slice(0, 50));
-        
-        const logsMap: Record<string, StoredAccessLogEntry[]> = {};
-        for (const fid of SEED_FIDUCIARIES) {
-          logsMap[fid.address] = await fetchAccessLogs(fid.address, 20);
-        }
-        setAccessLogsByFid(logsMap);
-      } catch (err) {
-        console.warn("Stage load failed:", err);
-      }
-    }
-    void load();
+    fetchLedgerEvents()
+      .then((evts) => setLedgerEvents(evts.slice(0, 50)))
+      .catch((err) => console.warn("Stage load failed:", err));
   }, []);
+  useEffect(() => {
+    for (const f of fiduciaries) {
+      void fetchAccessLogs(f.address, 20)
+        .then((logs) => setAccessLogsByFid((prev) => (prev[f.address] ? prev : { ...prev, [f.address]: logs })))
+        .catch((err) => console.warn("Stage load failed:", err));
+    }
+  }, [fiduciaries]);
 
   // Live Subscriptions
   useAccessLogged((evt) => {
@@ -126,7 +123,7 @@ export function Stage() {
   });
 
   useConsentUpdated((evt) => {
-    const fid = SEED_FIDUCIARIES.find((f) => f.address.toLowerCase() === evt.fiduciary.toLowerCase());
+    const fid = byAddress(evt.fiduciary);
     const action = evt.status === "Active" ? "Granted consent to" : evt.status === "Withdrawn" ? "Withdrew consent from" : "Updated consent for";
     const text = `${action} ${fid?.name || "Company"}`;
     
@@ -210,7 +207,7 @@ export function Stage() {
           </div>
         )}
 
-        <div className={`${showFlow ? "hidden" : "grid"} grid-cols-[1.2fr_1fr_1fr_1fr_1.3fr] gap-6 flex-1 min-h-0`}>
+        <div className={`${showFlow ? "hidden" : "grid"} gap-6 flex-1 min-h-0`} style={{ gridTemplateColumns: `1.2fr repeat(${Math.max(fiduciaries.length, 1)}, minmax(0, 1fr)) 1.3fr` }}>
           
           {/* Column 1: Citizen */}
           <section className="flex flex-col min-h-0">
@@ -235,7 +232,7 @@ export function Stage() {
           </section>
 
           {/* Columns 2-4: Companies */}
-          {SEED_FIDUCIARIES.map((f) => {
+          {fiduciaries.map((f) => {
             const rawLogs = accessLogsByFid[f.address] || [];
             const rows: FeedRowData[] = rawLogs.map((log) => ({
               id: log.id,
@@ -258,6 +255,7 @@ export function Stage() {
                 <div className="flex items-center gap-3 mb-4">
                   <span className="h-4 w-4 rounded-full shadow-sm" style={{ backgroundColor: f.color }} />
                   <h2 className="text-xl font-extrabold">{f.name}</h2>
+                  {f.sandbox && <SandboxBadge />}
                 </div>
                 {f.slug === "quickloan" && (
                   <div className="mb-3 rounded-row border border-line bg-surface p-3" data-testid="stage-vault">

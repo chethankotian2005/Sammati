@@ -63,6 +63,8 @@ export class TargetedRequests {
     private readonly config: Pick<Config, "targetedRatePerMinute" | "maxOpenRequestsPerUser" | "identityFreshnessSeconds">,
     private readonly clock: () => number = now,
     private readonly clockMs: () => number = Date.now,
+    /** The sandbox rule (trd.md §6.12): may this company's request reach this customer? Said nothing about to the company. */
+    private readonly mayDeal: (f: FiduciaryRow, principal: Hex | null) => boolean = () => true,
   ) {}
 
   // ------------------------------------------------------------ signed messages (trd.md §4.5)
@@ -146,7 +148,7 @@ export class TargetedRequests {
         .prepare("SELECT COUNT(*) AS n FROM request_targets WHERE principal = ? AND fiduciary = ? AND status IN ('sent','seen') AND expires_at > ?")
         .get(target, company, created) as { n: number }
     ).n;
-    const deliver = target !== null && !blocked && open < this.config.maxOpenRequestsPerUser;
+    const deliver = target !== null && !blocked && open < this.config.maxOpenRequestsPerUser && this.mayDeal(f, target);
 
     this.db
       .prepare("INSERT INTO request_targets (request_id, fiduciary, principal, message, status, created_at, expires_at) VALUES (?, ?, ?, ?, 'sent', ?, ?)")

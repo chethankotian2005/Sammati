@@ -5,11 +5,11 @@
  */
 
 import { useState, useMemo, type ReactNode } from "react";
-import type { ConsentRow, NoticePurpose, SeedFiduciary } from "@sammati/shared";
+import type { ConsentRow, NoticePurpose, FiduciaryInfo } from "@sammati/shared";
 import { DataTable, StatusChip, HashLabel, type Column } from "../../ui";
 
 interface ConsentsSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   consents: ConsentRow[];
   purposes: NoticePurpose[];
   onRequestNew: () => void;

@@ -40,6 +40,11 @@ const real = !process.argv.includes("--stub");
 const processorUrl = process.env.PROCESSOR_PUBLIC_URL?.trim() || `${new URL(qr.url).protocol}//${new URL(qr.url).hostname}:${process.env.PROCESSOR_PORT ?? "4200"}`;
 console.log(`The wallet will find the Sammati Processor (simulated enclave) on ${processorUrl}
 `);
+if (real) {
+  console.log(`A new company joins at http://localhost:5173/join; the regulator approves it under Auditor > Registrations
+(access code: ${process.env.REGULATOR_KEY?.trim() || "demo-regulator-key"}, a demo secret). Guide: docs/integration.md
+`);
+}
 const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;

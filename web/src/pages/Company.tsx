@@ -12,14 +12,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
-  SEED_FIDUCIARIES,
-  purposeIdOf,
   type ConsentRow,
   type NoticePurpose,
-  type SeedFiduciary,
+  type FiduciaryInfo,
   type StoredAccessLogEntry,
 } from "@sammati/shared";
-import { ConsoleLayout, HashLabel } from "../ui";
+import { ConsoleLayout, HashLabel, SandboxBadge } from "../ui";
+import { useDirectory } from "../directory";
 import type { RailSection } from "../ui";
 import { fetchAccessLogs, fetchConsents, fetchPurposes } from "../api";
 import { useAccessLogged, useConsentUpdated } from "../ws";
@@ -34,28 +33,27 @@ import { EvidenceSection } from "./company/EvidenceSection";
 
 export function Company(): ReactNode {
   const { id } = useParams<{ id: string }>();
-  const company = SEED_FIDUCIARIES.find((f) => f.slug === id);
-  if (!company) return <Navigate to="/company/quickloan" replace />;
+  const directory = useDirectory();
+  const company = directory.bySlug(id);
+  if (directory.status === "loading") return <CenteredNote>Loading companies…</CenteredNote>;
+  if (directory.status === "error") return <CenteredNote>Cannot load the companies. Is Core running?</CenteredNote>;
+  if (!company) {
+    const first = directory.fiduciaries[0];
+    return first ? <Navigate to={`/company/${first.slug}`} replace /> : <CenteredNote>No company is registered yet.</CenteredNote>;
+  }
 
   return <CompanyConsole company={company} />;
 }
 
-function CompanyConsole({ company }: { company: SeedFiduciary }): ReactNode {
+function CenteredNote({ children }: { children: ReactNode }): ReactNode {
+  return <main className="grid min-h-screen place-items-center bg-paper p-6 text-lg font-bold text-mute">{children}</main>;
+}
+
+function CompanyConsole({ company }: { company: FiduciaryInfo }): ReactNode {
   const [activeSection, setActiveSection] = useState<RailSection>("overview");
 
   // State: purposes, consents, access logs
-  const [purposes, setPurposes] = useState<NoticePurpose[]>(() =>
-    company.purposes.map((p) => ({
-      id: purposeIdOf(company.address, p.code),
-      code: p.code,
-      title: p.title,
-      description: p.description,
-      dataCategories: p.dataCategories,
-      retentionDays: p.retentionDays,
-      sharesThirdParty: p.sharesThirdParty,
-      required: p.required,
-    })),
-  );
+  const [purposes, setPurposes] = useState<NoticePurpose[]>([]);
 
   const [consents, setConsents] = useState<ConsentRow[]>([]);
   const [accessLogs, setAccessLogs] = useState<StoredAccessLogEntry[]>([]);
@@ -134,6 +132,7 @@ function CompanyConsole({ company }: { company: SeedFiduciary }): ReactNode {
               <span className="rounded-pill bg-paper px-2 py-0.5 text-xs font-bold text-mute border border-line">
                 {company.sector}
               </span>
+              {company.sandbox && <SandboxBadge />}
             </div>
             <div className="flex items-center gap-2 text-xs text-mute mt-0.5">
               <span>Fiduciary:</span>
@@ -224,7 +223,7 @@ function CompanyConsole({ company }: { company: SeedFiduciary }): ReactNode {
       )}
 
       {activeSection === "processors" && (
-        <ProcessorsSection company={company} />
+        <ProcessorsSection company={company} purposes={purposes} />
       )}
 
       {activeSection === "evidence" && (

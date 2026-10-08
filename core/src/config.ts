@@ -46,6 +46,21 @@ export interface Config {
   processorUrl: string;
   /** Shared secret the Processor sends with the events it reports: a disclosed demo secret (trd.md §10). */
   processorEventKey: string;
+  // --- onboarding (trd.md §6.12) ---
+  /** The code that identifies the regulator for the registration routes: a disclosed demo secret, not an identity system. */
+  regulatorKey: string;
+  /** The registry's admin, who registers new companies. Hardhat account #0 on the local chain, like the deploy script's. */
+  adminKey: string;
+  /** Test ether (as a decimal string) a newly approved company's account is topped up to. Its processors get a tenth. */
+  registrationFundingEth: string;
+  /** Applications one client address may send per hour. */
+  registrationsPerHour: number;
+  /** Applications waiting for the regulator, in total, before new ones are refused. */
+  maxPendingApplications: number;
+  /** Calls per minute one company's API key may make (trd.md §6.2a). */
+  gatewayRatePerMinute: number;
+  /** Customers every sandbox company may ask, lower-case addresses, besides the regulator's own list. */
+  sandboxTestPrincipals: string[];
 }
 
 /** Loads the repo-root .env if there is one; real environment variables win. */
@@ -106,5 +121,12 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     demoPrincipalKeys: parseKeys(env.DEMO_PRINCIPAL_KEYS) ?? { [DEMO_PRINCIPAL.toLowerCase()]: DEMO_PRINCIPAL_KEY },
     processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
     processorEventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
+    regulatorKey: env.REGULATOR_KEY ?? "demo-regulator-key",
+    adminKey: env.ADMIN_KEY ?? DEMO_PRINCIPAL_KEY,
+    registrationFundingEth: env.REGISTRATION_FUNDING_ETH ?? "1",
+    registrationsPerHour: Number(env.REGISTRATIONS_PER_HOUR ?? 5),
+    maxPendingApplications: Number(env.MAX_PENDING_APPLICATIONS ?? 50),
+    gatewayRatePerMinute: Number(env.GATEWAY_RATE_PER_MINUTE ?? 600),
+    sandboxTestPrincipals: (env.SANDBOX_TEST_PRINCIPALS ?? "").split(",").map((a) => a.trim().toLowerCase()).filter(Boolean),
   };
 }

@@ -11,7 +11,7 @@ import {
   type ConsentUpdatedEvent,
   type CreateRequestResponse,
   type NoticePurpose,
-  type SeedFiduciary,
+  type FiduciaryInfo,
 } from "@sammati/shared";
 import { StatusChip, HashLabel } from "../../ui";
 import { createConsentRequest } from "../../api";
@@ -20,7 +20,7 @@ import { CORE_URL } from "../../core";
 import { SendToUserPanel } from "./SendToUserPanel";
 
 interface NewRequestSectionProps {
-  company: SeedFiduciary;
+  company: FiduciaryInfo;
   purposes: NoticePurpose[];
   onConsentReceived?: (event: ConsentUpdatedEvent) => void;
 }

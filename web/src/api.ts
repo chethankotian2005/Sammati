@@ -3,6 +3,20 @@
  * Uses CORE_URL from ./core.
  */
 
+import {
+  REGULATOR_KEY_HEADER,
+  type ApplicationInput,
+  type ApplicationView,
+  type ApproveBody,
+  type ApproveResponse,
+  type FiduciariesResponse,
+  type FiduciaryInfo,
+  type FiduciaryProcessorsResponse,
+  type RegistrationCreated,
+  type RegistrationStatusResponse,
+  type SandboxResponse,
+  type TestPrincipal,
+} from "@sammati/shared";
 import type {
   AuditFiduciariesResponse,
   AuditLedgerResponse,
@@ -215,4 +229,64 @@ export async function triggerDemoReset(): Promise<DemoResetResponse> {
   return request<DemoResetResponse>("/v1/demo/reset", {
     method: "POST",
   });
+}
+
+// --- directory and onboarding (R-01 to R-04) ---
+
+/** Every approved company (`GET /v1/fiduciaries`). */
+export async function fetchFiduciaries(): Promise<FiduciaryInfo[]> {
+  const data = await request<FiduciariesResponse>("/v1/fiduciaries");
+  if (!Array.isArray(data?.fiduciaries)) throw new ApiError("Core did not return a list of companies", 200, null);
+  return data.fiduciaries;
+}
+
+export async function fetchProcessors(fiduciary: string): Promise<FiduciaryProcessorsResponse["processors"]> {
+  try {
+    return (await request<FiduciaryProcessorsResponse>(`/v1/fiduciaries/${fiduciary}/processors`)).processors;
+  } catch (err) {
+    if (import.meta.env?.MODE !== "test") console.warn("fetchProcessors failed:", err);
+    return [];
+  }
+}
+
+export async function submitApplication(input: ApplicationInput): Promise<RegistrationCreated> {
+  return request<RegistrationCreated>("/v1/registrations", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function fetchRegistration(applicationId: string): Promise<RegistrationStatusResponse> {
+  return request<RegistrationStatusResponse>(`/v1/registrations/${applicationId}`);
+}
+
+const asRegulator = (code: string): RequestInit => ({ headers: { [REGULATOR_KEY_HEADER]: code } });
+
+export async function fetchApplications(code: string): Promise<ApplicationView[]> {
+  return (await request<{ applications: ApplicationView[] }>("/v1/regulator/registrations", asRegulator(code))).applications;
+}
+
+export async function approveApplication(code: string, id: string, body: ApproveBody): Promise<ApproveResponse> {
+  return request<ApproveResponse>(`/v1/regulator/registrations/${id}/approve`, { method: "POST", body: JSON.stringify(body), ...asRegulator(code) });
+}
+
+export async function rejectApplication(code: string, id: string, note: string): Promise<{ application: ApplicationView }> {
+  return request(`/v1/regulator/registrations/${id}/reject`, { method: "POST", body: JSON.stringify({ note }), ...asRegulator(code) });
+}
+
+export async function setSandbox(code: string, fiduciary: string, sandbox: boolean): Promise<SandboxResponse> {
+  return request<SandboxResponse>(`/v1/regulator/fiduciaries/${fiduciary}/sandbox`, { method: "POST", body: JSON.stringify({ sandbox }), ...asRegulator(code) });
+}
+
+export async function reissueKey(code: string, fiduciary: string): Promise<void> {
+  await request(`/v1/regulator/fiduciaries/${fiduciary}/reissue-key`, { method: "POST", body: "{}", ...asRegulator(code) });
+}
+
+export async function fetchTestPrincipals(code: string): Promise<TestPrincipal[]> {
+  return (await request<{ principals: TestPrincipal[] }>("/v1/regulator/test-principals", asRegulator(code))).principals;
+}
+
+export async function addTestPrincipal(code: string, who: { handle: string } | { principal: string }): Promise<TestPrincipal[]> {
+  return (await request<{ principals: TestPrincipal[] }>("/v1/regulator/test-principals", { method: "POST", body: JSON.stringify(who), ...asRegulator(code) })).principals;
+}
+
+export async function removeTestPrincipal(code: string, principal: string): Promise<TestPrincipal[]> {
+  return (await request<{ principals: TestPrincipal[] }>(`/v1/regulator/test-principals/${principal}`, { method: "DELETE", ...asRegulator(code) })).principals;
 }

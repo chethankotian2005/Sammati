@@ -21,6 +21,8 @@ import type {
   AnchorPostedEvent,
   CascadeUpdatedEvent,
   ConsentUpdatedEvent,
+  FiduciaryRegisteredEvent,
+  FiduciaryUpdatedEvent,
   RequestUpdatedEvent,
   TamperAlertEvent,
   VaultEvent,
@@ -44,6 +46,8 @@ export interface WsContextValue {
   on<E extends WsEvent>(name: E["event"], cb: Listener<E>): () => void;
   /** Every frame Core sends, whatever its type, parsed but untyped. For checks that must see everything. */
   onAny(cb: (frame: unknown) => void): () => void;
+  /** Adds topics to the subscription (now if connected, and again after every reconnect). Companies appear at run time (R-04). */
+  addTopics(topics: WsTopic[]): void;
   /** Current connection status (WebSocket.CONNECTING / OPEN / CLOSED). */
   readyState: number;
 }
@@ -130,6 +134,16 @@ class ReconnectingWsClient {
     };
   }
 
+  addTopics(topics: WsTopic[]): void {
+    const fresh = topics.filter((t) => !this.topics.includes(t));
+    if (fresh.length === 0) return;
+    this.topics = [...this.topics, ...fresh];
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const msg: WsSubscribe = { sub: fresh };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
   destroy(): void {
     this.destroyed = true;
     if (this.retryTimer !== null) clearTimeout(this.retryTimer);
@@ -161,6 +175,8 @@ interface WsProviderProps {
 export function WsProvider({ topics, children }: WsProviderProps): React.ReactElement {
   const [readyState, setReadyState] = useState<number>(WebSocket.CONNECTING);
   const clientRef = useRef<ReconnectingWsClient | null>(null);
+  // Topics asked for before the socket exists (children's effects run before this provider's).
+  const extraTopics = useRef<WsTopic[]>([]);
 
   // Build the WS URL from CORE_URL (http → ws, https → wss)
   const wsUrl = CORE_URL.replace(/^http/, "ws") + "/ws";
@@ -168,7 +184,7 @@ export function WsProvider({ topics, children }: WsProviderProps): React.ReactEl
   useEffect(() => {
     const client = new ReconnectingWsClient(setReadyState);
     clientRef.current = client;
-    client.connect(wsUrl, topics);
+    client.connect(wsUrl, [...topics, ...extraTopics.current]);
     return () => {
       client.destroy();
       clientRef.current = null;
@@ -185,7 +201,12 @@ export function WsProvider({ topics, children }: WsProviderProps): React.ReactEl
 
   const onAny = useCallback((cb: (frame: unknown) => void) => clientRef.current?.onAny(cb) ?? (() => undefined), []);
 
-  const value: WsContextValue = { on, onAny, readyState };
+  const addTopics = useCallback((more: WsTopic[]) => {
+    extraTopics.current = [...new Set([...extraTopics.current, ...more])];
+    clientRef.current?.addTopics(more);
+  }, []);
+
+  const value: WsContextValue = { on, onAny, addTopics, readyState };
 
   return (
     <WsContext.Provider value={value}>
@@ -235,6 +256,25 @@ export function useVaultEvents(cb: Listener<VaultEvent>): void {
 /** Fires whenever a targeted request of this company moves (trd.md §6.5): by request id, never by customer. */
 export function useRequestUpdated(cb: Listener<RequestUpdatedEvent>): void {
   useWsEvent("request.updated", cb);
+}
+
+/** Subscribes this app's socket to more topics, such as `fiduciary:<address>` for each company in the directory. */
+export function useWsTopics(topics: WsTopic[]): void {
+  const ctx = useWsContext();
+  const key = topics.join("|");
+  useEffect(() => {
+    if (key) ctx.addTopics(key.split("|"));
+  }, [ctx, key]);
+}
+
+/** Fires whenever a company joins (approved by the regulator). */
+export function useFiduciaryRegistered(cb: Listener<FiduciaryRegisteredEvent>): void {
+  useWsEvent("fiduciary.registered", cb);
+}
+
+/** Fires whenever a company moves into or out of the sandbox. */
+export function useFiduciaryUpdated(cb: Listener<FiduciaryUpdatedEvent>): void {
+  useWsEvent("fiduciary.updated", cb);
 }
 
 /** Fires whenever consent.updated arrives. */

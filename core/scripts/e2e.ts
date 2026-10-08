@@ -14,17 +14,22 @@ import { Wallet } from "ethers";
 import { ciphertextHashOf, handleOf, seal, submitMessage } from "@sammati/shared/src/envelope";
 import { clockSkew, rpc } from "../../scripts/chain.mjs";
 import { Journey, type JourneyDeps, type Stage } from "../../web/src/portal/journey";
+import { startSampleApp } from "../examples/quickstart";
 import { describeQrUrl } from "../../scripts/lan.mjs";
 import { WebSocket } from "ws";
 import {
+  API_KEY_HEADER,
   DEMO_PROFILE,
+  REGULATOR_KEY_HEADER,
   GRANT_CONSENT_TYPE,
   LOAN_DECISION_ENDPOINT,
   SEED_FIDUCIARIES,
   WITHDRAW_CONSENT_TYPE,
   noticeHash,
   purposeIdOf,
+  type ApplicationInput,
   type CascadeResponse,
+  type FiduciariesResponse,
   type CreateRequestResponse,
   type DemoAnchorResponse,
   type DemoFireResponse,
@@ -86,10 +91,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Every HTTP answer the run saw, whole, so the plaintext search can look through all of it. */
 const traffic: string[] = [];
 
-async function api<T>(method: string, path: string, body?: unknown): Promise<{ status: number; json: T }> {
+async function api<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: T }> {
   const res = await fetch(CORE + path, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -104,8 +109,8 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<{ s
 }
 
 /** A request that must succeed. */
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const { status, json } = await api<T>(method, path, body);
+async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const { status, json } = await api<T>(method, path, body, headers);
   if (status < 200 || status >= 300) fail(`${method} ${path} answered ${status}: ${JSON.stringify(json)}`);
   return json;
 }
@@ -702,6 +707,140 @@ async function main(): Promise<void> {
       const second = await send(); // still "sent" to the company, but nothing is delivered
       expectEqual((await call<InboxResponse>("GET", `/v1/principals/${ravi.address}/requests`)).requests, [], "the inbox after Block: nothing delivered");
       expectEqual(await statusOf(second), "sent", "the company is not told it was blocked");
+    });
+
+    // --- a company joins Sammati (prd.md R-01 to R-04): apply, the regulator decides, the quickstart runs, the sandbox holds ---
+
+    const regulator = { [REGULATOR_KEY_HEADER]: process.env.REGULATOR_KEY ?? "demo-regulator-key" };
+    const stamp = () => Math.floor(Date.now() / 1000);
+    const text3 = (en: string) => ({ en, hi: `${en} (hi)`, kn: `${en} (kn)` });
+    const application = (name: string): ApplicationInput => ({
+      name,
+      sector: "Banking",
+      contactEmail: "ops@demobank.example",
+      purposes: [
+        { code: "loan_offers", title: text3("Loan offers"), description: text3("Send you loan offers"), dataCategories: ["phone"], retentionDays: 90, sharesThirdParty: false, required: false },
+        { code: "bureau_share", title: text3("Bureau sharing"), description: text3("Share repayment history with a bureau"), dataCategories: ["repayment history"], retentionDays: 365, sharesThirdParty: true, required: false },
+      ],
+      processors: [{ name: "BureauOne", purposeCode: "bureau_share" }],
+    });
+    const bankName = `DemoBank${Date.now().toString(36).slice(-4)}`;
+    const bank = { id: "", address: "", apiKey: "", name: bankName };
+    const customerWithId = async (label: string) => {
+      const wallet = Wallet.createRandom();
+      const handle = `${label}${Date.now().toString(36)}@sammati`;
+      const issuedAt = stamp();
+      const signature = await wallet.signMessage(`sammati-id:v1:${handle}:${wallet.address.toLowerCase()}:${issuedAt}`);
+      expectEqual((await api("POST", "/v1/identities", { handle, principal: wallet.address, issuedAt, signature })).status, 201, `registering ${handle}`);
+      return { wallet, handle };
+    };
+    const signGrant = async (who: Wallet | ReturnType<typeof Wallet.createRandom>, fid: string, requestId: string, code: string) => {
+      const n = await call<RequestNotice>("GET", `/v1/requests/${requestId}?principal=${who.address}`);
+      const message = { principal: who.address, fiduciary: fid, purposeId: purposeIdOf(fid, code), expiresAt: inAnHour() + 86_400, noticeHash: n.noticeHash, nonce: n.nonce, deadline: inAnHour() };
+      const signature = await who.signTypedData(n.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
+      return { message, signature };
+    };
+
+    await step("a new company applies through /join's API: a bad application is refused, a good one waits for the regulator", async () => {
+      const bad = await api<{ error: { code: string; message: string } }>("POST", "/v1/registrations", { ...application(bankName), contactEmail: "nope" });
+      expectEqual([bad.status, bad.json.error.code], [400, "BAD_APPLICATION"], "a malformed application");
+      check(bad.json.error.message.includes("contactEmail"), "the refusal does not name the field");
+
+      const sent = await call<{ applicationId: string; status: string }>("POST", "/v1/registrations", application(bankName));
+      expectEqual(sent.status, "pending", "the new application");
+      bank.id = sent.applicationId;
+      const before = await call<FiduciariesResponse>("GET", "/v1/fiduciaries");
+      check(!before.fiduciaries.some((f) => f.name === bankName), "a pending company is already in the directory");
+      expectEqual((await api("POST", `/v1/regulator/registrations/${bank.id}/approve`, {}, {})).status, 401, "approving without the regulator's code");
+    });
+
+    await step("the regulator rejects another application: that company has no id, no key and cannot create requests", async () => {
+      const other = await call<{ applicationId: string }>("POST", "/v1/registrations", application(`Rejected${Date.now().toString(36).slice(-4)}`));
+      const rejected = await call<{ application: { status: string; note: string; contactEmail: string | null } }>("POST", `/v1/regulator/registrations/${other.applicationId}/reject`, { note: "Purposes are too broad." }, regulator);
+      expectEqual([rejected.application.status, rejected.application.note, rejected.application.contactEmail], ["rejected", "Purposes are too broad.", null], "the rejection");
+      const seen = await call<{ status: string; result: unknown }>("GET", `/v1/registrations/${other.applicationId}`);
+      expectEqual([seen.status, seen.result], ["rejected", null], "what the rejected company sees");
+      const stranger = Wallet.createRandom().address;
+      expectEqual((await api("POST", `/v1/fiduciaries/${stranger}/requests`, { purposes: ["loan_offers"], customerAlias: "x" })).status, 404, "a request from a company that was never registered");
+    });
+
+    await step("the regulator approves it: registered on chain, in the directory in the sandbox, in the ledger, API key shown once", async () => {
+      const approved = await call<{ fiduciary: { address: string; slug: string }; txHashes: string[] }>("POST", `/v1/regulator/registrations/${bank.id}/approve`, { note: "Welcome.", sandbox: true }, regulator);
+      bank.address = approved.fiduciary.address;
+      check(approved.txHashes.length >= 4, "too few ledger transactions for a company, two purposes and a processor");
+
+      const listed = (await call<FiduciariesResponse>("GET", "/v1/fiduciaries")).fiduciaries.find((f) => f.address === bank.address);
+      expectEqual([listed?.name, listed?.sandbox, listed?.demo, listed?.color], [bankName, true, false, "#16173F"], "the directory entry");
+      expectEqual((await call<FiduciaryPurposesResponse>("GET", `/v1/fiduciaries/${bank.address}/purposes`)).purposes.map((p) => p.code), ["loan_offers", "bureau_share"], "its purposes");
+      const ledger = await call<{ events: Array<{ type: string; payload: { kind?: string } | null }> }>("GET", `/v1/audit/ledger?fid=${bank.address}&type=purpose`);
+      const kinds = ledger.events.map((e) => e.payload?.kind);
+      check(kinds.includes("fiduciary") && kinds.includes("purpose"), `the ledger explorer lacks the registration events (saw ${kinds.join(",")})`);
+
+      const first = await call<{ status: string; result: { apiKey: string | null; apiKeyShown: boolean; fiduciary: string } }>("GET", `/v1/registrations/${bank.id}`);
+      check(first.result.apiKey?.startsWith("sk_"), "the applicant was not given an API key");
+      bank.apiKey = first.result.apiKey!;
+      const second = await call<{ result: { apiKey: string | null } }>("GET", `/v1/registrations/${bank.id}`);
+      expectEqual(second.result.apiKey, null, "the API key on a second read");
+      const regulatorView = JSON.stringify(await call("GET", "/v1/regulator/registrations", undefined, regulator));
+      check(!regulatorView.includes(bank.apiKey), "the regulator's own view contained the API key");
+    });
+
+    await step("the quickstart in a tiny sample app: a test customer is asked, approves, ALLOWED; withdraws, BLOCKED", async () => {
+      const sample = await startSampleApp({ coreUrl: CORE, fiduciary: bank.address, apiKey: bank.apiKey, purpose: "loan_offers" });
+      try {
+        const customer = await customerWithId("dana");
+        expectEqual((await api("POST", "/v1/regulator/test-principals", { handle: customer.handle }, regulator)).status, 201, "naming the test customer");
+        const guarded = (principal: string) => fetch(`${sample.url}/customers/1/profile`, { headers: { "x-sammati-principal": principal } });
+
+        const before = await guarded(customer.wallet.address);
+        expectEqual([before.status, ((await before.json()) as { code: string }).code], [451, "NO_CONSENT"], "the sample app before any consent");
+
+        const asked = await call<TargetedRequestResponse>("POST", `/v1/fiduciaries/${bank.address}/requests/targeted`, { handle: customer.handle, purposes: ["loan_offers"], message: "To send you offers" }, { [API_KEY_HEADER]: bank.apiKey });
+        const inbox = await until("the request in the test customer's inbox", async () => {
+          const r = (await call<InboxResponse>("GET", `/v1/principals/${customer.wallet.address}/requests`)).requests;
+          return r.length ? r : undefined;
+        }, 3000);
+        expectEqual([inbox[0]?.requestId, inbox[0]?.fiduciary.name], [asked.requestId, bankName], "the inbox");
+
+        const grant = await signGrant(customer.wallet, bank.address, asked.requestId, "loan_offers");
+        expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: grant.message, signature: grant.signature })).status, "confirmed", "grant");
+        expectEqual((await guarded(customer.wallet.address)).status, 200, "the sample app after consent");
+
+        const consents = await call<PrincipalConsentsResponse>("GET", `/v1/principals/${customer.wallet.address}/consents`);
+        const message = { principal: customer.wallet.address, fiduciary: bank.address, purposeId: purposeIdOf(bank.address, "loan_offers"), nonce: consents.nonce, deadline: inAnHour() };
+        const signature = await customer.wallet.signTypedData(consents.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, message);
+        expectEqual((await call<WithdrawResponse>("POST", "/v1/consents/withdraw", { request: message, signature })).status, "confirmed", "withdraw");
+        const blocked = await guarded(customer.wallet.address);
+        expectEqual([blocked.status, ((await blocked.json()) as { code: string }).code], [451, "CONSENT_WITHDRAWN"], "the sample app after withdrawal");
+
+        await sample.close(); // flushes its log entries to Core
+        const log = (await call<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${bank.address}/access?limit=10`)).items;
+        expectEqual(log.map((e) => `${e.decision}:${e.reason}`).reverse(), ["BLOCKED:NO_CONSENT", "ALLOWED:OK", "BLOCKED:CONSENT_WITHDRAWN"], "DemoBank's own access log");
+      } finally {
+        await sample.close().catch(() => undefined);
+      }
+    });
+
+    await step("the sandbox and the key hold: untested customers, another company's id and a missing key are all refused", async () => {
+      const stranger = await customerWithId("eve");
+      const key = { [API_KEY_HEADER]: bank.apiKey };
+      // the company is told "sent" either way, and nothing reaches the stranger
+      const sent = await api<TargetedRequestResponse>("POST", `/v1/fiduciaries/${bank.address}/requests/targeted`, { handle: stranger.handle, purposes: ["loan_offers"] }, key);
+      expectEqual([sent.status, sent.json.status], [201, "sent"], "the answer to the company");
+      expectEqual((await call<InboxResponse>("GET", `/v1/principals/${stranger.wallet.address}/requests`)).requests, [], "the stranger's inbox");
+      const qr = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${bank.address}/requests`, { purposes: ["loan_offers"], customerAlias: "walk-in" }, key);
+      const opened = await api<{ error: { code: string } }>("GET", `/v1/requests/${qr.requestId}?principal=${stranger.wallet.address}`);
+      expectEqual([opened.status, opened.json.error.code], [403, "SANDBOX_COMPANY"], "a non-test customer opening a sandbox company's notice");
+
+      // keys are scoped, and fail closed
+      const other = await api<{ error: { code: string } }>("POST", `/v1/fiduciaries/${FID}/requests/targeted`, { handle: stranger.handle, purposes: [GRANTED_LOAN] }, key);
+      expectEqual([other.status, other.json.error.code], [403, "FIDUCIARY_MISMATCH"], "DemoBank's key on QuickLoan");
+      const none = await api<{ error: { code: string } }>("GET", `/v1/gateway/consent-state?principal=${stranger.wallet.address}&fid=${bank.address}&purpose=loan_offers`);
+      expectEqual([none.status, none.json.error.code], [401, "INVALID_API_KEY"], "a gateway call with no key");
+
+      // promotion lifts the sandbox
+      expectEqual((await call<{ sandbox: boolean }>("POST", `/v1/regulator/fiduciaries/${bank.address}/sandbox`, { sandbox: false }, regulator)).sandbox, false, "promotion");
+      expectEqual((await api("GET", `/v1/requests/${qr.requestId}?principal=${stranger.wallet.address}`)).status, 200, "the notice after promotion");
     });
 
     const stored = await step("the gateway's log entries reached Core, in order", async () => {

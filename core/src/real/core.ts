@@ -7,6 +7,7 @@ import { waitForChain, Relayer, type Chain } from "./chain";
 import { clearAll, openDb, type Db } from "./db";
 import { FINGERPRINT_KEY, chainFingerprint, storedFingerprint } from "./fingerprint";
 import { Indexer } from "./indexer";
+import { Onboarding } from "./onboarding";
 import { reconcile, type ReconcileResult } from "./reconcile";
 import { Repo } from "./repo";
 import { TargetedRequests } from "./targeted";
@@ -45,6 +46,8 @@ export interface RealCore {
   cascade: CascadeEngine;
   /** Sammati IDs and targeted consent requests (trd.md §6.11). */
   targeted: TargetedRequests;
+  /** Company applications, the regulator's decision, API keys and the sandbox (trd.md §6.12). */
+  onboarding: Onboarding;
   publish: (event: WsEvent) => void;
   /** Wipes Core's database back to the seed and re-reads the chain (the chain itself is untouched). */
   reset(): Promise<void>;
@@ -93,6 +96,7 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     log(`WARNING: relayer ${relayer.address} has only ${formatEther(balance)} ETH; grants will fail. Run \`pnpm seed\` to fund it.`);
   }
 
+  const onboarding = new Onboarding(db, repo, chain, config, indexer, publish, log);
   let reconcileTimer: NodeJS.Timeout | null = null;
   const core: RealCore = {
     config,
@@ -104,12 +108,14 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     indexer,
     anchors,
     cascade,
-    targeted: new TargetedRequests(db, repo, publish, config),
+    targeted: new TargetedRequests(db, repo, publish, config, undefined, undefined, (f, principal) => onboarding.mayDealWith(f, principal)),
+    onboarding,
     publish,
     async reset() {
       clearAll(db);
       repo.setState(FINGERPRINT_KEY, await chainFingerprint(chain));
       repo.seedDirectory();
+      onboarding.forget();
       await indexer.resync();
     },
     reconcile: () => reconcile(repo, chain, indexer),
