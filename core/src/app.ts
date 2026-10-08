@@ -5,12 +5,14 @@ import type { Ctx } from "./context";
 import { errorHandler, notFoundHandler } from "./errors";
 import type { RealCore } from "./real/core";
 import { realRoutes } from "./real/routes";
+import { targetedRoutes } from "./real/targeted-routes";
 import { auditRoutes } from "./routes/audit";
 import { companyRoutes } from "./routes/company";
 import { consentRoutes } from "./routes/consent";
 import { demoRoutes } from "./routes/demo";
 import { rightsRoutes } from "./routes/rights";
 import { vaultRoutes } from "./routes/vault";
+import { targetedStubRoutes } from "./routes/targeted-stub";
 import { now } from "./store";
 
 // Browsers (the web console, Auditor and Stage view) call Core cross-origin.
@@ -50,13 +52,13 @@ function finish(app: Express): Express {
 /** Stub mode: fixtures plus light in-memory state, no chain. */
 export function createApp(ctx: Ctx): Express {
   const app = baseApp(ctx.config);
-  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx), rightsRoutes(ctx), vaultRoutes(ctx));
+  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx), rightsRoutes(ctx), vaultRoutes(ctx), targetedStubRoutes());
   return finish(app);
 }
 
 /** Real mode: SQLite, the chain and a relayer behind the same routes. */
 export function createRealApp(core: RealCore): Express {
   const app = baseApp(core.config);
-  app.use("/v1", realRoutes(core), vaultRoutes(core));
+  app.use("/v1", realRoutes(core), vaultRoutes(core), targetedRoutes(core));
   return finish(app);
 }

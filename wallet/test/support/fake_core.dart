@@ -13,6 +13,7 @@ import 'package:sammati/core/processor_api.dart';
 import 'package:sammati/core/live_events.dart';
 import 'package:sammati/core/notice.dart';
 import 'package:sammati/core/proof.dart';
+import 'package:sammati/core/requests.dart';
 import 'package:sammati/core/rights.dart';
 
 const fiduciaryAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
@@ -126,6 +127,66 @@ class FakeCoreApi implements CoreApi {
 
   @override
   Future<List<RightsRequestRow>> getRights(String principal) async => rights;
+
+  // --- Sammati ID and the inbox (N-01, W-14) ---
+  String? identity;
+  Object? identityError;
+  List<InboxRequest> inbox = [];
+  Object? inboxError;
+  int inboxFetches = 0;
+  List<BlockedCompany> blocks = [];
+  final List<({String handle, String principal, int issuedAt, String signature})> registrations = [];
+  final List<({String requestId, String principal, int issuedAt, String signature})> declines = [];
+  final List<({String fiduciary, String action, int issuedAt, String signature})> blockCalls = [];
+  Object? registerError;
+  Object? actionError;
+
+  @override
+  Future<String?> getIdentity(String principal) async {
+    final e = identityError;
+    if (e != null) throw e;
+    return identity;
+  }
+
+  @override
+  Future<void> registerIdentity({required String handle, required String principal, required int issuedAt, required String signature}) async {
+    final e = registerError;
+    if (e != null) throw e;
+    registrations.add((handle: handle, principal: principal, issuedAt: issuedAt, signature: signature));
+    identity = handle;
+  }
+
+  @override
+  Future<List<InboxRequest>> getInbox(String principal) async {
+    inboxFetches++;
+    final e = inboxError;
+    if (e != null) throw e;
+    return List.of(inbox);
+  }
+
+  @override
+  Future<void> declineRequest({required String requestId, required String principal, required int issuedAt, required String signature}) async {
+    final e = actionError;
+    if (e != null) throw e;
+    declines.add((requestId: requestId, principal: principal, issuedAt: issuedAt, signature: signature));
+    inbox = [for (final i in inbox) if (i.requestId != requestId) i];
+  }
+
+  @override
+  Future<List<BlockedCompany>> getBlocks(String principal) async => List.of(blocks);
+
+  @override
+  Future<void> setBlocked({required String principal, required String fiduciary, required String action, required int issuedAt, required String signature}) async {
+    final e = actionError;
+    if (e != null) throw e;
+    blockCalls.add((fiduciary: fiduciary, action: action, issuedAt: issuedAt, signature: signature));
+    if (action == 'block') {
+      blocks = [BlockedCompany(fiduciary: fiduciary, name: 'QuickLoan', blockedAt: 1760000000), ...blocks];
+      inbox = [for (final i in inbox) if (i.fiduciary.toLowerCase() != fiduciary.toLowerCase()) i];
+    } else {
+      blocks = [for (final b in blocks) if (b.fiduciary.toLowerCase() != fiduciary.toLowerCase()) b];
+    }
+  }
 
   /// Where the Processor is, as Core would say (trd.md §6.1).
   String processorUrl = 'http://processor.test:4200';
@@ -272,6 +333,7 @@ class FakeLiveEvents implements LiveEvents {
   final _connection = StreamController<bool>.broadcast();
   final _cascade = StreamController<CascadeAck>.broadcast();
   final _vault = StreamController<VaultNotice>.broadcast();
+  final _requests = StreamController<ConsentRequested>.broadcast();
   bool disposed = false;
 
   @override
@@ -290,6 +352,11 @@ class FakeLiveEvents implements LiveEvents {
   Stream<VaultNotice> get vaultUpdates => _vault.stream;
 
   void emitVault(VaultNotice notice) => _vault.add(notice);
+
+  @override
+  Stream<ConsentRequested> get requestEvents => _requests.stream;
+
+  void emitRequested(ConsentRequested event) => _requests.add(event);
 
   void emitAccess(ActivityItem item) => _access.add(item);
   void emit(ConsentUpdated event) => _updates.add(event);

@@ -313,5 +313,87 @@
   "emp_self_employed": "Self-employed",
   "emp_student": "Student",
   "emp_unemployed": "Not employed",
-  "share_cta": "Share your details securely"
+  "share_cta": "Share your details securely",
+
+  "inbox_title": "Requests",
+  "inbox_badge_label": "{count, plural, =1{1 request} other{{count} requests}}",
+  "@inbox_badge_label": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_empty": "No requests. When a company asks for your consent it will appear here.",
+  "inbox_asks": "{company} is asking for {count, plural, =1{1 purpose} other{{count} purposes}}",
+  "@inbox_asks": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_message_from": "Message from {company}",
+  "@inbox_message_from": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "inbox_expires_hours": "{hours, plural, =1{Expires in 1 hour} other{Expires in {hours} hours}}",
+  "@inbox_expires_hours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "inbox_expires_soon": "Expires in under an hour",
+  "inbox_offline": "No connection. Showing last known requests.",
+  "request_review": "Review",
+  "request_decline": "Decline",
+  "request_block": "Block this company",
+  "request_block_confirm": "Block {company}? They will not be able to send you requests.",
+  "@request_block_confirm": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "request_declined": "Request declined.",
+  "request_blocked": "{company} is blocked.",
+  "@request_blocked": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "blocked_title": "Blocked companies",
+  "blocked_empty": "You have not blocked anyone.",
+  "request_unblock": "Unblock",
+  "auth_reason_decline": "Confirm to decline this request",
+  "auth_reason_block": "Confirm to block this company",
+  "id_title": "Your Sammati ID",
+  "id_none": "No Sammati ID yet",
+  "id_explain": "Companies can send you consent requests here. They never see your wallet address until you say yes.",
+  "id_choose": "Choose your ID",
+  "id_hint": "3 to 30 letters, numbers, dots or dashes",
+  "id_invalid": "Use 3 to 30 letters, numbers, dots or dashes",
+  "id_taken": "That ID is taken. Try another.",
+  "id_register": "Register",
+  "id_registered": "Your ID is {handle}",
+  "@id_registered": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "auth_reason_id": "Confirm to register your Sammati ID"
 }

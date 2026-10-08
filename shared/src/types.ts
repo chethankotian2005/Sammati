@@ -621,7 +621,85 @@ export const VAULT_EVENT_FIELDS: Readonly<Record<VaultEventName, readonly string
 };
 export const VAULT_EVENT_BASE_FIELDS = ["principal", "fiduciary", "purposeCode", "handle", "at"] as const;
 
+// --- 6.11 targeted consent requests (N-02, W-14) ---
+
+export type TargetedStatus = "sent" | "seen" | "granted" | "declined" | "expired";
+
+/** To `principal:<addr>` only: a company asked this wallet for consent. */
+export interface ConsentRequestedEvent {
+  event: "consent.requested";
+  principal: Hex;
+  requestId: string;
+  fiduciary: Hex;
+  fiduciaryName: string;
+  purposeCodes: string[];
+  message: string | null;
+  expiresAt: UnixSeconds;
+  at: UnixSeconds;
+}
+/** To `fiduciary:<addr>` only. It carries no principal: a company never learns who from it. */
+export interface RequestUpdatedEvent {
+  event: "request.updated";
+  fiduciary: Hex;
+  requestId: string;
+  status: TargetedStatus;
+  at: UnixSeconds;
+}
+
+export interface TargetedRequestBody {
+  handle: string;
+  purposes: string[];
+  message?: string;
+  expiresInHours?: number;
+}
+/** The answer to a targeted request: the same whether or not the handle exists (trd.md §6.11). */
+export interface TargetedRequestResponse {
+  requestId: string;
+  status: "sent";
+  expiresAt: UnixSeconds;
+}
+export interface TargetedRequestRow {
+  requestId: string;
+  /** The text the company typed. */
+  handle: string;
+  purposes: string[];
+  message: string | null;
+  status: TargetedStatus;
+  createdAt: UnixSeconds;
+  expiresAt: UnixSeconds;
+}
+export interface TargetedRequestsResponse {
+  requests: TargetedRequestRow[];
+}
+
+export interface InboxRequest {
+  requestId: string;
+  fiduciary: { address: Hex; name: string; color: string; sector?: string };
+  purposes: Array<{ code: string; title: LocalizedText }>;
+  message: string | null;
+  createdAt: UnixSeconds;
+  expiresAt: UnixSeconds;
+  status: "sent" | "seen";
+}
+export interface InboxResponse {
+  requests: InboxRequest[];
+}
+export interface RegisterIdentityBody {
+  handle: string;
+  principal: Hex;
+  issuedAt: UnixSeconds;
+  signature: string;
+}
+export interface IdentityResponse {
+  handle: string | null;
+}
+export interface BlocksResponse {
+  blocked: Array<{ fiduciary: { address: Hex; name: string }; blockedAt: UnixSeconds }>;
+}
+
 export type WsEvent =
+  | ConsentRequestedEvent
+  | RequestUpdatedEvent
   | ConsentUpdatedEvent
   | AccessLoggedEvent
   | CascadeUpdatedEvent

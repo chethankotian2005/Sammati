@@ -19,6 +19,10 @@ export function topicsFor(e: WsEvent): WsTopic[] {
     case "anchor.posted":
     case "tamper.alert":
       return [fiduciaryTopic(e.fiduciary), AUDITOR_TOPIC];
+    case "consent.requested":
+      return [principalTopic(e.principal)];
+    case "request.updated":
+      return [fiduciaryTopic(e.fiduciary)];
     case "vault.encrypted":
     case "vault.stored":
     case "vault.erased":

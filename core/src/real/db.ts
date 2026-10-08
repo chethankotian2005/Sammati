@@ -103,6 +103,29 @@ CREATE TABLE IF NOT EXISTS cascade_acks (
   PRIMARY KEY (principal, purpose_id, processor)
 );
 
+CREATE TABLE IF NOT EXISTS identities (
+  handle TEXT PRIMARY KEY,
+  principal TEXT NOT NULL UNIQUE,
+  registered_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS request_targets (
+  request_id TEXT PRIMARY KEY REFERENCES requests(id),
+  fiduciary TEXT NOT NULL,
+  principal TEXT,
+  message TEXT,
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+  seen_at INTEGER, decided_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS blocks (
+  principal TEXT NOT NULL, fiduciary TEXT NOT NULL, blocked_at INTEGER NOT NULL,
+  PRIMARY KEY (principal, fiduciary)
+);
+
+CREATE INDEX IF NOT EXISTS idx_targets_principal ON request_targets (principal, status);
+
 CREATE TABLE IF NOT EXISTS rights_requests (
   id TEXT PRIMARY KEY,
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL,
@@ -120,6 +143,9 @@ const CHAIN_DERIVED = ["ledger_events", "consents_cache", "anchor_batches", "cas
 const ALL_TABLES = [
   ...CHAIN_DERIVED,
   "access_logs",
+  "request_targets",
+  "blocks",
+  "identities",
   "requests",
   "rights_requests",
   "processors",

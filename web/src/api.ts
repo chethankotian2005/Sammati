@@ -26,6 +26,10 @@ import type {
   Scorecard,
   StoredAccessLogEntry,
   TamperResponse,
+  TargetedRequestBody,
+  TargetedRequestResponse,
+  TargetedRequestRow,
+  TargetedRequestsResponse,
   VerifyResponse,
   WithdrawResponse,
 } from "@sammati/shared";
@@ -128,6 +132,15 @@ export async function createConsentRequest(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+/** Ask a specific customer by Sammati ID (trd.md §6.11). Whatever the ID, a well-formed request gets the same answer. */
+export async function sendTargetedRequest(fiduciary: string, body: TargetedRequestBody): Promise<TargetedRequestResponse> {
+  return request<TargetedRequestResponse>(`/v1/fiduciaries/${fiduciary}/requests/targeted`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function fetchTargetedRequests(fiduciary: string): Promise<TargetedRequestRow[]> {
+  return (await request<TargetedRequestsResponse>(`/v1/fiduciaries/${fiduciary}/requests/targeted`)).requests;
 }
 
 export async function demoFire(body: DemoFireBody): Promise<DemoFireResponse> {

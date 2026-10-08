@@ -116,9 +116,11 @@ export function realRoutes(core: RealCore): Router {
   }));
 
   r.get("/requests/:requestId", handle(async (req, res) => {
-    const request = repo.request(param(req, "requestId"), config.requestTtlSeconds);
-    const f = repo.fiduciary(request.fiduciary);
     const principal = typeof req.query.principal === "string" ? address(req.query.principal, "principal") : null;
+    // A request addressed to one customer answers to that customer only, and does not use the QR code's 30 minutes.
+    const { targeted } = core.targeted.openNotice(param(req, "requestId"), principal);
+    const request = repo.request(param(req, "requestId"), targeted ? Number.MAX_SAFE_INTEGER : config.requestTtlSeconds);
+    const f = repo.fiduciary(request.fiduciary);
     const nonce = principal ? String(await onChain(() => chain.registry.nonces(principal))) : "0";
     res.json(
       buildNotice({
@@ -144,6 +146,7 @@ export function realRoutes(core: RealCore): Router {
     const grant = parseGrant(body.request);
     const receipt = await relayer.send("grantConsent", [grant, signatureOf(body)]);
     await settle(receipt);
+    core.targeted.onGrant(grant.principal, grant.fiduciary, grant.noticeHash); // a request addressed to this customer is now Granted
     res.json({ txHash: receipt.hash, status: "confirmed" } satisfies GrantResponse);
   }));
 

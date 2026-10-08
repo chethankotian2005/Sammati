@@ -535,4 +535,124 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get share_cta => 'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ';
+
+  @override
+  String get inbox_title => 'ವಿನಂತಿಗಳು';
+
+  @override
+  String inbox_badge_label(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ವಿನಂತಿಗಳು',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_empty =>
+      'ಯಾವುದೇ ವಿನಂತಿ ಇಲ್ಲ. ಕಂಪನಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಕೇಳಿದಾಗ ಅದು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.';
+
+  @override
+  String inbox_asks(String company, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ಉದ್ದೇಶಗಳಿಗಾಗಿ ಒಪ್ಪಿಗೆ ಕೇಳುತ್ತಿದೆ',
+    );
+    return '$company $_temp0';
+  }
+
+  @override
+  String inbox_message_from(String company) {
+    return '$company ಅವರ ಸಂದೇಶ';
+  }
+
+  @override
+  String inbox_expires_hours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours ಗಂಟೆಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_expires_soon => 'ಒಂದು ಗಂಟೆಗಿಂತ ಕಡಿಮೆಯಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ';
+
+  @override
+  String get inbox_offline =>
+      'ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ವಿನಂತಿಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ.';
+
+  @override
+  String get request_review => 'ಪರಿಶೀಲಿಸಿ';
+
+  @override
+  String get request_decline => 'ತಿರಸ್ಕರಿಸಿ';
+
+  @override
+  String get request_block => 'ಈ ಕಂಪನಿಯನ್ನು ನಿರ್ಬಂಧಿಸಿ';
+
+  @override
+  String request_block_confirm(String company) {
+    return '$company ಅನ್ನು ನಿರ್ಬಂಧಿಸಬೇಕೇ? ಅವರು ನಿಮಗೆ ವಿನಂತಿಗಳನ್ನು ಕಳುಹಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.';
+  }
+
+  @override
+  String get request_declined => 'ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ.';
+
+  @override
+  String request_blocked(String company) {
+    return '$company ಅನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ.';
+  }
+
+  @override
+  String get blocked_title => 'ನಿರ್ಬಂಧಿತ ಕಂಪನಿಗಳು';
+
+  @override
+  String get blocked_empty => 'ನೀವು ಯಾರನ್ನೂ ನಿರ್ಬಂಧಿಸಿಲ್ಲ.';
+
+  @override
+  String get request_unblock => 'ನಿರ್ಬಂಧ ತೆಗೆಯಿರಿ';
+
+  @override
+  String get auth_reason_decline => 'ಈ ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get auth_reason_block => 'ಈ ಕಂಪನಿಯನ್ನು ನಿರ್ಬಂಧಿಸಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get id_title => 'ನಿಮ್ಮ Sammati ID';
+
+  @override
+  String get id_none => 'ಇನ್ನೂ Sammati ID ಇಲ್ಲ';
+
+  @override
+  String get id_explain =>
+      'ಕಂಪನಿಗಳು ನಿಮಗೆ ಇಲ್ಲಿ ಒಪ್ಪಿಗೆ ವಿನಂತಿಗಳನ್ನು ಕಳುಹಿಸಬಹುದು. ನೀವು ಹೌದು ಎನ್ನುವವರೆಗೆ ಅವರು ನಿಮ್ಮ ವಾಲೆಟ್ ವಿಳಾಸವನ್ನು ನೋಡುವುದಿಲ್ಲ.';
+
+  @override
+  String get id_choose => 'ನಿಮ್ಮ ID ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String get id_hint => '3 ರಿಂದ 30 ಅಕ್ಷರಗಳು, ಅಂಕೆಗಳು, ಚುಕ್ಕೆ ಅಥವಾ ಡ್ಯಾಶ್';
+
+  @override
+  String get id_invalid =>
+      '3 ರಿಂದ 30 ಅಕ್ಷರಗಳು, ಅಂಕೆಗಳು, ಚುಕ್ಕೆ ಅಥವಾ ಡ್ಯಾಶ್ ಬಳಸಿ';
+
+  @override
+  String get id_taken => 'ಆ ID ಈಗಾಗಲೇ ಬಳಕೆಯಲ್ಲಿದೆ. ಬೇರೆಯದನ್ನು ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get id_register => 'ನೋಂದಾಯಿಸಿ';
+
+  @override
+  String id_registered(String handle) {
+    return 'ನಿಮ್ಮ ID $handle';
+  }
+
+  @override
+  String get auth_reason_id => 'ನಿಮ್ಮ Sammati ID ನೋಂದಾಯಿಸಲು ದೃಢೀಕರಿಸಿ';
 }

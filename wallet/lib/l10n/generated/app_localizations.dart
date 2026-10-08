@@ -956,6 +956,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share your details securely'**
   String get share_cta;
+
+  /// No description provided for @inbox_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get inbox_title;
+
+  /// No description provided for @inbox_badge_label.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 request} other{{count} requests}}'**
+  String inbox_badge_label(int count);
+
+  /// No description provided for @inbox_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests. When a company asks for your consent it will appear here.'**
+  String get inbox_empty;
+
+  /// No description provided for @inbox_asks.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} is asking for {count, plural, =1{1 purpose} other{{count} purposes}}'**
+  String inbox_asks(String company, int count);
+
+  /// No description provided for @inbox_message_from.
+  ///
+  /// In en, this message translates to:
+  /// **'Message from {company}'**
+  String inbox_message_from(String company);
+
+  /// No description provided for @inbox_expires_hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours, plural, =1{Expires in 1 hour} other{Expires in {hours} hours}}'**
+  String inbox_expires_hours(int hours);
+
+  /// No description provided for @inbox_expires_soon.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in under an hour'**
+  String get inbox_expires_soon;
+
+  /// No description provided for @inbox_offline.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Showing last known requests.'**
+  String get inbox_offline;
+
+  /// No description provided for @request_review.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get request_review;
+
+  /// No description provided for @request_decline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get request_decline;
+
+  /// No description provided for @request_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Block this company'**
+  String get request_block;
+
+  /// No description provided for @request_block_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Block {company}? They will not be able to send you requests.'**
+  String request_block_confirm(String company);
+
+  /// No description provided for @request_declined.
+  ///
+  /// In en, this message translates to:
+  /// **'Request declined.'**
+  String get request_declined;
+
+  /// No description provided for @request_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} is blocked.'**
+  String request_blocked(String company);
+
+  /// No description provided for @blocked_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked companies'**
+  String get blocked_title;
+
+  /// No description provided for @blocked_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not blocked anyone.'**
+  String get blocked_empty;
+
+  /// No description provided for @request_unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get request_unblock;
+
+  /// No description provided for @auth_reason_decline.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to decline this request'**
+  String get auth_reason_decline;
+
+  /// No description provided for @auth_reason_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to block this company'**
+  String get auth_reason_block;
+
+  /// No description provided for @id_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Sammati ID'**
+  String get id_title;
+
+  /// No description provided for @id_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No Sammati ID yet'**
+  String get id_none;
+
+  /// No description provided for @id_explain.
+  ///
+  /// In en, this message translates to:
+  /// **'Companies can send you consent requests here. They never see your wallet address until you say yes.'**
+  String get id_explain;
+
+  /// No description provided for @id_choose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your ID'**
+  String get id_choose;
+
+  /// No description provided for @id_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'3 to 30 letters, numbers, dots or dashes'**
+  String get id_hint;
+
+  /// No description provided for @id_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 3 to 30 letters, numbers, dots or dashes'**
+  String get id_invalid;
+
+  /// No description provided for @id_taken.
+  ///
+  /// In en, this message translates to:
+  /// **'That ID is taken. Try another.'**
+  String get id_taken;
+
+  /// No description provided for @id_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get id_register;
+
+  /// No description provided for @id_registered.
+  ///
+  /// In en, this message translates to:
+  /// **'Your ID is {handle}'**
+  String id_registered(String handle);
+
+  /// No description provided for @auth_reason_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to register your Sammati ID'**
+  String get auth_reason_id;
 }
 
 class _AppLocalizationsDelegate

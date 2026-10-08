@@ -533,4 +533,123 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get share_cta => 'अपना विवरण सुरक्षित रूप से साझा करें';
+
+  @override
+  String get inbox_title => 'अनुरोध';
+
+  @override
+  String inbox_badge_label(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count अनुरोध',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_empty =>
+      'कोई अनुरोध नहीं। जब कोई कंपनी आपकी सहमति माँगेगी, वह यहाँ दिखेगा।';
+
+  @override
+  String inbox_asks(String company, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count उद्देश्यों के लिए सहमति माँग रही है',
+    );
+    return '$company $_temp0';
+  }
+
+  @override
+  String inbox_message_from(String company) {
+    return '$company का संदेश';
+  }
+
+  @override
+  String inbox_expires_hours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours घंटे में समाप्त',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_expires_soon => 'एक घंटे से कम में समाप्त';
+
+  @override
+  String get inbox_offline =>
+      'कनेक्शन नहीं है। पिछले ज्ञात अनुरोध दिख रहे हैं।';
+
+  @override
+  String get request_review => 'देखें';
+
+  @override
+  String get request_decline => 'अस्वीकार करें';
+
+  @override
+  String get request_block => 'इस कंपनी को ब्लॉक करें';
+
+  @override
+  String request_block_confirm(String company) {
+    return '$company को ब्लॉक करें? वे आपको अनुरोध नहीं भेज सकेंगी।';
+  }
+
+  @override
+  String get request_declined => 'अनुरोध अस्वीकार किया गया।';
+
+  @override
+  String request_blocked(String company) {
+    return '$company ब्लॉक है।';
+  }
+
+  @override
+  String get blocked_title => 'ब्लॉक की गई कंपनियाँ';
+
+  @override
+  String get blocked_empty => 'आपने किसी को ब्लॉक नहीं किया है।';
+
+  @override
+  String get request_unblock => 'अनब्लॉक करें';
+
+  @override
+  String get auth_reason_decline => 'इस अनुरोध को अस्वीकार करने की पुष्टि करें';
+
+  @override
+  String get auth_reason_block => 'इस कंपनी को ब्लॉक करने की पुष्टि करें';
+
+  @override
+  String get id_title => 'आपकी Sammati ID';
+
+  @override
+  String get id_none => 'अभी कोई Sammati ID नहीं';
+
+  @override
+  String get id_explain =>
+      'कंपनियाँ आपको यहाँ सहमति अनुरोध भेज सकती हैं। जब तक आप हाँ नहीं कहते, वे आपका वॉलेट पता नहीं देखतीं।';
+
+  @override
+  String get id_choose => 'अपनी ID चुनें';
+
+  @override
+  String get id_hint => '3 से 30 अक्षर, अंक, बिंदु या डैश';
+
+  @override
+  String get id_invalid => '3 से 30 अक्षर, अंक, बिंदु या डैश इस्तेमाल करें';
+
+  @override
+  String get id_taken => 'यह ID ली जा चुकी है। दूसरी आज़माएँ।';
+
+  @override
+  String get id_register => 'पंजीकृत करें';
+
+  @override
+  String id_registered(String handle) {
+    return 'आपकी ID $handle है';
+  }
+
+  @override
+  String get auth_reason_id => 'अपनी Sammati ID पंजीकृत करने की पुष्टि करें';
 }

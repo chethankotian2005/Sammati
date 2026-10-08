@@ -18,6 +18,8 @@ export const notFoundHandler: RequestHandler = (req, _res, next) => {
 // Express identifies error middleware by its four-argument signature.
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof HttpError) {
+    const retryAfter = (err as HttpError & { retryAfter?: number }).retryAfter;
+    if (retryAfter !== undefined) res.setHeader("Retry-After", String(retryAfter));
     res.status(err.status).json({ error: { code: err.code, message: err.message } } satisfies ApiError);
     return;
   }

@@ -29,15 +29,19 @@ import {
   type DemoAnchorResponse,
   type DemoFireResponse,
   type FiduciaryAccessResponse,
+  type FiduciaryConsentsResponse,
   type FiduciaryPurposesResponse,
   type GrantResponse,
   type HealthResponse,
+  type InboxResponse,
   type PrincipalConsentsResponse,
   type RequestNotice,
   type RightsRequest,
   type RightsResponse,
   type StoredAccessLogEntry,
   type TamperResponse,
+  type TargetedRequestResponse,
+  type TargetedRequestsResponse,
   type VaultView,
   type VerifyResponse,
   type WithdrawResponse,
@@ -607,6 +611,97 @@ async function main(): Promise<void> {
       await until("the portal to learn the details were erased", async () => (portalUser.journey!.state.dataErased ? true : undefined), 4000);
       expectEqual(portalUser.journey!.state.stage, "withdrawn", "the page stays on withdrawn");
       portalUser.feed!.close();
+    });
+
+    await step("targeted request: an ID is registered, a company sends to it, and it lands in the wallet's inbox within 2 s", async () => {
+      const asha = Wallet.createRandom();
+      const handle = `asha${Date.now().toString(36)}@sammati`;
+      const issuedAt = Math.floor(Date.now() / 1000);
+      const signature = await asha.signMessage(`sammati-id:v1:${handle}:${asha.address.toLowerCase()}:${issuedAt}`);
+      expectEqual((await api("POST", "/v1/identities", { handle, principal: asha.address, issuedAt, signature })).status, 201, "registering the ID");
+
+      const pushes: WsEvent[] = [];
+      const ashaSocket = new WebSocket(CORE.replace(/^http/, "ws") + "/ws");
+      ashaSocket.on("message", (raw) => pushes.push(JSON.parse(raw.toString()) as WsEvent));
+      await new Promise<void>((ok, bad) => {
+        ashaSocket.once("open", () => ok());
+        ashaSocket.once("error", bad);
+      });
+      ashaSocket.send(JSON.stringify({ sub: [`principal:${asha.address}`] }));
+      await sleep(150);
+
+      try {
+        const unknown = await api<Record<string, unknown>>("POST", `/v1/fiduciaries/${FID}/requests/targeted`, { handle: "nobody-here@sammati", purposes: [GRANTED_LOAN] });
+        const sentAt = Date.now();
+        const known = await api<Record<string, unknown>>("POST", `/v1/fiduciaries/${FID}/requests/targeted`, { handle, purposes: [GRANTED_LOAN], message: "Your loan form is ready", expiresInHours: 24 });
+        expectEqual([unknown.status, known.status], [201, 201], "both sends");
+        expectEqual(Object.keys(unknown.json).sort(), Object.keys(known.json).sort(), "the shape of the answer, known versus unknown ID");
+        expectEqual([unknown.json.status, known.json.status], ["sent", "sent"], "the status the company is told");
+        check(!JSON.stringify(known.json).toLowerCase().includes(asha.address.toLowerCase()), "the company's answer carried the customer's address");
+
+        const pushed = await until("consent.requested on the wallet's feed", async () => pushes.find((e) => e.event === "consent.requested"), 2000);
+        check(Date.now() - sentAt < 2000, "the request took longer than 2 s to arrive");
+        const requested = pushed as Extract<WsEvent, { event: "consent.requested" }>;
+        expectEqual([requested.requestId, requested.fiduciary, requested.purposeCodes], [known.json.requestId, FID, [GRANTED_LOAN]], "what was pushed");
+        expectEqual(pushes.filter((e) => e.event === "consent.requested").length, 1, "pushes (the unknown ID must cause none)");
+
+        const inbox = await call<InboxResponse>("GET", `/v1/principals/${asha.address}/requests`);
+        expectEqual(inbox.requests.map((r) => [r.requestId, r.status, r.message]), [[known.json.requestId, "sent", "Your loan form is ready"]], "the inbox");
+
+        // opening it is Seen, grant is Granted, and the company never saw an address
+        const rowOf = async () => (await call<TargetedRequestsResponse>("GET", `/v1/fiduciaries/${FID}/requests/targeted`)).requests.find((r) => r.requestId === known.json.requestId)?.status;
+        expectEqual(await rowOf(), "sent", "console status before the wallet opens it");
+        const n = await call<RequestNotice>("GET", `/v1/requests/${known.json.requestId}?principal=${asha.address}`);
+        expectEqual(await rowOf(), "seen", "console status once the wallet fetches the notice");
+        const message = {
+          principal: asha.address,
+          fiduciary: FID,
+          purposeId: CREDIT_ID,
+          expiresAt: inAnHour() + 86_400,
+          noticeHash: n.noticeHash,
+          nonce: n.nonce,
+          deadline: inAnHour(),
+        };
+        const grantSignature = await asha.signTypedData(n.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
+        expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature: grantSignature })).status, "confirmed", "grant status");
+        expectEqual(await rowOf(), "granted", "console status after the grant");
+        // The principal is known to the company only now, after consent (prd.md N-02).
+        const consents = await call<FiduciaryConsentsResponse>("GET", `/v1/fiduciaries/${FID}/consents`);
+        check(
+          consents.rows.some((r) => r.principal.toLowerCase() === asha.address.toLowerCase() && r.purposeCode === GRANTED_LOAN && r.status === "Active"),
+          "the grant is not in the company's Consents list",
+        );
+      } finally {
+        ashaSocket.close();
+      }
+    });
+
+    await step("targeted request: Decline, then Block this company, and the company learns nothing it was not told", async () => {
+      const ravi = Wallet.createRandom();
+      const handle = `ravi${Date.now().toString(36)}@sammati`;
+      const stamp = () => Math.floor(Date.now() / 1000);
+      const idAt = stamp();
+      expectEqual(
+        (await api("POST", "/v1/identities", { handle, principal: ravi.address, issuedAt: idAt, signature: await ravi.signMessage(`sammati-id:v1:${handle}:${ravi.address.toLowerCase()}:${idAt}`) })).status,
+        201,
+        "registering the ID",
+      );
+      const send = async () => (await call<TargetedRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests/targeted`, { handle, purposes: [GRANTED_LOAN] })).requestId;
+      const statusOf = async (id: string) => (await call<TargetedRequestsResponse>("GET", `/v1/fiduciaries/${FID}/requests/targeted`)).requests.find((r) => r.requestId === id)?.status;
+
+      const first = await send();
+      const declinedAt = stamp();
+      const declineSig = await ravi.signMessage(`sammati-decline:v1:${first}:${ravi.address.toLowerCase()}:${declinedAt}`);
+      await call("POST", `/v1/requests/${first}/decline`, { principal: ravi.address, issuedAt: declinedAt, signature: declineSig });
+      expectEqual(await statusOf(first), "declined", "console status after Decline");
+      expectEqual((await call<InboxResponse>("GET", `/v1/principals/${ravi.address}/requests`)).requests, [], "the inbox after Decline");
+
+      const blockedAt = stamp();
+      const blockSig = await ravi.signMessage(`sammati-block:v1:block:${FID.toLowerCase()}:${ravi.address.toLowerCase()}:${blockedAt}`);
+      await call("POST", `/v1/principals/${ravi.address}/blocks`, { fiduciary: FID, action: "block", issuedAt: blockedAt, signature: blockSig });
+      const second = await send(); // still "sent" to the company, but nothing is delivered
+      expectEqual((await call<InboxResponse>("GET", `/v1/principals/${ravi.address}/requests`)).requests, [], "the inbox after Block: nothing delivered");
+      expectEqual(await statusOf(second), "sent", "the company is not told it was blocked");
     });
 
     const stored = await step("the gateway's log entries reached Core, in order", async () => {

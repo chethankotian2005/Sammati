@@ -17,6 +17,7 @@ import { StatusChip, HashLabel } from "../../ui";
 import { createConsentRequest } from "../../api";
 import { useConsentUpdated } from "../../ws";
 import { CORE_URL } from "../../core";
+import { SendToUserPanel } from "./SendToUserPanel";
 
 interface NewRequestSectionProps {
   company: SeedFiduciary;
@@ -24,7 +25,7 @@ interface NewRequestSectionProps {
   onConsentReceived?: (event: ConsentUpdatedEvent) => void;
 }
 
-export function NewRequestSection({
+function QrRequestPanel({
   company,
   purposes,
   onConsentReceived,
@@ -330,6 +331,44 @@ export function NewRequestSection({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** New consent request (C-02, N-02): a QR for someone in front of you, or a request sent to a Sammati ID. */
+export function NewRequestSection(props: NewRequestSectionProps & { onOpenConsents?: () => void }): ReactNode {
+  const [tab, setTab] = useState<"qr" | "send">("qr");
+  const tabs = [
+    { id: "qr" as const, label: "QR (in person)" },
+    { id: "send" as const, label: "Send to user" },
+  ];
+  return (
+    <div className="space-y-5">
+      <div role="tablist" aria-label="How to ask" className="flex gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            onClick={() => setTab(t.id)}
+            className={`min-h-[44px] rounded-pill border-2 px-5 text-sm font-extrabold focus:outline-none focus-visible:ring-4 focus-visible:ring-marigold ${
+              tab === t.id ? "border-ink bg-ink text-paper" : "border-line bg-surface text-ink hover:border-ink"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === "qr" ? (
+          <QrRequestPanel {...props} />
+        ) : (
+          <SendToUserPanel company={props.company} purposes={props.purposes} onOpenConsents={props.onOpenConsents} />
+        )}
       </div>
     </div>
   );

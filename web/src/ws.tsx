@@ -21,6 +21,7 @@ import type {
   AnchorPostedEvent,
   CascadeUpdatedEvent,
   ConsentUpdatedEvent,
+  RequestUpdatedEvent,
   TamperAlertEvent,
   VaultEvent,
   VaultEventName,
@@ -229,6 +230,11 @@ const VAULT_EVENT_NAMES: readonly VaultEventName[] = ["vault.encrypted", "vault.
 export function useVaultEvents(cb: Listener<VaultEvent>): void {
   // A fixed list, so the hooks below are called in the same order on every render.
   for (const name of VAULT_EVENT_NAMES) useWsEvent<VaultEvent>(name, cb);
+}
+
+/** Fires whenever a targeted request of this company moves (trd.md §6.5): by request id, never by customer. */
+export function useRequestUpdated(cb: Listener<RequestUpdatedEvent>): void {
+  useWsEvent("request.updated", cb);
 }
 
 /** Fires whenever consent.updated arrives. */

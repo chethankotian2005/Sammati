@@ -313,11 +313,22 @@ export class Repo {
     return { principal, fiduciaries };
   }
 
-  /** The company-side alias for whoever consented to this exact notice (matched on the notice hash). */
-  private aliasFor(fiduciary: Hex, noticeHash: Hex | null): string | null {
+  /**
+   * The company-side alias for whoever consented to this exact notice. A request addressed to this very customer
+   * (targeted, trd.md §6.11) wins, because Core knows who it was for; otherwise the newest request with the same notice
+   * hash is taken, which is all a QR code allows.
+   */
+  private aliasFor(fiduciary: Hex, noticeHash: Hex | null, principal: Hex): string | null {
     if (!noticeHash) return null;
+    const addressed = this.db
+      .prepare(
+        `SELECT r.customer_alias FROM requests r JOIN request_targets t ON t.request_id = r.id
+         WHERE r.fiduciary = ? AND r.notice_hash = ? AND t.principal = ? ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1`,
+      )
+      .get(fiduciary, noticeHash, lc(principal)) as { customer_alias: string } | undefined;
+    if (addressed) return addressed.customer_alias;
     const r = this.db
-      .prepare("SELECT customer_alias FROM requests WHERE fiduciary = ? AND notice_hash = ? ORDER BY created_at DESC LIMIT 1")
+      .prepare("SELECT customer_alias FROM requests WHERE fiduciary = ? AND notice_hash = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
       .get(fiduciary, noticeHash) as { customer_alias: string } | undefined;
     return r?.customer_alias ?? null;
   }
@@ -328,7 +339,7 @@ export class Repo {
       const c = this.cachedFromRow(r);
       return {
         principal: c.principal,
-        customerAlias: this.aliasFor(f.address, c.noticeHash),
+        customerAlias: this.aliasFor(f.address, c.noticeHash, c.principal),
         purposeId: c.purposeId,
         purposeCode: this.purposeById(c.purposeId)?.code ?? "",
         status: c.status,

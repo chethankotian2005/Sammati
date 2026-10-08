@@ -536,4 +536,125 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get share_cta => 'Share your details securely';
+
+  @override
+  String get inbox_title => 'Requests';
+
+  @override
+  String inbox_badge_label(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests',
+      one: '1 request',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_empty =>
+      'No requests. When a company asks for your consent it will appear here.';
+
+  @override
+  String inbox_asks(String company, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count purposes',
+      one: '1 purpose',
+    );
+    return '$company is asking for $_temp0';
+  }
+
+  @override
+  String inbox_message_from(String company) {
+    return 'Message from $company';
+  }
+
+  @override
+  String inbox_expires_hours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: 'Expires in $hours hours',
+      one: 'Expires in 1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get inbox_expires_soon => 'Expires in under an hour';
+
+  @override
+  String get inbox_offline => 'No connection. Showing last known requests.';
+
+  @override
+  String get request_review => 'Review';
+
+  @override
+  String get request_decline => 'Decline';
+
+  @override
+  String get request_block => 'Block this company';
+
+  @override
+  String request_block_confirm(String company) {
+    return 'Block $company? They will not be able to send you requests.';
+  }
+
+  @override
+  String get request_declined => 'Request declined.';
+
+  @override
+  String request_blocked(String company) {
+    return '$company is blocked.';
+  }
+
+  @override
+  String get blocked_title => 'Blocked companies';
+
+  @override
+  String get blocked_empty => 'You have not blocked anyone.';
+
+  @override
+  String get request_unblock => 'Unblock';
+
+  @override
+  String get auth_reason_decline => 'Confirm to decline this request';
+
+  @override
+  String get auth_reason_block => 'Confirm to block this company';
+
+  @override
+  String get id_title => 'Your Sammati ID';
+
+  @override
+  String get id_none => 'No Sammati ID yet';
+
+  @override
+  String get id_explain =>
+      'Companies can send you consent requests here. They never see your wallet address until you say yes.';
+
+  @override
+  String get id_choose => 'Choose your ID';
+
+  @override
+  String get id_hint => '3 to 30 letters, numbers, dots or dashes';
+
+  @override
+  String get id_invalid => 'Use 3 to 30 letters, numbers, dots or dashes';
+
+  @override
+  String get id_taken => 'That ID is taken. Try another.';
+
+  @override
+  String get id_register => 'Register';
+
+  @override
+  String id_registered(String handle) {
+    return 'Your ID is $handle';
+  }
+
+  @override
+  String get auth_reason_id => 'Confirm to register your Sammati ID';
 }

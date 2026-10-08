@@ -34,6 +34,12 @@ export interface Config {
   processorKeys: Record<string, string>;
   indexerIntervalMs: number;
   reconcileIntervalMs: number;
+  /** Targeted requests (trd.md §6.11): how many one company may send per minute, before any handle is looked at. */
+  targetedRatePerMinute: number;
+  /** How many open requests one company may have with one customer; the rest are dropped silently. */
+  maxOpenRequestsPerUser: number;
+  /** How far a signed identity or action message's `issuedAt` may be from Core's clock, in seconds (trd.md §4.5). */
+  identityFreshnessSeconds: number;
   /** Customers whose key Core holds (lower-case address -> key), so the presenter can withdraw for them (trd.md §6.4). Never a real wallet's. */
   demoPrincipalKeys: Record<string, string>;
   /** Where the wallet finds the Sammati Processor (trd.md §6.1). Core only points at it. */
@@ -94,6 +100,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     processorKeys: Object.fromEntries(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => [p.address.toLowerCase(), p.demoKey]))),
     indexerIntervalMs: Number(env.INDEXER_INTERVAL_MS ?? 1000),
     reconcileIntervalMs: Number(env.RECONCILE_INTERVAL_MS ?? 30_000),
+    targetedRatePerMinute: Number(env.TARGETED_RATE_PER_MINUTE ?? 20),
+    maxOpenRequestsPerUser: Number(env.MAX_OPEN_REQUESTS_PER_USER ?? 3),
+    identityFreshnessSeconds: Number(env.IDENTITY_FRESHNESS_SECONDS ?? 900),
     demoPrincipalKeys: parseKeys(env.DEMO_PRINCIPAL_KEYS) ?? { [DEMO_PRINCIPAL.toLowerCase()]: DEMO_PRINCIPAL_KEY },
     processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
     processorEventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",

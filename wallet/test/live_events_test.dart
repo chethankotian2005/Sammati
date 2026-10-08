@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/activity.dart';
 import 'package:sammati/core/consents.dart';
 import 'package:sammati/core/live_events.dart';
+import 'package:sammati/core/requests.dart';
 
 import 'support/fake_core.dart';
 
@@ -110,6 +111,32 @@ void main() {
     });
   });
 
+  group('ConsentRequested.tryParse (consent.requested, trd.md §6.5)', () {
+    Map<String, Object?> frame() => {
+          'event': 'consent.requested',
+          'principal': _principal,
+          'requestId': 'req_ab12cd34',
+          'fiduciary': fiduciaryAddress,
+          'fiduciaryName': 'QuickLoan',
+          'purposeCodes': ['credit_check'],
+          'message': 'hello',
+          'expiresAt': 1760086400,
+          'at': 1760000000,
+        };
+
+    test('reads a request', () {
+      final r = ConsentRequested.tryParse(frame())!;
+      expect([r.requestId, r.fiduciary, r.fiduciaryName], ['req_ab12cd34', fiduciaryAddress, 'QuickLoan']);
+    });
+
+    test('ignores other events and malformed frames', () {
+      expect(ConsentRequested.tryParse({...frame(), 'event': 'consent.updated'}), isNull);
+      expect(ConsentRequested.tryParse({...frame(), 'requestId': 5}), isNull);
+      expect(ConsentRequested.tryParse({...frame()}..remove('fiduciaryName')), isNull);
+      expect(ConsentRequested.tryParse('consent.requested'), isNull);
+    });
+  });
+
   group('WsLiveEvents against a real socket', () {
     late _Server server;
     late WsLiveEvents live;
@@ -159,6 +186,30 @@ void main() {
         ..add(frame('vault.erased', _principal, cause: 'withdrawn'));
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(notices.map((n) => n.kind), [VaultNoticeKind.stored, VaultNoticeKind.erased]);
+    });
+
+    test('delivers consent.requested for this customer only', () async {
+      final firstConnection = server.nextConnection();
+      live = WsLiveEvents(server.url, _principal);
+      final seen = <ConsentRequested>[];
+      live.requestEvents.listen(seen.add);
+      final socket = await firstConnection.timeout(const Duration(seconds: 5));
+      String frame(String principal) => jsonEncode({
+            'event': 'consent.requested',
+            'principal': principal,
+            'requestId': 'req_ab12cd34',
+            'fiduciary': fiduciaryAddress,
+            'fiduciaryName': 'QuickLoan',
+            'purposeCodes': ['credit_check'],
+            'message': null,
+            'expiresAt': 1760086400,
+            'at': 1760000000,
+          });
+      socket
+        ..add(frame('0x0000000000000000000000000000000000000001'))
+        ..add(frame(_principal));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(seen.map((r) => r.requestId), ['req_ab12cd34']);
     });
 
     test('ignores other event types, other principals and junk frames without dropping the socket', () async {

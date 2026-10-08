@@ -6,6 +6,7 @@ import '../../app/router.dart';
 import '../../core/consent_providers.dart';
 import '../../core/consents.dart';
 import '../../core/consents_controller.dart';
+import '../../core/requests_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 import '../consent/receipt_data.dart';
@@ -23,7 +24,31 @@ class ConsentsScreen extends ConsumerWidget {
     final state = ref.watch(consentsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(t.appName)),
+      appBar: AppBar(
+        title: Text(t.appName),
+        actions: [
+          // W11: the inbox, with the number of requests waiting. Read by screen readers as "3 requests".
+          Builder(builder: (context) {
+            final waiting = ref.watch(requestsProvider).items.length;
+            return Semantics(
+              label: t.inbox_badge_label(waiting),
+              button: true,
+              child: IconButton(
+                tooltip: t.inbox_title,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                onPressed: () => context.push(Routes.requests),
+                icon: Badge(
+                  isLabelVisible: waiting > 0,
+                  label: Text('$waiting'),
+                  backgroundColor: SammatiColors.marigold,
+                  textColor: SammatiColors.ink,
+                  child: const Icon(Icons.notifications_none),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
       body: Column(
         children: [
           if (state.offline && state.snapshot != null) OfflineBanner(message: t.offline_banner),

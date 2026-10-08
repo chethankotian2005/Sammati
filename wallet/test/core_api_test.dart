@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/core_api.dart';
 import 'package:sammati/core/envelope.dart';
 import 'package:sammati/core/processor_api.dart';
+import 'package:sammati/core/requests.dart';
 
 import 'support/fake_core.dart';
 
@@ -329,6 +330,78 @@ void main() {
       await expectCoreFailure(submit(processorWith(_CannedAdapter(status: 500, body: {'error': {'code': 'INTERNAL', 'message': 'x'}}))), CoreFailure.server, code: 'INTERNAL');
       final down = _CannedAdapter(error: (o) => DioException.connectionError(requestOptions: o, reason: 'down'));
       await expectCoreFailure(submit(processorWith(down)), CoreFailure.unreachable);
+    });
+  });
+
+  group('Sammati ID and inbox calls', () {
+    const principal = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+
+    test('getIdentity reads the handle, or null', () async {
+      expect(await _apiWith(_CannedAdapter(body: {'handle': 'asha@sammati'})).getIdentity(principal), 'asha@sammati');
+      expect(await _apiWith(_CannedAdapter(body: {'handle': null})).getIdentity(principal), isNull);
+    });
+
+    test('registerIdentity posts what was signed, and a taken handle is a rejection with its code', () async {
+      final ok = _CannedAdapter(status: 201, body: {'handle': 'asha@sammati'});
+      await _apiWith(ok).registerIdentity(handle: 'asha@sammati', principal: principal, issuedAt: 1760000000, signature: '0xsig');
+      expect(ok.last!.path, '/v1/identities');
+      expect(jsonDecode(ok.lastBody!), {'handle': 'asha@sammati', 'principal': principal, 'issuedAt': 1760000000, 'signature': '0xsig'});
+
+      final taken = _CannedAdapter(status: 409, body: {'error': {'code': 'HANDLE_TAKEN', 'message': 'x'}});
+      await expectCoreFailure(_apiWith(taken).registerIdentity(handle: 'asha@sammati', principal: principal, issuedAt: 1, signature: '0x'), CoreFailure.rejected, code: 'HANDLE_TAKEN');
+    });
+
+    test('getInbox reads each request and skips one it cannot read', () async {
+      Map<String, Object?> row(String id) => {
+            'requestId': id,
+            'fiduciary': {'address': fiduciaryAddress, 'name': 'QuickLoan', 'color': '#2F5BEA', 'sector': 'Fintech lending'},
+            'purposes': [
+              {'code': 'credit_check', 'title': {'en': 'Credit check', 'hi': 'क्रेडिट जाँच', 'kn': 'ಕ್ರೆಡಿಟ್'}}
+            ],
+            'message': null,
+            'createdAt': 1760000000,
+            'expiresAt': 1760086400,
+            'status': 'sent',
+          };
+      final adapter = _CannedAdapter(body: {'requests': [row('req_a'), {'requestId': 'broken'}, row('req_c')]});
+      final got = await _apiWith(adapter).getInbox(principal);
+      expect(got.map((r) => r.requestId), ['req_a', 'req_c']);
+      expect(got.first.company, 'QuickLoan');
+      expect(got.first.purposes.single.title.en, 'Credit check');
+      expect(got.first.message, isNull);
+      expect(adapter.last!.path, '/v1/principals/$principal/requests');
+    });
+
+    test('an inbox answer with no list is a server failure', () async {
+      await expectCoreFailure(_apiWith(_CannedAdapter(body: {'nope': 1})).getInbox(principal), CoreFailure.server);
+    });
+
+    test('declineRequest posts the signed message to the request', () async {
+      final adapter = _CannedAdapter(body: {'status': 'declined'});
+      await _apiWith(adapter).declineRequest(requestId: 'req_a', principal: principal, issuedAt: 5, signature: '0xsig');
+      expect(adapter.last!.path, '/v1/requests/req_a/decline');
+      expect(jsonDecode(adapter.lastBody!), {'principal': principal, 'issuedAt': 5, 'signature': '0xsig'});
+    });
+
+    test('blocks are listed and set with the signed action', () async {
+      final list = _CannedAdapter(body: {'blocked': [{'fiduciary': {'address': fiduciaryAddress, 'name': 'QuickLoan'}, 'blockedAt': 7}, {'junk': true}]});
+      final got = await _apiWith(list).getBlocks(principal);
+      expect(got.map((b) => [b.name, b.blockedAt]), [['QuickLoan', 7]]);
+
+      final set = _CannedAdapter(body: {'blocked': true});
+      await _apiWith(set).setBlocked(principal: principal, fiduciary: fiduciaryAddress, action: 'block', issuedAt: 9, signature: '0xsig');
+      expect(set.last!.path, '/v1/principals/$principal/blocks');
+      expect(jsonDecode(set.lastBody!), {'fiduciary': fiduciaryAddress, 'action': 'block', 'issuedAt': 9, 'signature': '0xsig'});
+    });
+
+    test('the messages that get signed are exactly the ones Core checks', () {
+      expect(identityMessage('Asha@Sammati', '0xF39FD6E51AAD88F6F4CE6AB8827279CFFFB92266', 5), 'sammati-id:v1:asha@sammati:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266:5');
+      expect(declineMessage('req_a', '0xABC', 5), 'sammati-decline:v1:req_a:0xabc:5');
+      expect(blockMessage('block', '0xDEF', '0xABC', 5), 'sammati-block:v1:block:0xdef:0xabc:5');
+      expect(isValidHandleName('asha.k_1-x'), isTrue);
+      for (final bad in ['as', 'ASHA', 'a b', 'a@b', 'x' * 31, '']) {
+        expect(isValidHandleName(bad), isFalse, reason: bad);
+      }
     });
   });
 }

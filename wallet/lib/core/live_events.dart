@@ -8,6 +8,7 @@ import 'package:web_socket_channel/io.dart';
 
 import 'activity.dart';
 import 'consents.dart';
+import 'requests.dart';
 
 /// One processor acknowledgement row from the `cascade.updated` WebSocket event
 /// (trd.md §6.5, drd.md §3 cascade_acks).
@@ -102,6 +103,9 @@ abstract interface class LiveEvents {
   /// `vault.stored` and `vault.erased` events: the customer's encrypted details arrived, or were erased.
   Stream<VaultNotice> get vaultUpdates;
 
+  /// `consent.requested`: a company asked this wallet for consent (trd.md §6.5).
+  Stream<ConsentRequested> get requestEvents;
+
   /// True each time the socket (re)connects, false each time it drops.
   Stream<bool> get connection;
 
@@ -132,6 +136,7 @@ class WsLiveEvents implements LiveEvents {
   final _access = StreamController<ActivityItem>.broadcast();
   final _cascade = StreamController<CascadeAck>.broadcast();
   final _vault = StreamController<VaultNotice>.broadcast();
+  final _requests = StreamController<ConsentRequested>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   bool _disposed = false;
   IOWebSocketChannel? _channel;
@@ -147,6 +152,9 @@ class WsLiveEvents implements LiveEvents {
 
   @override
   Stream<VaultNotice> get vaultUpdates => _vault.stream;
+
+  @override
+  Stream<ConsentRequested> get requestEvents => _requests.stream;
 
   @override
   Stream<bool> get connection => _connection.stream;
@@ -191,6 +199,8 @@ class WsLiveEvents implements LiveEvents {
       if (cascade != null) _emit(_cascade, cascade);
       final vault = VaultNotice.tryParse(decoded);
       if (vault != null) _emit(_vault, vault);
+      final requested = ConsentRequested.tryParse(decoded);
+      if (requested != null) _emit(_requests, requested);
     } on FormatException {
       // A malformed frame must not take the socket down.
     }
@@ -210,6 +220,7 @@ class WsLiveEvents implements LiveEvents {
     unawaited(_access.close());
     unawaited(_cascade.close());
     unawaited(_vault.close());
+    unawaited(_requests.close());
     unawaited(_connection.close());
   }
 }
