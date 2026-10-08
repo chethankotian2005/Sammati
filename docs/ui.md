@@ -129,6 +129,35 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 ## 5. Stage view (`/stage`, for the live demo)
 Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre three columns for QuickLoan, MediCare+, FoodRush showing live request feeds, right column a ledger ticker (tx, ledger head). The QuickLoan column also shows the confidential-processing timeline (the same chips as the console card, handle shortened) so the audience watches the data go in encrypted, a decision come out and the ciphertext vanish on withdrawal. A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
 
+### 5.1 Data Flow Inspector (`/stage/flow`, and a panel of `/stage`; V-07, S-04)
+
+The screen that makes "encrypted, and decrypted only inside the processor" obvious from the back of the room in a few seconds. Everything on it comes from real events and real responses (`trd.md` §6.9); nothing is a canned animation.
+
+Layout: a thin header with the title "Data flow", a **Live / Replay** switch, and the presenter controls; four lanes left to right, each a large card with a number, a title and a one-line caption; below them the step timeline and the privacy line. Type is large (lane titles 28, body 20 or more), `ink` and `marigold` for structure, `allow` and `block` only for decision states.
+
+| Lane | Title and caption | Content |
+|---|---|---|
+| 1 | **Wallet** · "On the customer's own phone" | The customer's fields in plain text (PAN in Plex Mono, income band, score), because it is their own device. An **Encrypting** step lights on `vault.encrypted` and becomes **Sent encrypted** on `vault.stored` |
+| 2 | **In transit and at rest** · "X25519 + AES-256-GCM" | The real ciphertext in Plex Mono, shortened (`0x1a2b…c3d4`, tap to copy in full), the envelope hash (the handle, labelled "Envelope hash"), the size in bytes, and the algorithm label |
+| 3 | **QuickLoan staff view** · "What QuickLoan can see" | Two buttons. **Try to view customer data** calls the real admin endpoint and shows exactly what came back: the ciphertext hash and the chip "Not authorised to read content". **Try to read database** shows the raw ciphertext row. This lane never shows a plaintext value: its answers are filtered (`trd.md` §6.9) and anything that looks like data is replaced by "Blocked: looks like plaintext" |
+| 4 | **Sealed Processor** · "Demo visualisation of a sealed processor" | A box with four states, **Waiting**, **Decrypting**, **Scoring**, **Decision**, the current one marked. Fields are shown masked, by shape only (`PAN ••••• •••• •`, `Income •••••`, `Score •••`), whatever state it is in. On Decision: Approved or Declined (or Blocked with the reason) in the decision's colour **and** with an icon and a word, the limit, and the reason codes as chips. It renders only `processor.decrypting` and `processor.decided` |
+
+Bottom strip: a step-by-step timeline (Encrypted, Stored, Requested, Decrypting, Decided, Erased) with the time of each step and the gap from the previous one, taken from the events' own timestamps. Under it the privacy line:
+
+- "No plaintext was visible to QuickLoan or any third party" with a shield icon, in `allow`, **only** while the client-side check holds and at least one decision has been seen;
+- until then, nothing (no empty claim);
+- if a value from the demo profile turns up in any event: "Plaintext found in an event: this must never happen" with a warning icon, in `block`, and it stays.
+
+Presenter controls: **Withdraw and re-run** runs Withdraw, then Apply, and shows the Processor lane go to Decision: Blocked ("451 · Consent withdrawn") and the line "Ciphertext erased" in lane 2 (struck-through ciphertext, a bin icon and the word). For a real phone the control says "Withdraw on the phone now" and waits for that withdrawal, then applies. **Replay** plays the saved recording instead of the live stream (marked with a persistent "Replay of a recording" chip so it is never taken for live). **Save session** downloads the events seen so far.
+
+States: nothing yet (every lane shows its caption and "Waiting for the customer to send their details"); Processor unreachable or Core unreachable ("Live feed offline", chip in the header, controls disabled except Replay); an answer the page cannot read (shown as such, never guessed).
+
+Motion: lane highlights and the Processor state change only on events; the presentation delay (`trd.md` §6.9) paces them; with `prefers-reduced-motion` there is no delay and no transition, the state simply changes. Status is never colour alone: every state and decision has a word and an icon. Tokens from §1.1 only; type sizes are the exception to §1.2 for the projector.
+
+Copy (English only, like the rest of the web console): "Encrypting", "Sent encrypted", "Try to view customer data", "Try to read database", "Not authorised to read content", "Blocked: looks like plaintext", "Waiting", "Decrypting", "Scoring", "Decision", "Demo visualisation of a sealed processor", "Withdraw and re-run", "Withdraw on the phone now", "Ciphertext erased", "Replay of a recording", "Live feed offline".
+
+In `/stage` the inspector is a panel the presenter toggles with a **Data flow** button in the header; the banner names the current act of `demo.md` (S-04).
+
 ## 6. Copy and i18n
 
 Voice: plain verbs, sentence case, describe what happens. Errors state what went wrong and what to do, no apologising. An action keeps one name through the flow ("Withdraw" button, "Withdrawn" toast).

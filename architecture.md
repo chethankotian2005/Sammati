@@ -112,6 +112,8 @@ Processor ──consent read──► chain        Processor ──access-log en
 Processor ──events (hashes, no data)──► Core ──► wallet · console · stage
 ```
 
+**Seeing it.** The Data Flow Inspector (`ui.md` §5.1, `trd.md` §6.9) draws these hops from the real events and responses: the phone's own fields, the ciphertext in transit, what QuickLoan's staff and database administrators can reach (ciphertext only), and the sealed Processor's states. It is a viewer; it never decrypts, and it checks every event of the session for the demo values before it claims that no plaintext was visible.
+
 **What each party can see.** Wallet: everything, it is the owner. Processor: plaintext for the duration of one evaluation. QuickLoan, Core, the web apps, the Auditor, a database dump: handles, hashes, ciphertext, decisions, never the data.
 
 **What stops a company asking for another purpose.** The envelope is authenticated with the purpose in its AAD, the evaluate call is checked against consent for the purpose it names, and the attempt, allowed or blocked, is an anchored log entry. A company that asks for `marketing` with a `credit_check` handle is refused (`NO_CONSENT`) and the refusal is on the record.

@@ -45,6 +45,9 @@ Everything below P0 waits until this path runs end to end on the real phone.
 ### Confidential processing (V-01 to V-06): after the hero moments
 Built once the golden path, tamper detection and cascade work (it is a differentiator, not the golden path). Order: (1) spec commit; (2) `shared/src/envelope.ts` + vectors, Dart `envelope.dart` passing the same vectors (hour 1, blocking: if the Dart side cannot match, V-01 stops there); (3) `processor/` with submit, evaluate, erasure; (4) QuickLoan and Core intake; (5) wallet and console screens; (6) extend `pnpm e2e`. Gate: the extended `pnpm e2e` passes, including the plaintext search. Cut it before cutting any hero moment.
 
+### Data Flow Inspector (V-07, S-04): with the confidential-processing work
+Built after V-01 to V-06 work end to end, since it reads their events. Order: (1) spec commit; (2) Core's `POST /v1/demo/withdraw`; (3) the pure parts first, each with tests: lane state machine, privacy check, staff-view filter, replay file; (4) the screen and the `/stage` panel; (5) record `web/public/flow-replay.json` from a real `pnpm e2e` run. Gate: the replay plays with no stack running, and a plaintext value injected into any event hides the privacy line.
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.
@@ -76,6 +79,7 @@ If time runs short, cut from the bottom, never from the top:
 - REST paths and WebSocket event names: `trd.md` §6
 - Reason codes: `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`
 - Colours and copy keys: `ui.md`
+- The Data Flow Inspector's replay file (`web/public/flow-replay.json`) is generated, not edited: regenerate it when the event shapes change
 - Vault envelope format and test vectors: `shared/src/envelope.ts`, `shared/test-vectors/envelope.json` (and the Dart copy `wallet/lib/core/envelope.dart`); Processor endpoints and `vault.*` / `processor.*` events: `trd.md` §6.5, §6.7
 
 ### Git workflow
