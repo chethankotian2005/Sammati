@@ -25,6 +25,9 @@ export class Indexer {
   /** Called for every *new* ConsentWithdrawn event (not for replays), after the cache is up to date. */
   onWithdrawn: ((w: Withdrawal) => void) | null = null;
 
+  /** Called when the chain turns out to be a different one from what the database describes. */
+  onChainReplaced: (() => Promise<void>) | null = null;
+
   constructor(
     private readonly db: Db,
     private readonly repo: Repo,
@@ -106,7 +109,10 @@ export class Indexer {
       const block = last <= latest ? await provider.getBlock(last) : null;
       if (!block || block.hash !== savedHash) {
         this.log("[indexer] chain changed under us (reset?): re-reading from the start");
-        clearChainDerived(this.db);
+        // A replaced chain makes the whole database stale, not just what was derived from events: log rows
+        // would otherwise be anchored onto the new chain. Without the hook (tests) only the derived part goes.
+        if (this.onChainReplaced) await this.onChainReplaced();
+        else clearChainDerived(this.db);
         this.blockTimes.clear();
         last = this.startBlock - 1;
       }

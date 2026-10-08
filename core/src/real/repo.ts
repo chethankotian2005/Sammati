@@ -660,6 +660,12 @@ export class Repo {
     this.setState(`integrity:${fiduciary}`, state);
   }
 
+  /** Anything worth wiping? Only used to decide whether a wipe is worth announcing. */
+  hasData(): boolean {
+    const n = (t: string) => (this.db.prepare(`SELECT COUNT(*) AS c FROM ${t}`).get() as { c: number }).c;
+    return n("access_logs") + n("ledger_events") + n("consents_cache") > 0;
+  }
+
   // --- indexer cursor ---
 
   getState(key: string): string | undefined {

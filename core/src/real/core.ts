@@ -5,6 +5,7 @@ import { AnchorJob } from "./anchor";
 import { CascadeEngine } from "./cascade";
 import { waitForChain, Relayer, type Chain } from "./chain";
 import { clearAll, openDb, type Db } from "./db";
+import { FINGERPRINT_KEY, chainFingerprint, storedFingerprint } from "./fingerprint";
 import { Indexer } from "./indexer";
 import { reconcile, type ReconcileResult } from "./reconcile";
 import { Repo } from "./repo";
@@ -57,9 +58,27 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
   // Proof links come from the chain we are on: Polygon Amoy has a public explorer, the local chain has none.
   const explorerUrl = config.explorerUrl ?? chain.deployment.explorerUrl ?? null;
   const repo = new Repo(db, explorerUrl);
+
+  // Everything in the database describes one particular chain. If this is a different one (the node was
+  // restarted, or `hardhat_reset` and a redeploy happened while Core was off), none of it is true any
+  // more: stale log rows would be anchored onto the new chain and fail verification. Start clean.
+  const fingerprint = await chainFingerprint(chain);
+  const previous = storedFingerprint(repo);
+  if (previous !== fingerprint) {
+    if (repo.hasData()) log(`The chain is not the one this database describes (${previous ? "it was reset or replaced" : "no chain recorded"}): wiping Core's database before serving.`);
+    clearAll(db);
+    repo.setState(FINGERPRINT_KEY, fingerprint);
+  }
   repo.seedDirectory();
+
   const relayer = new Relayer(chain, config.relayerKey);
   const indexer = new Indexer(db, repo, chain, publish);
+  // The same wipe, if the chain is replaced while Core is running (a reset that did not go through demo:reset).
+  indexer.onChainReplaced = async () => {
+    clearAll(db);
+    repo.setState(FINGERPRINT_KEY, await chainFingerprint(chain));
+    repo.seedDirectory();
+  };
   const anchors = new AnchorJob(config, repo, chain, indexer);
   const cascade = new CascadeEngine(config, repo, chain, indexer, publish);
   indexer.onWithdrawn = (w) => cascade.onWithdrawn(w);
@@ -85,6 +104,7 @@ export async function createRealCore(config: Config, publish: (event: WsEvent) =
     publish,
     async reset() {
       clearAll(db);
+      repo.setState(FINGERPRINT_KEY, await chainFingerprint(chain));
       repo.seedDirectory();
       await indexer.resync();
     },

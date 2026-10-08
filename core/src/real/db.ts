@@ -138,7 +138,10 @@ export function openDb(path: string): Db {
 
 export function clearChainDerived(db: Db): void {
   db.transaction(() => {
-    for (const t of CHAIN_DERIVED) db.exec(`DELETE FROM ${t}`);
+    for (const t of CHAIN_DERIVED) {
+      // indexer_state also remembers which chain this database describes: that is not derived from events.
+      db.exec(t === "indexer_state" ? "DELETE FROM indexer_state WHERE key <> 'chain_fingerprint'" : `DELETE FROM ${t}`);
+    }
     // Batches vanish with the chain, so the log rows they covered are unanchored again.
     db.exec("UPDATE access_logs SET batch_index = NULL");
   })();

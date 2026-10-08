@@ -9,6 +9,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ContractFactory, JsonRpcProvider, Network, Wallet, parseEther, type Contract } from "ethers";
 import { DEMO_RELAYER_KEY, seedRegistry, type Deployment } from "@sammati/shared";
+import { syncClock } from "../../scripts/chain.mjs";
 import { readConfig, type Config } from "../src/config";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +90,7 @@ export async function startTestChain(): Promise<TestChain> {
   const child = spawn(process.execPath, [cli, "node", "--port", String(port)], { cwd: contractsDir, stdio: "ignore" });
   await waitForRpc(rpc, child);
 
+  await syncClock(rpc); // node start, like demo:up's bootstrap
   const network = Network.from(CHAIN_ID);
   const provider = new JsonRpcProvider(rpc, network, { staticNetwork: network, pollingInterval: 100 });
   const chain: TestChain = {
@@ -97,6 +99,7 @@ export async function startTestChain(): Promise<TestChain> {
     deployment: await deployAndSeed(provider),
     async reset() {
       await provider.send("hardhat_reset", []);
+      await syncClock(rpc); // as demo:reset does: otherwise the new chain's clock restarts at the old genesis time
       chain.deployment = await deployAndSeed(provider);
     },
     async stop() {
