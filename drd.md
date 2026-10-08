@@ -164,7 +164,7 @@ Rules: no column ever holds plaintext, a key or a decrypted field. A live row ha
 ```json
 {"at":1760000000,"decision":"BLOCKED","endpoint":"GET /customers/:id/credit-profile","fiduciary":"0x..","id":"uuid","latencyMs":12,"principal":"0x..","purposeCode":"credit_check","reason":"CONSENT_WITHDRAWN","seq":42}
 ```
-Processor evaluations are logged the same way, as `fiduciary` = the company, `purposeCode` = the purpose, `endpoint` = `POST /v1/processor/evaluate`, `reason` one of `OK` or the five reason codes. Nothing from the vault, not even a handle, is in an entry.
+Addresses in an entry are EIP-55 checksummed (`trd.md` §7). Processor evaluations are logged the same way, as `fiduciary` = the company, `purposeCode` = the purpose, `endpoint` = `POST /v1/processor/evaluate`, `reason` one of `OK` or the five reason codes. Nothing from the vault, not even a handle, is in an entry.
 
 Sorted keys, no whitespace, UTF-8. `hash = keccak256(prevHash || bytes(canonical))`, where `prevHash` is the 32 raw bytes of the previous entry's hash (32 zero bytes for the first entry). `prevHash` and `hash` are stored on the row but are **not** part of the canonical bytes. Integers only (no floats); `reason` is `OK` for ALLOWED entries.
 
@@ -195,7 +195,7 @@ Required (core) purposes such as `delivery` and `treatment` are marked `required
 Demo principal: one seeded wallet address is not used; the real phone generates its own key. A dedicated demo relayer key pays gas; the seed funds it from the admin account.
 
 Fake customer payloads (examples returned by guarded endpoints):
-- QuickLoan demo profile: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 }` (fictional). **It no longer lives in QuickLoan's backend.** It exists in exactly two places: the wallet's demo profile screen (`wallet/lib/core/demo_profile.dart`, on the phone) and the Processor's memory while it evaluates (`drd.md` §3 vault holds only its ciphertext). QuickLoan's `credit-profile` endpoint returns `{ handle, ciphertextHash, status }`; its apply endpoint returns `{ decision, limit, reasonCodes }` (`trd.md` §6.8). For the demo profile the decision is `approved`, `limit: 300000`, `["SCORE_FAIR"]`.
+- QuickLoan demo profile: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 }` (fictional). **It no longer lives in QuickLoan's backend.** It exists in exactly two places (plus the e2e script, which plays the wallet and so holds a copy in `shared/src/seed.ts` as `DEMO_PROFILE`): the wallet's demo profile screen (`wallet/lib/core/demo_profile.dart`, on the phone) and the Processor's memory while it evaluates (`drd.md` §3 vault holds only its ciphertext). QuickLoan's `credit-profile` endpoint returns `{ handle, ciphertextHash, status }`; its apply endpoint returns `{ decision, limit, reasonCodes }` (`trd.md` §6.8). For the demo profile the decision is `approved`, `limit: 300000`, `["SCORE_FAIR"]`.
 - MediCare+ `records`: `{ bloodGroup: "B+", lastVisit: "2026-08-14", note: "Routine checkup" }`
 - FoodRush `profile`: `{ homeArea: "Indiranagar", lastOrders: 14 }`
 

@@ -99,7 +99,8 @@ Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under
 - Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: device-credential prompt (`auth_reason_vault`), then a progress line "Encrypting and sending…".
 - Sent: `allow`-coloured line with a lock icon, "Sent encrypted. {company} holds only a reference.", then the handle shortened (`0x4f2a…9be1`, tap to copy) and the button reads "Send again" (a new envelope replaces the old one).
 - Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "Your encrypted details were erased." The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
-- Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern. Core or Processor unreachable uses `error_unreachable`.
+- Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern (the button stays). Core or Processor unreachable uses `error_unreachable`; the user declining the device prompt uses `wallet_auth_failed`. A refusal for lack of consent is a failure like any other, never shown as sent.
+- The state is held while the app runs; after a restart the section is idle again until the next `vault.stored` / `vault.erased` event (there is no read endpoint for "what do I have stored", on purpose: the wallet does not ask the Processor questions about stored data).
 - The vault never changes the pass-cut animation or the cascade list.
 
 ### Edge states
