@@ -7,7 +7,6 @@
 import { useState, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  DEMO_PRINCIPAL,
   type ConsentUpdatedEvent,
   type CreateRequestResponse,
   type NoticePurpose,
@@ -16,7 +15,6 @@ import {
 import { StatusChip, HashLabel } from "../../ui";
 import { createConsentRequest } from "../../api";
 import { useConsentUpdated } from "../../ws";
-import { CORE_URL } from "../../core";
 import { SendToUserPanel } from "./SendToUserPanel";
 
 interface NewRequestSectionProps {
@@ -45,8 +43,6 @@ function QrRequestPanel({
   const [receivedTx, setReceivedTx] = useState<string | null>(null);
   const [receivedAt, setReceivedAt] = useState<number | null>(null);
 
-  // Simulator helper state
-  const [simulating, setSimulating] = useState(false);
 
   // Keep selected codes in sync if purposes load later
   if (selectedCodes.length === 0 && purposes.length > 0) {
@@ -92,63 +88,6 @@ function QrRequestPanel({
       setConsentStatus("idle");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Simulate wallet scan & grant for quick browser testing / live demo
-  const handleSimulateScan = async () => {
-    if (!requestData) return;
-    setSimulating(true);
-    try {
-      // Fetch request details from Core to get noticeHash
-      const reqRes = await fetch(`${CORE_URL}/v1/requests/${requestData.requestId}?principal=${DEMO_PRINCIPAL}`);
-      const notice = await reqRes.json();
-
-      // If in stub mode, Core's stub store accepts grants
-      const primaryPurposeId = notice.purposes[0]?.id;
-      if (primaryPurposeId) {
-        // Trigger grant via Core /v1/consents/grant or stub trigger
-        // In stub mode with real Core, the stub emitter also generates consent.updated events.
-        // We can post a demo grant or directly trigger it:
-        const grantPayload = {
-          request: {
-            principal: DEMO_PRINCIPAL,
-            fiduciary: company.address,
-            purposeId: primaryPurposeId,
-            expiresAt: Math.floor(Date.now() / 1000) + 365 * 86400,
-            noticeHash: notice.noticeHash,
-            nonce: notice.nonce ?? "0",
-            deadline: Math.floor(Date.now() / 1000) + 3600,
-          },
-          // Dummy 65-byte signature for demo/stub
-          signature: "0x" + "11".repeat(65),
-        };
-
-        const grantRes = await fetch(`${CORE_URL}/v1/consents/grant`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(grantPayload),
-        });
-
-        if (grantRes.ok) {
-          const body = await grantRes.json();
-          setConsentStatus("received");
-          setReceivedTx(body.txHash);
-          setReceivedAt(Math.floor(Date.now() / 1000));
-        } else {
-          // Fallback: manually update UI state
-          setConsentStatus("received");
-          setReceivedTx("0x4f2a7819cde4791b0198de76ab4102ef19459be1");
-          setReceivedAt(Math.floor(Date.now() / 1000));
-        }
-      }
-    } catch (e) {
-      console.warn("Simulation fallback:", e);
-      setConsentStatus("received");
-      setReceivedTx("0x4f2a7819cde4791b0198de76ab4102ef19459be1");
-      setReceivedAt(Math.floor(Date.now() / 1000));
-    } finally {
-      setSimulating(false);
     }
   };
 
@@ -281,14 +220,6 @@ function QrRequestPanel({
                     <p className="text-xs text-mute">
                       Listening on WebSocket topic for signed EIP-712 grant on chain.
                     </p>
-                    <button
-                      type="button"
-                      onClick={handleSimulateScan}
-                      disabled={simulating}
-                      className="mt-2 text-xs font-bold text-marigold hover:underline"
-                    >
-                      {simulating ? "Simulating grant…" : "⚡ Simulate wallet scan & grant"}
-                    </button>
                   </div>
                 )}
 

@@ -106,7 +106,7 @@ export class Indexer {
     const latest = await provider.getBlockNumber();
     let last = Number(this.repo.getState("last_block") ?? this.startBlock - 1);
 
-    // A node that was reset (hardhat_reset, a fresh `demo:up`) invalidates everything we derived from it.
+    // A node that was reset (hardhat_reset, a fresh `pnpm demo:up`) invalidates everything we derived from it.
     const savedHash = this.repo.getState("last_block_hash");
     if (savedHash !== undefined && last >= this.startBlock) {
       const block = last <= latest ? await provider.getBlock(last) : null;

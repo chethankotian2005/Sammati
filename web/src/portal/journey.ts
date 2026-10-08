@@ -1,20 +1,25 @@
 /**
- * The QuickLoan customer portal's state machine (trd.md §6.10, ui.md §3.1).
+ * A company's customer portal state machine (trd.md §6.10, ui.md §3.1).
  *
  * Pure TypeScript with injected I/O: the page drives it with the browser's fetch and the live WebSocket, and
  * `pnpm e2e` drives the very same code with real answers and a headless wallet, so what is tested is what runs.
  *
  * It never sees a sensitive field. Nothing here asks for one, stores one or shows one; and every frame it receives
- * is searched for the demo profile, so a leak would stop the journey instead of reaching the screen.
+ * is searched for profile values, so a leak would stop the journey instead of reaching the screen.
  */
 
-import { SEED_FIDUCIARIES } from "@sammati/shared";
-import { scanForPlaintext } from "../flow/privacy";
+import { scanForPlaintext } from "./privacy";
 
-const QUICKLOAN = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
-const LOAN_PURPOSE = "credit_check";
-/** Purposes the customer may add; each starts unticked (ui.md §3.1). */
-export const OPTIONAL_PURPOSES = ["marketing", "bureau_share"] as const;
+/** The company the page speaks for, read from Core's directory (trd.md §6.10). */
+export interface PortalCompany {
+  address: string;
+  name: string;
+  /** The purpose the main checkbox asks for (`credit_check` by default). */
+  loanPurpose: string;
+  /** Every other purpose of the company; each starts unticked (ui.md §3.1). */
+  optionalPurposes: readonly string[];
+}
+
 const PAN_SHAPE = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/;
 const MAX_ALIAS = 40;
 
@@ -63,11 +68,12 @@ export const initialJourney: JourneyState = {
 };
 
 export interface JourneyDeps {
+  company: PortalCompany;
   /** `POST /v1/fiduciaries/:fid/requests`. */
   createRequest(alias: string, purposes: string[]): Promise<{ requestId: string; qrPayload: unknown }>;
   /** `GET /v1/fiduciaries/:fid/consents`: the company's own table, which knows the alias of each customer. */
   consentRows(): Promise<Array<{ principal: string; customerAlias: string | null }>>;
-  /** `POST <QuickLoan>/customers/<alias>/apply` with the principal in the header. */
+  /** `POST <the company's backend>/customers/<alias>/apply` with the principal in the header. */
   apply(alias: string, principal: string): Promise<{ status: number; body: unknown }>;
   now(): number;
   /** Waits; injected so tests need no real time. */
@@ -80,11 +86,11 @@ const lc = (s: string): string => s.toLowerCase();
 export type AliasCheck = { ok: true; alias: string } | { ok: false; message: string };
 
 /** The login takes a customer name or ID and nothing else; it refuses what is shaped like a PAN. */
-export function checkAlias(raw: string): AliasCheck {
+export function checkAlias(raw: string, company = "This company"): AliasCheck {
   const alias = raw.trim();
   if (alias === "") return { ok: false, message: "Enter your name or customer ID" };
   if (alias.length > MAX_ALIAS) return { ok: false, message: `Use at most ${MAX_ALIAS} characters` };
-  if (PAN_SHAPE.test(alias.replace(/\s+/g, ""))) return { ok: false, message: "That looks like a PAN. QuickLoan does not need it here." };
+  if (PAN_SHAPE.test(alias.replace(/\s+/g, ""))) return { ok: false, message: `That looks like a PAN. ${company} does not need it here.` };
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f]/.test(alias)) return { ok: false, message: "Use letters and numbers only" };
   return { ok: true, alias };
@@ -109,6 +115,10 @@ export class Journey {
 
   constructor(private readonly deps: JourneyDeps) {}
 
+  private get loan(): string {
+    return this.deps.company.loanPurpose;
+  }
+
   get state(): JourneyState {
     return this.current;
   }
@@ -131,7 +141,7 @@ export class Journey {
 
   login(rawAlias: string): boolean {
     if (this.current.stage !== "logged-out") return false;
-    const checked = checkAlias(rawAlias);
+    const checked = checkAlias(rawAlias, this.deps.company.name);
     if (!checked.ok) {
       this.set({ notice: checked.message });
       return false;
@@ -148,7 +158,7 @@ export class Journey {
   }
 
   toggleOptional(code: string): void {
-    if (this.current.stage !== "form" || !(OPTIONAL_PURPOSES as readonly string[]).includes(code)) return;
+    if (this.current.stage !== "form" || !this.deps.company.optionalPurposes.includes(code)) return;
     const has = this.current.optional.includes(code);
     this.set({ optional: has ? this.current.optional.filter((c) => c !== code) : [...this.current.optional, code] });
   }
@@ -157,7 +167,7 @@ export class Journey {
   async tick(): Promise<void> {
     if (this.current.stage !== "form" || this.current.alias === null) return;
     const epoch = ++this.epoch;
-    const purposes = [LOAN_PURPOSE, ...this.current.optional];
+    const purposes = [this.loan, ...this.current.optional];
     try {
       const created = await this.deps.createRequest(this.current.alias, purposes);
       if (epoch !== this.epoch) return; // unticked or signed out while it was in flight
@@ -186,18 +196,18 @@ export class Journey {
       const body = answer.body as { code?: unknown; error?: { message?: unknown } } | null;
       if (answer.status === 200) {
         const decision = parseDecision(answer.body);
-        if (!decision || scanForPlaintext(answer.body)) return this.fail("QuickLoan's answer could not be read");
+        if (!decision || scanForPlaintext(answer.body)) return this.fail(`${this.deps.company.name}'s answer could not be read`);
         this.set({ stage: "decided", decision, applying: false });
       } else if (answer.status === 451 && body?.code === "CONSENT_WITHDRAWN") {
         this.set({ stage: "withdrawn", applying: false, decision: null });
       } else if (answer.status === 451) {
-        this.set({ applying: false, notice: `QuickLoan cannot process this: ${String(body?.code ?? "refused")}` });
+        this.set({ applying: false, notice: `${this.deps.company.name} cannot process this: ${String(body?.code ?? "refused")}` });
       } else {
-        const message = typeof body?.error?.message === "string" ? body.error.message : `QuickLoan answered ${answer.status}`;
+        const message = typeof body?.error?.message === "string" ? body.error.message : `${this.deps.company.name} answered ${answer.status}`;
         this.fail(message);
       }
     } catch {
-      this.fail("QuickLoan's backend did not answer");
+      this.fail(`${this.deps.company.name}'s backend did not answer`);
     }
   }
 
@@ -230,11 +240,11 @@ export class Journey {
   }
 
   private forMe(e: Record<string, unknown>): boolean {
-    return typeof e.principal === "string" && this.current.principal !== null && lc(e.principal) === lc(this.current.principal) && e.purposeCode === LOAN_PURPOSE;
+    return typeof e.principal === "string" && this.current.principal !== null && lc(e.principal) === lc(this.current.principal) && e.purposeCode === this.loan;
   }
 
   private async onConsent(e: Record<string, unknown>): Promise<void> {
-    if (typeof e.fiduciary !== "string" || lc(e.fiduciary) !== lc(QUICKLOAN.address) || e.purposeCode !== LOAN_PURPOSE || typeof e.principal !== "string") return;
+    if (typeof e.fiduciary !== "string" || lc(e.fiduciary) !== lc(this.deps.company.address) || e.purposeCode !== this.loan || typeof e.principal !== "string") return;
     const s = this.current;
 
     if (e.status === "Active" && s.stage === "awaiting-scan" && s.request && typeof e.at === "number" && e.at >= Math.floor(s.request.createdAtMs / 1000) - 1) {
@@ -275,7 +285,7 @@ export class Journey {
   }
 
   private onStored(e: Record<string, unknown>): void {
-    if (e.purposeCode !== LOAN_PURPOSE || typeof e.principal !== "string" || typeof e.handle !== "string" || typeof e.ciphertextHash !== "string") return;
+    if (e.purposeCode !== this.loan || typeof e.principal !== "string" || typeof e.handle !== "string" || typeof e.ciphertextHash !== "string") return;
     const vault = { handle: e.handle, ciphertextHash: e.ciphertextHash };
     if (this.current.principal === null) {
       this.earlyVault.set(lc(e.principal), vault);

@@ -5,7 +5,7 @@ import { WebSocketServer } from "ws";
 import type { ConsentStateResponse, StoredAccessLogEntry } from "@sammati/shared";
 
 /** A stand-in for Core that speaks its real protocol (REST + WebSocket with subscribe ack) and can misbehave on demand. */
-export class FakeCore {
+export class ScriptedCore {
   /** What /v1/gateway/consent-state answers. */
   verdict: Partial<ConsentStateResponse> & { valid: boolean } = { valid: true, status: "Active", expiresAt: null };
   /** Make consent-state answer 503. */

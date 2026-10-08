@@ -1,10 +1,9 @@
 // Company onboarding (prd.md R-01 to R-03, trd.md §6.12): applications, the regulator's decision, the registration on
 // chain, API keys, the sandbox's test customers and the rate limits that guard the company-facing routes.
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { Contract, Wallet, parseEther, type TransactionReceipt } from "ethers";
 import {
   DEFAULT_COMPANY_COLOR,
-  DEMO_PRINCIPAL,
   descHash,
   fiduciaryMetaHash,
   processorMetaHash,
@@ -24,7 +23,7 @@ import {
 } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError, badRequest } from "../errors";
-import { now } from "../store";
+import { now } from "../clock";
 import { hashApiKey, newApiKey } from "./apikeys";
 import type { Chain } from "./chain";
 import type { Db } from "./db";
@@ -116,12 +115,13 @@ export class Onboarding {
     if (this.slugTaken(slug)) throw new HttpError(409, "NAME_TAKEN", `A company called "${input.name}" is already registered or applying. Choose another name.`);
 
     const id = randomBytes(16).toString("hex");
+    const passwordHash = input.password ? createHash("sha256").update(input.password, "utf8").digest("hex") : null;
     this.db
       .prepare(
-        `INSERT INTO fiduciary_applications (id, name, slug, sector, contact_email, purposes, processors, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        `INSERT INTO fiduciary_applications (id, name, slug, sector, contact_email, password_hash, purposes, processors, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       )
-      .run(id, input.name, slug, input.sector, input.contactEmail, JSON.stringify(input.purposes), JSON.stringify(input.processors), now());
+      .run(id, input.name, slug, input.sector, input.contactEmail, passwordHash, JSON.stringify(input.purposes), JSON.stringify(input.processors), now());
     return { applicationId: id, status: "pending" };
   }
 
@@ -260,10 +260,14 @@ export class Onboarding {
     const registeredTx = hashes[0] ?? null;
     this.db.transaction(() => {
       this.db
-        .prepare("INSERT INTO fiduciaries (address, name, sector, color, registered_tx, slug, sandbox, demo) VALUES (?, ?, ?, ?, ?, ?, ?, 0)")
+        .prepare("INSERT INTO fiduciaries (address, name, sector, color, registered_tx, slug, sandbox) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .run(company.address, app.name, app.sector, DEFAULT_COMPANY_COLOR, registeredTx, app.slug, sandbox ? 1 : 0);
       this.insertDirectory(company.address, app, processors);
       this.db.prepare("INSERT INTO fiduciary_credentials (fiduciary, api_key_hash, issued_at) VALUES (?, ?, ?)").run(company.address, hashApiKey(apiKey), decidedAt);
+      if (r.password_hash && app.contactEmail) {
+        this.db.prepare("INSERT OR IGNORE INTO console_operators (email, password_hash, created_at) VALUES (?, ?, ?)").run(app.contactEmail, r.password_hash, decidedAt);
+        this.db.prepare("INSERT INTO fiduciary_operators (fiduciary, operator_email) VALUES (?, ?)").run(company.address, app.contactEmail);
+      }
       this.db
         .prepare("UPDATE fiduciary_applications SET status = 'approved', note = ?, contact_email = NULL, sandbox = ?, decided_at = ? WHERE id = ?")
         .run(note, sandbox ? 1 : 0, decidedAt, id);
@@ -336,7 +340,6 @@ export class Onboarding {
   setSandbox(fiduciary: string, sandbox: unknown): { fiduciary: Hex; sandbox: boolean } {
     if (typeof sandbox !== "boolean") throw badRequest('"sandbox" must be true or false');
     const f = this.repo.fiduciary(fiduciary);
-    if (f.demo) throw new HttpError(409, "DEMO_COMPANY", "The demo companies are always live");
     this.db.prepare("UPDATE fiduciaries SET sandbox = ? WHERE address = ?").run(sandbox ? 1 : 0, f.address);
     this.publish({ event: "fiduciary.updated", fiduciary: f.address, slug: f.slug, sandbox, at: now() });
     return { fiduciary: f.address, sandbox };
@@ -346,7 +349,7 @@ export class Onboarding {
   reissueKey(fiduciary: string): void {
     const f = this.repo.fiduciary(fiduciary);
     const app = this.db.prepare("SELECT id FROM fiduciary_applications WHERE fiduciary = ? AND status = 'approved'").get(f.address) as { id: string } | undefined;
-    if (f.demo || !app) throw new HttpError(409, "DEMO_COMPANY", "The demo companies use fixed demo keys");
+    if (!app) throw new HttpError(404, "FIDUCIARY_NOT_FOUND", "This company has no approved registration");
     const apiKey = newApiKey();
     this.db.prepare("UPDATE fiduciary_credentials SET api_key_hash = ?, issued_at = ? WHERE fiduciary = ?").run(hashApiKey(apiKey), now(), f.address);
     this.undelivered.set(app.id, apiKey);
@@ -354,7 +357,7 @@ export class Onboarding {
 
   isTester(principal: string): boolean {
     const p = lc(principal);
-    if (p === lc(DEMO_PRINCIPAL) || this.config.sandboxTestPrincipals.includes(p)) return true;
+    if (this.config.sandboxTestPrincipals.includes(p)) return true;
     return this.db.prepare("SELECT 1 FROM sandbox_testers WHERE principal = ?").get(p) !== undefined;
   }
 

@@ -1,10 +1,10 @@
-// Registers the demo companies on a ConsentRegistry (drd.md §5). Used by the seed script and by
-// Core's integration tests, so both seed exactly the same data.
+// Registers the throwaway test companies on a ConsentRegistry, for tests that need companies on chain without going
+// through the registration flow. Nothing in the app calls this.
 import type { Contract, ContractRunner } from "ethers";
-import { descHash, fiduciaryMetaHash, processorMetaHash, purposeIdOf } from "./canonical";
-import { SEED_FIDUCIARIES } from "./seed";
+import { descHash, fiduciaryMetaHash, processorMetaHash, purposeIdOf } from "@sammati/shared";
+import { TEST_COMPANIES } from "./companies";
 
-export interface SeedChainOptions {
+export interface RegisterOptions {
   /** The registry's admin: only it may register fiduciaries. */
   admin: ContractRunner;
   /** A signer for a fiduciary address: purposes and processors must be registered by the fiduciary itself. */
@@ -13,7 +13,7 @@ export interface SeedChainOptions {
 }
 
 /** Idempotent: anything already registered is skipped. Returns how many entries were new. */
-export async function seedRegistry(registry: Contract, { admin, signerFor, onStep }: SeedChainOptions): Promise<number> {
+export async function registerTestCompanies(registry: Contract, { admin, signerFor, onStep }: RegisterOptions): Promise<number> {
   const call = async (as: ContractRunner, method: string, ...args: unknown[]) => {
     const connected = registry.connect(as) as Contract;
     await (await connected.getFunction(method)(...args)).wait();
@@ -23,7 +23,7 @@ export async function seedRegistry(registry: Contract, { admin, signerFor, onSte
   const purposeOwner = async (id: string) => (await registry.getFunction("getPurpose")(id)).fiduciary as string;
 
   let registered = 0;
-  for (const f of SEED_FIDUCIARIES) {
+  for (const f of TEST_COMPANIES) {
     if (!(await isFiduciary(f.address))) {
       await call(admin, "registerFiduciary", f.address, f.name, fiduciaryMetaHash(f));
       registered++;

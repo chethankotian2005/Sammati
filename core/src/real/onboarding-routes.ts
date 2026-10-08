@@ -1,5 +1,6 @@
 // Routes for company onboarding and API-key authentication (trd.md §6.2a, §6.12).
 import { Router, type Request, type RequestHandler, type Response } from "express";
+import { createHash } from "node:crypto";
 import {
   API_KEY_HEADER,
   REGULATOR_KEY_HEADER,
@@ -29,7 +30,7 @@ const UNKNOWN_KEY = "This API key is not recognised. A company can use Sammati o
 
 /**
  * Authenticates a company server by its API key. `required`: no key is 401 `INVALID_API_KEY`. Optional: no key passes
- * (the demo console has no login), but a key that is given must be known. Either way the call is rate limited per company.
+ * (the console has no login in this build), but a key that is given must be known. Either way the call is rate limited per company.
  */
 export function companyKey(core: RealCore, required: boolean): RequestHandler {
   return (req, res, next) => {
@@ -78,7 +79,7 @@ export function onboardingRoutes(core: RealCore): Router {
 
   r.get("/fiduciaries", handle((_req, res) => {
     res.json({
-      fiduciaries: repo.fiduciaries().map((f) => ({ address: f.address, slug: f.slug, name: f.name, sector: f.sector, color: f.color, sandbox: f.sandbox, demo: f.demo })),
+      fiduciaries: repo.fiduciaries().map((f) => ({ address: f.address, slug: f.slug, name: f.name, sector: f.sector, color: f.color, sandbox: f.sandbox })),
     } satisfies FiduciariesResponse);
   }));
 
@@ -92,11 +93,30 @@ export function onboardingRoutes(core: RealCore): Router {
     res.json(onboarding.status(param(req, "applicationId")));
   }));
 
-  // --- the company's own server (R-03) ---
-
   r.get("/gateway/whoami", companyKey(core, true), handle((_req, res) => {
     const f = authenticated(res)!;
     res.json({ fiduciary: f.address, slug: f.slug, name: f.name, sandbox: f.sandbox } satisfies WhoAmIResponse);
+  }));
+
+  // --- console operators (C-10) ---
+  r.post("/console/login", handle((req, res) => {
+    const body = requireBody(req.body);
+    const email = typeof body.email === "string" ? body.email : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!email || !password) throw new HttpError(400, "BAD_CREDENTIALS", "Email and password required");
+    const hash = createHash("sha256").update(password, "utf8").digest("hex");
+    const result = repo.consoleLogin(email, hash);
+    if (!result) throw new HttpError(401, "UNAUTHORIZED", "Invalid email or password");
+    res.json(result);
+  }));
+
+  r.get("/console/me", handle((req, res) => {
+    const auth = req.header("Authorization");
+    if (!auth || !auth.startsWith("Bearer ")) throw new HttpError(401, "UNAUTHORIZED", "Missing token");
+    const token = auth.substring(7);
+    const result = repo.consoleMe(token);
+    if (!result) throw new HttpError(401, "UNAUTHORIZED", "Invalid or expired token");
+    res.json(result);
   }));
 
   // --- the regulator (R-02) ---

@@ -22,7 +22,7 @@ export interface AnchoredBatch {
 
 /**
  * Anchors each company's access log on chain (trd.md §8): a Merkle root over the stored entry hashes,
- * sent by the company itself (Core holds the demo companies' keys: a disclosed shortcut).
+ * sent by the company itself (Core holds the companies' keys: a disclosed shortcut).
  *
  * The chain decides where a batch starts: the next one begins right after the last anchored `toSeq`.
  * If the stored log has a hole there, nothing is anchored and a warning is logged, because anchoring
@@ -109,7 +109,7 @@ export class AnchorJob {
   }
 
   private contractFor(fiduciary: Hex): Contract | null {
-    const key = this.config.fiduciaryKeys[fiduciary.toLowerCase()] ?? this.repo.fiduciaryKey(fiduciary);
+    const key = this.repo.fiduciaryKey(fiduciary);
     if (!key) return null;
     let contract = this.wallets.get(fiduciary);
     if (!contract) {

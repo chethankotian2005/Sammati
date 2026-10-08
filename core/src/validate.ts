@@ -1,4 +1,4 @@
-// Request-body parsers shared by the stub and real routes, so both modes accept and reject the same input.
+// Request-body parsers shared by the routes.
 import { getAddress, isAddress, isHexString } from "ethers";
 import {
   REASON_CODES,

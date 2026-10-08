@@ -1,4 +1,4 @@
-// `pnpm demo:reset` wipes Core through clearAll (trd.md §10): every table, including the ones added later, must be emptied,
+// `pnpm dev:reset` and a Core reset wipe Core through clearAll (trd.md §10): every table, including the ones added later, must be emptied,
 // or a rehearsal's identities, alerts and requests would still be there for the next one.
 import { describe, expect, it } from "vitest";
 import { clearAll, openDb } from "../src/real/db";

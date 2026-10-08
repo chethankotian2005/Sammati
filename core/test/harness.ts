@@ -1,4 +1,4 @@
-// Starts a throwaway Hardhat node, deploys the contracts onto it and seeds the demo data, so Core's
+// Starts a throwaway Hardhat node, deploys the contracts onto it and registers the throwaway test companies, so Core's
 // real mode can be tested against an actual chain. Needs `pnpm --filter @sammati/contracts compile`
 // to have run (the core test script does it).
 import { spawn, type ChildProcess } from "node:child_process";
@@ -8,9 +8,13 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ContractFactory, JsonRpcProvider, Network, Wallet, parseEther, type Contract } from "ethers";
-import { DEMO_RELAYER_KEY, seedRegistry, type Deployment } from "@sammati/shared";
+import { LOCAL_RELAYER_KEY, descHash, purposeIdOf, type Deployment } from "@sammati/shared";
+import { TEST_COMPANIES, registerTestCompanies, testApiKey } from "@sammati/test-fixtures";
 import { syncClock } from "../../scripts/chain.mjs";
 import { readConfig, type Config } from "../src/config";
+import { hashApiKey } from "../src/real/apikeys";
+import { createRealCore, type RealCore } from "../src/real/core";
+import type { Db } from "../src/real/db";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const contractsDir = resolve(here, "../../contracts");
@@ -20,7 +24,7 @@ export interface TestChain {
   rpc: string;
   provider: JsonRpcProvider;
   deployment: Deployment;
-  /** Wipes the node and redeploys + reseeds, like `pnpm demo:reset`. */
+  /** Wipes the node and redeploys, like `pnpm dev:reset`, then registers the test companies again. */
   reset(): Promise<void>;
   stop(): Promise<void>;
 }
@@ -61,7 +65,7 @@ async function waitForRpc(rpc: string, child: ChildProcess): Promise<void> {
   throw new Error("hardhat node did not start in 60s");
 }
 
-async function deployAndSeed(provider: JsonRpcProvider): Promise<Deployment> {
+async function deployAndRegister(provider: JsonRpcProvider): Promise<Deployment> {
   const admin = await provider.getSigner(0);
   const registryArtifact = artifact("ConsentRegistry");
   const registry = await new ContractFactory(registryArtifact.abi as never, registryArtifact.bytecode, admin).deploy(await admin.getAddress());
@@ -70,8 +74,8 @@ async function deployAndSeed(provider: JsonRpcProvider): Promise<Deployment> {
   const anchor = await new ContractFactory(anchorArtifact.abi as never, anchorArtifact.bytecode, admin).deploy(await registry.getAddress());
   await anchor.waitForDeployment();
 
-  await seedRegistry(registry as Contract, { admin, signerFor: (address) => provider.getSigner(address) });
-  await (await admin.sendTransaction({ to: new Wallet(DEMO_RELAYER_KEY).address, value: parseEther("100") })).wait();
+  await registerTestCompanies(registry as Contract, { admin, signerFor: (address) => provider.getSigner(address) });
+  await (await admin.sendTransaction({ to: new Wallet(LOCAL_RELAYER_KEY).address, value: parseEther("100") })).wait();
 
   return {
     chainId: CHAIN_ID,
@@ -96,11 +100,11 @@ export async function startTestChain(): Promise<TestChain> {
   const chain: TestChain = {
     rpc,
     provider,
-    deployment: await deployAndSeed(provider),
+    deployment: await deployAndRegister(provider),
     async reset() {
       await provider.send("hardhat_reset", []);
-      await syncClock(rpc); // as demo:reset does: otherwise the new chain's clock restarts at the old genesis time
-      chain.deployment = await deployAndSeed(provider);
+      await syncClock(rpc); // as dev:reset does: otherwise the new chain's clock restarts at the old genesis time
+      chain.deployment = await deployAndRegister(provider);
     },
     async stop() {
       provider.destroy();
@@ -115,7 +119,7 @@ export async function startTestChain(): Promise<TestChain> {
 /** A real-mode config pointing at the test chain, with an in-memory database unless `dbPath` is given. */
 export function realConfig(chain: TestChain, overrides: Partial<Config> = {}): Config {
   return {
-    ...readConfig({ STUB_MODE: "false" }),
+    ...readConfig({}),
     dbPath: ":memory:",
     chainRpc: chain.rpc,
     deployment: chain.deployment,
@@ -125,4 +129,57 @@ export function realConfig(chain: TestChain, overrides: Partial<Config> = {}): C
     anchorIntervalMs: 0,
     ...overrides,
   };
+}
+
+/**
+ * Puts the throwaway test companies into a Core database: what registration and approval do in the app (R-01, R-02),
+ * written straight into the tables so a test starts with companies without running the flow. The same companies are
+ * registered on chain by `startTestChain`. Idempotent. Nothing in the app calls this.
+ */
+export function loadTestDirectory(db: Db): void {
+  const insertCompany = db.prepare("INSERT OR IGNORE INTO fiduciaries (address, name, sector, color, slug, sandbox) VALUES (?, ?, ?, ?, ?, 0)");
+  const insertCredential = db.prepare("INSERT OR IGNORE INTO fiduciary_credentials (fiduciary, api_key_hash, issued_at) VALUES (?, ?, 1)");
+  const insertKey = db.prepare("INSERT OR IGNORE INTO fiduciary_keys (address, private_key, created_at) VALUES (?, ?, 1)");
+  const insertProcessorKey = db.prepare("INSERT OR IGNORE INTO processor_keys (address, private_key, created_at) VALUES (?, ?, 1)");
+  const insertPurpose = db.prepare(
+    `INSERT OR IGNORE INTO purposes (id, fiduciary, code, title_en, title_hi, title_kn, desc_en, desc_hi, desc_kn,
+       data_categories, retention_days, shares_third_party, desc_hash, required)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const insertProcessor = db.prepare("INSERT OR IGNORE INTO processors (address, name, purpose_id) VALUES (?, ?, ?)");
+  db.transaction(() => {
+    for (const f of TEST_COMPANIES) {
+      insertCompany.run(f.address, f.name, f.sector, f.color, f.slug);
+      insertCredential.run(f.address, hashApiKey(testApiKey(f.slug)));
+      insertKey.run(f.address, f.demoKey);
+      for (const p of f.purposes) {
+        insertPurpose.run(
+          purposeIdOf(f.address, p.code), f.address, p.code,
+          p.title.en, p.title.hi, p.title.kn, p.description.en, p.description.hi, p.description.kn,
+          JSON.stringify(p.dataCategories), p.retentionDays, p.sharesThirdParty ? 1 : 0, descHash(p.description), p.required ? 1 : 0,
+        );
+      }
+      for (const proc of f.processors) {
+        insertProcessorKey.run(proc.address, proc.demoKey);
+        insertProcessor.run(proc.address, proc.name, purposeIdOf(f.address, proc.purposeCode));
+      }
+    }
+  })();
+}
+
+/** `createRealCore` plus the test companies, kept across a reset or a replaced chain. */
+export async function createTestCore(config: Config, publish: (e: never) => void = () => {}, log: (m: string) => void = () => {}): Promise<RealCore> {
+  const core = await createRealCore(config, publish as never, log);
+  loadTestDirectory(core.db);
+  const reset = core.reset.bind(core);
+  core.reset = async () => {
+    await reset();
+    loadTestDirectory(core.db);
+  };
+  const replaced = core.indexer.onChainReplaced;
+  core.indexer.onChainReplaced = async () => {
+    await replaced?.();
+    loadTestDirectory(core.db);
+  };
+  return core;
 }

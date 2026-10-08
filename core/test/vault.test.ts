@@ -2,10 +2,10 @@ import type { AddressInfo } from "node:net";
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { WsEvent } from "@sammati/shared";
-import { createApp } from "../src/app";
+import express from "express";
 import { readConfig } from "../src/config";
-import { StubStore } from "../src/store";
-import { sanitiseResult } from "../src/routes/vault";
+import { errorHandler, notFoundHandler } from "../src/errors";
+import { vaultRoutes } from "../src/routes/vault";
 import { topicsFor } from "../src/ws";
 
 const KEY = "test-event-key";
@@ -20,7 +20,11 @@ let url: string;
 
 beforeAll(async () => {
   const config = readConfig({ PROCESSOR_EVENT_KEY: KEY, PROCESSOR_PUBLIC_URL: "http://192.168.1.5:4200" });
-  server = createServer(createApp({ store: new StubStore(config), config, publish: (e) => published.push(e) }));
+  const app = express();
+  app.use(express.json());
+  app.use("/v1", vaultRoutes({ config, publish: (e) => published.push(e) }));
+  app.use(notFoundHandler, errorHandler);
+  server = createServer(app);
   await new Promise<void>((r) => server.listen(0, r));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
 });
@@ -95,21 +99,5 @@ describe("who receives vault events", () => {
       const topics = topicsFor({ event: name, ...base, principal: PRINCIPAL, fiduciary: FIDUCIARY, ...extra } as unknown as WsEvent);
       expect(topics.sort()).toEqual(["auditor", `fiduciary:${FIDUCIARY.toLowerCase()}`, `principal:${PRINCIPAL.toLowerCase()}`]);
     }
-  });
-});
-
-describe("sanitiseResult (what /v1/demo/fire relays from a company)", () => {
-  it("passes a loan decision and a vault view, rebuilt field by field", () => {
-    expect(sanitiseResult({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], pan: "ABCDE1234F" })).toEqual({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] });
-    expect(sanitiseResult({ handle: HANDLE, ciphertextHash: HASH, status: "stored", extra: "x" })).toEqual({ handle: HANDLE, ciphertextHash: HASH, status: "stored" });
-    expect(sanitiseResult({ handle: null, ciphertextHash: null, status: "none" })).toEqual({ handle: null, ciphertextHash: null, status: "none" });
-  });
-
-  it("drops everything else, in particular a raw credit profile", () => {
-    expect(sanitiseResult({ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 })).toBeUndefined();
-    expect(sanitiseResult({ decision: "approved", limit: 1.5, reasonCodes: [] })).toBeUndefined();
-    expect(sanitiseResult({ decision: "approved", limit: 1, reasonCodes: ["PAN ABCDE1234F"] })).toBeUndefined();
-    expect(sanitiseResult({ status: "stored", handle: "ABCDE1234F", ciphertextHash: null })).toBeUndefined();
-    expect(sanitiseResult("ABCDE1234F")).toBeUndefined();
   });
 });

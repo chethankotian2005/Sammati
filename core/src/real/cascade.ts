@@ -10,7 +10,7 @@ import {
   type WsEvent,
 } from "@sammati/shared";
 import type { Config } from "../config";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Chain } from "./chain";
 import type { Indexer } from "./indexer";
 import { InProcessProcessor } from "./processors";
@@ -54,15 +54,15 @@ const SETTLED = new Set(["AlreadyAcknowledged", "NotWithdrawn", "NotProcessor"])
 export class CascadeEngine {
   private readonly inFlight = new Map<string, Promise<void>>();
   private readonly sleepers = new Set<() => void>();
-  private readonly stubs = new Map<string, InProcessProcessor>();
+  private readonly inProcess = new Map<string, InProcessProcessor>();
   private txQueue: Promise<unknown> = Promise.resolve();
   private stopped = false;
 
   /**
-   * Finds the way to reach a processor. The built-in answer is the in-process demo stub for the five
-   * seeded processors; replace it to deliver over a real webhook, or to test misbehaving processors.
+   * Finds the way to reach a processor. The built-in answer is the in-process acknowledger Core runs for
+   * each processor a company declared (Core holds its key: a disclosed shortcut); replace it to deliver over a real webhook, or to test misbehaving processors.
    */
-  resolveProcessor: (p: Processor) => ProcessorTransport | undefined = (p) => this.builtInStub(p);
+  resolveProcessor: (p: Processor) => ProcessorTransport | undefined = (p) => this.inProcessProcessor(p);
 
   constructor(
     private readonly config: Config,
@@ -112,13 +112,13 @@ export class CascadeEngine {
   }
 
   private async process(w: Withdrawal, p: Processor): Promise<void> {
-    const stub = this.resolveProcessor(p);
-    const fiduciaryKey = this.config.fiduciaryKeys[w.fiduciary.toLowerCase()] ?? this.repo.fiduciaryKey(w.fiduciary);
-    if (!stub || !fiduciaryKey) {
-      this.log(`[cascade] no way to reach ${p.name} (Core holds no ${stub ? "company" : "processor"} key for it); skipping`);
+    const acknowledger = this.resolveProcessor(p);
+    const fiduciaryKey = this.repo.fiduciaryKey(w.fiduciary);
+    if (!acknowledger || !fiduciaryKey) {
+      this.log(`[cascade] no way to reach ${p.name} (Core holds no ${acknowledger ? "company" : "processor"} key for it); skipping`);
       return;
     }
-    const registry = this.chain.registryContract.connect(stub.wallet) as Contract;
+    const registry = this.chain.registryContract.connect(acknowledger.wallet) as Contract;
 
     if (await this.alreadySettled(registry, w)) return;
 
@@ -146,7 +146,7 @@ export class CascadeEngine {
       txHash: null,
     });
 
-    const answer = await stub.receive(signed);
+    const answer = await acknowledger.receive(signed);
     if (this.stopped) return;
     if (ackSigner(answer)?.toLowerCase() !== p.address.toLowerCase() || answer.ack.notificationDigest !== notificationDigest(notification)) {
       throw new Error("acknowledgement is not signed by the processor for this notification; not recording it");
@@ -185,21 +185,21 @@ export class CascadeEngine {
     return result;
   }
 
-  private builtInStub(p: Processor): InProcessProcessor | undefined {
-    let stub = this.stubs.get(p.address.toLowerCase());
-    if (!stub) {
-      const key = this.config.processorKeys[p.address.toLowerCase()] ?? this.repo.processorKey(p.address);
+  private inProcessProcessor(p: Processor): InProcessProcessor | undefined {
+    let acknowledger = this.inProcess.get(p.address.toLowerCase());
+    if (!acknowledger) {
+      const key = this.repo.processorKey(p.address);
       if (!key) return undefined;
       const [min, max] = this.config.cascadeDelayMs;
-      stub = new InProcessProcessor(
+      acknowledger = new InProcessProcessor(
         p.name,
         new Wallet(key, this.chain.provider),
         (ms) => this.wait(ms),
         () => min + Math.random() * (max - min),
       );
-      this.stubs.set(p.address.toLowerCase(), stub);
+      this.inProcess.set(p.address.toLowerCase(), acknowledger);
     }
-    return stub;
+    return acknowledger;
   }
 
   /** A sleep that ends early when the engine stops. */

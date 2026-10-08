@@ -3,11 +3,8 @@ import { DirectoryProvider, useDirectory } from "./directory";
 import { WsProvider } from "./ws";
 import { Auditor } from "./pages/Auditor";
 import { Company } from "./pages/Company";
-import { Gallery } from "./pages/Gallery";
 import { Join } from "./pages/Join";
 import { JoinStatus } from "./pages/JoinStatus";
-import { Stage } from "./pages/Stage";
-import { StageFlow } from "./pages/StageFlow";
 import { PortalPage } from "./portal/PortalPage";
 
 // The auditor topic carries every company's events; the directory adds `fiduciary:<address>` for each approved company
@@ -30,12 +27,9 @@ export function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/company/:id" element={<Company />} />
         <Route path="/auditor" element={<Auditor />} />
-        <Route path="/stage" element={<Stage />} />
-        <Route path="/stage/flow" element={<StageFlow />} />
-        <Route path="/portal/quickloan" element={<PortalPage />} />
+        <Route path="/portal/:slug" element={<PortalPage />} />
         <Route path="/join" element={<Join />} />
         <Route path="/join/:applicationId" element={<JoinStatus />} />
-        <Route path="/gallery" element={<Gallery />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </DirectoryProvider>

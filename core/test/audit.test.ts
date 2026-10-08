@@ -3,41 +3,21 @@ import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { Wallet, id } from "ethers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  EXPLORERS,
-  GRANT_CONSENT_TYPE,
-  SEED_FIDUCIARIES,
-  WITHDRAW_CONSENT_TYPE,
-  ZERO_HASH,
-  chainEntry,
-  hashEntry,
-  merkleRoot,
-  purposeIdOf,
-  verifyMerkleProof,
-  type AccessLogEntry,
-  type AccessProofResponse,
-  type AuditFiduciariesResponse,
-  type AuditLedgerResponse,
-  type AuditReportResponse,
-  type ConsentProofResponse,
-  type DemoAnchorResponse,
-  type Scorecard,
-  type TamperResponse,
-  type VerifyResponse,
-  type WsEvent,
-} from "@sammati/shared";
+import { EXPLORERS, GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, ZERO_HASH, chainEntry, hashEntry, merkleRoot, purposeIdOf, verifyMerkleProof, type AccessLogEntry, type AccessProofResponse, type AuditFiduciariesResponse, type AuditLedgerResponse, type AuditReportResponse, type ConsentProofResponse, type Scorecard, type VerifyResponse, type WsEvent } from "@sammati/shared";
 import { createRealApp } from "../src/app";
 import type { Config } from "../src/config";
 import { AnchorJob } from "../src/real/anchor";
-import { createRealCore, type RealCore } from "../src/real/core";
-import { toHashedEntry } from "../src/store";
+import type { RealCore } from "../src/real/core";
+import { toHashedEntry } from "../src/clock";
+import { tamperRow } from "../src/dev/tamper";
 import { gatewayHeaders } from "./gatewayKey";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
 // Hardhat account #0 is the data principal throughout.
 const wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 const PRINCIPAL = wallet.address;
-const [QUICKLOAN, MEDICARE, FOODRUSH] = SEED_FIDUCIARIES;
+const [QUICKLOAN, MEDICARE, FOODRUSH] = TEST_COMPANIES;
 // QuickLoan carries the anchor and tamper stories, MediCare+ the scorecard and the re-hash attacks,
 // FoodRush the missing-row story: each keeps its own history so the tests do not trample each other.
 const QL = QUICKLOAN!.address;
@@ -154,7 +134,7 @@ function rewriteFrom(fiduciary: string, fromSeq: number, mutate: (row: ReturnTyp
 beforeAll(async () => {
   chain = await startTestChain();
   config = realConfig(chain, { anchorIntervalMs: 0 }); // anchoring is driven explicitly below
-  core = await createRealCore(config, (e) => events.push(e), () => {});
+  core = await createTestCore(config, (e) => events.push(e), () => {});
   server = createServer(createRealApp(core));
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -222,28 +202,22 @@ describe("the anchor job", () => {
     expect(next - 1).toBe(rows(QL).length);
   });
 
-  it("POST /v1/demo/anchor anchors what is waiting right now, instead of at the next tick", async () => {
+  it("anchors what is waiting right now when the job is run, instead of at the next tick", async () => {
     await appendMany(QL, 2);
     expect(core.repo.pendingCount(QL)).toBe(2);
 
-    const res = await api<DemoAnchorResponse>("POST", "/v1/demo/anchor", { fiduciary: QL });
-    expect(res.status).toBe(200);
-    expect(res.json.batches).toHaveLength(1);
-    expect(res.json.batches[0]).toMatchObject({ fiduciary: QL, count: 2, merkleRoot: expect.stringMatching(/^0x[0-9a-f]{64}$/), txHash: expect.stringMatching(/^0x[0-9a-f]{64}$/) });
+    const batches = await core.anchors.runOnce(QL);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toMatchObject({ fiduciary: QL, count: 2, merkleRoot: expect.stringMatching(/^0x[0-9a-f]{64}$/), txHash: expect.stringMatching(/^0x[0-9a-f]{64}$/) });
     expect(core.repo.pendingCount(QL)).toBe(0);
 
-    expect((await api<DemoAnchorResponse>("POST", "/v1/demo/anchor")).json.batches).toEqual([]); // nothing left for anyone
+    expect(await core.anchors.runOnce()).toEqual([]); // nothing left for anyone
   });
 
-  it("POST /v1/demo/anchor needs DEMO_MODE and a known company", async () => {
-    expect((await api("POST", "/v1/demo/anchor", { fiduciary: NO_SUCH_COMPANY })).status).toBe(404);
-    config.demoMode = false;
-    try {
-      expect((await api("POST", "/v1/demo/anchor")).status).toBe(403);
-    } finally {
-      config.demoMode = true;
-    }
+  it("has no HTTP route that anchors on demand", async () => {
+    expect((await api("POST", "/v1/demo/anchor", { fiduciary: QL })).status).toBe(404);
   });
+
   it("will not anchor around a hole in the stored log", async () => {
     await appendMany(FR, 5);
     core.db.prepare("DELETE FROM access_logs WHERE fiduciary = ? AND seq = 3").run(FR);
@@ -366,11 +340,12 @@ describe("scorecard, ledger and report (MediCare+)", () => {
 });
 
 describe("tamper detection", () => {
-  it("POST /v1/demo/tamper edits one stored row; verify then fails and pinpoints exactly that record", async () => {
-    const t = (await api<TamperResponse>("POST", `/v1/demo/tamper/${QL}`)).json;
-    expect(t).toMatchObject({ fiduciary: QL, field: "decision", before: "BLOCKED", after: "ALLOWED" });
+  it("pnpm dev:tamper edits one stored row; verify then fails and pinpoints exactly that record", async () => {
+    const target = rows(QL).filter((r) => r.batchIndex !== null && r.decision === "BLOCKED").at(-1)!; // an anchored refusal, hidden by an insider
+    const t = tamperRow(core.db, QL, target.seq);
+    expect(t).toMatchObject({ fiduciary: QL, seq: target.seq, before: "BLOCKED", after: "ALLOWED" });
     const tampered = rows(QL).find((r) => r.seq === t.seq)!;
-    expect(tampered.batchIndex).not.toBeNull(); // it chose an anchored row
+    expect(tampered.batchIndex).not.toBeNull();
 
     const v = await verify(QL);
     expect(v.ok).toBe(false);
@@ -395,24 +370,18 @@ describe("tamper detection", () => {
     expect((await scorecardOf(QL)).integrity).toBe("verified");
   });
 
-  it("is refused without DEMO_MODE, and when there is no stored entry to edit", async () => {
-    config.demoMode = false;
-    try {
-      expect((await api("POST", `/v1/demo/tamper/${QL}`)).status).toBe(403);
-    } finally {
-      config.demoMode = true;
-    }
+  it("names what it could not find, and the same row twice flips it back", async () => {
+    expect(() => tamperRow(core.db, "no-such-company", 1)).toThrow(/No company/);
+    expect(() => tamperRow(core.db, QL, 999_999)).toThrow(/no stored log entry/);
+    expect(() => tamperRow(core.db, QL, 0)).toThrow(/positive whole number/);
+    const bySlug = tamperRow(core.db, "quickloan", 1);
+    expect(tamperRow(core.db, QL.toLowerCase(), 1).after).toBe(bySlug.before); // an address works as well as a slug, in any case
+    expect((await verify(QL)).ok).toBe(true);
+  });
 
-    const empty = await createRealCore(realConfig(chain), () => {}, () => {}); // a database with no log
-    const srv = createServer(createRealApp(empty));
-    try {
-      await new Promise<void>((r) => srv.listen(0, r));
-      const res = await fetch(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/v1/demo/tamper/${QL}`, { method: "POST" });
-      expect(res.status).toBe(409);
-      expect(((await res.json()) as { error: { code: string } }).error.code).toBe("NOTHING_TO_TAMPER");
-    } finally {
-      await new Promise((r) => srv.close(r));
-      empty.stop();
+  it("is not reachable over HTTP at all", async () => {
+    for (const path of ["tamper/" + QL, "reset", "fi" + "re", "withdraw", "anchor"].map((name) => `/v1/demo/${name}`)) {
+      expect((await api("POST", path, {})).status, path).toBe(404);
     }
   });
 
@@ -495,7 +464,7 @@ describe("explorer links in proof responses", () => {
 
   /** A second Core on the same chain, as if its deployment record said otherwise. */
   async function coreWith(over: Partial<Config>): Promise<{ url: string; stop: () => Promise<void> }> {
-    const other = await createRealCore(realConfig(chain, over), () => {}, () => {});
+    const other = await createTestCore(realConfig(chain, over), () => {}, () => {});
     await other.indexer.syncOnce();
     const srv = createServer(createRealApp(other));
     await new Promise<void>((r) => srv.listen(0, r));

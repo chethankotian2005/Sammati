@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,21 +8,19 @@ import { describe, expect, it } from "vitest";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scripts = (JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
 const demoUp = readFileSync(resolve(root, "scripts/demo-up.mjs"), "utf8");
+const devReset = readFileSync(resolve(root, "scripts/dev-reset.mjs"), "utf8");
 
 describe("pnpm demo:up", () => {
-  it("is real mode by default; only demo:up:stub asks for the stub", () => {
+  it("is the one way to start the stack: no stub and no fast-expiry variants", () => {
     expect(scripts["demo:up"]).toBe("node scripts/demo-up.mjs");
-    expect(scripts["demo:up:real"]).toBe(scripts["demo:up"]); // kept as an alias
-    expect(scripts["demo:up:stub"]).toBe("node scripts/demo-up.mjs --stub");
-    // ...and the launcher turns that into Core's STUB_MODE the right way round
-    expect(demoUp).toContain('const real = !process.argv.includes("--stub");');
-    expect(demoUp).toContain('STUB_MODE: real ? "false" : "true"');
+    expect(Object.keys(scripts).filter((k) => k.startsWith("demo:"))).toEqual(["demo:up"]);
   });
 
-  it("starts the Processor and tells Core where the wallet will find it (V-06)", () => {
+  it("starts the Processor and tells Core where the wallet will find it (V-06), and no company backend", () => {
     expect(demoUp).toContain('name: "processor"');
     expect(demoUp).toContain("PROCESSOR_PUBLIC_URL: processorUrl");
     expect(demoUp.indexOf("processor.sqlite")).toBeGreaterThan(-1);
+    for (const name of ["quickloan", "medicare", "foodrush"]) expect(demoUp).not.toContain(name);
   });
 
   it("gives Core the QR address it printed, and clears the previous run's database first", () => {
@@ -31,28 +30,46 @@ describe("pnpm demo:up", () => {
   });
 });
 
-describe("pnpm demo:reset", () => {
-  it("empties the Processor's vault too", () => {
-    const reset = readFileSync(resolve(root, "scripts/demo-reset.mjs"), "utf8");
-    expect(reset).toContain("await resetProcessor()");
-    expect(reset.indexOf("await resetProcessor()")).toBeLessThan(reset.indexOf('rpc("hardhat_reset")'));
+describe("the dev tools (trd.md §6.4)", () => {
+  it("are command-line scripts, behind DEV_TOOLS", () => {
+    expect(scripts["dev:reset"]).toBe("node scripts/dev-reset.mjs");
+    expect(scripts["dev:tamper"]).toBe("pnpm --filter @sammati/core dev:tamper");
+    expect(scripts["demo:" + "reset"]).toBeUndefined();
   });
 
-  it("resets Core's database, then the chain, then redeploys and seeds, then resets Core again", () => {
-    const reset = readFileSync(resolve(root, "scripts/demo-reset.mjs"), "utf8");
+  it("dev:reset removes the files, resets the chain, then redeploys and funds, and registers nothing", () => {
     const at = (needle: string, from = 0) => {
-      const i = reset.indexOf(needle, from);
-      expect(i, `${needle} missing from demo-reset.mjs`).toBeGreaterThan(-1);
+      const i = devReset.indexOf(needle, from);
+      expect(i, `${needle} missing from dev-reset.mjs`).toBeGreaterThan(-1);
       return i;
     };
-    const coreFirst = at("await resetCore()");
-    const chain = at('rpc("hardhat_reset")', coreFirst);
+    const files = at("rmSync(");
+    const chain = at('rpc("hardhat_reset")', files);
     const clock = at("syncClock()", chain);
-    const deploy = at("deployAndSeed()", clock);
-    const coreAgain = at("await resetCore()", deploy);
-    expect(coreFirst).toBeLessThan(chain);
+    const deploy = at("deployAndFund()", clock);
+    expect(files).toBeLessThan(chain);
     expect(chain).toBeLessThan(clock);
     expect(clock).toBeLessThan(deploy);
-    expect(deploy).toBeLessThan(coreAgain);
+    expect(devReset).toContain('requireDevTools("dev:reset")');
+    expect(devReset).not.toMatch(/fetch\(|\/v1\//); // it talks to the chain's RPC and to files, never to a service
+  });
+
+  const run = (script: string, env: Record<string, string>) =>
+    spawnSync(process.execPath, [resolve(root, script)], { env: { PATH: process.env.PATH ?? "", ...env }, encoding: "utf8", timeout: 20_000 });
+
+  it("dev:reset does nothing without DEV_TOOLS=true, and never beside NODE_ENV=production", () => {
+    const off = run("scripts/dev-reset.mjs", {});
+    expect(off.status).toBe(1);
+    expect(off.stderr).toContain("DEV_TOOLS=true");
+    const prod = run("scripts/dev-reset.mjs", { DEV_TOOLS: "true", NODE_ENV: "production" });
+    expect(prod.status).toBe(1);
+    expect(prod.stderr).toContain("NODE_ENV=production");
+  });
+
+  it("dev:tamper does nothing without DEV_TOOLS=true", () => {
+    const cli = ["--import", "tsx", resolve(root, "core/scripts/dev-tamper.ts"), "--", "quickloan", "1"];
+    const off = spawnSync(process.execPath, cli, { cwd: resolve(root, "core"), env: { PATH: process.env.PATH ?? "" }, encoding: "utf8", timeout: 30_000 });
+    expect(off.status).toBe(1);
+    expect(off.stderr).toContain("DEV_TOOLS=true");
   });
 });

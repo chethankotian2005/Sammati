@@ -11,11 +11,10 @@ import {
   type Mismatch,
   type Scorecard,
   type StoredAccessLogEntry,
-  type TamperResponse,
   type VerifyResponse,
 } from "@sammati/shared";
 import { HttpError } from "../errors";
-import { now, toHashedEntry } from "../store";
+import { now, toHashedEntry } from "../clock";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
 
@@ -197,13 +196,6 @@ export async function report(core: RealCore, fiduciary: Hex): Promise<AuditRepor
     verification,
     recentEvents: core.repo.ledgerEvents({ fiduciary: f.address }, RECENT_EVENTS),
   };
-}
-
-export function tamper(core: RealCore, fiduciary: Hex): TamperResponse {
-  const f = core.repo.fiduciary(fiduciary);
-  const changed = core.repo.tamperRow(f.address);
-  if (!changed) throw new HttpError(409, "NOTHING_TO_TAMPER", "There are no stored log entries to tamper with yet");
-  return { fiduciary: f.address, seq: changed.seq, field: "decision", before: changed.before, after: changed.after };
 }
 
 /**

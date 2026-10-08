@@ -1,10 +1,9 @@
-// Confidential processing on the web (prd.md V-05, V-06): the console and Stage view show a handle, a hash, a status
+// Confidential processing on the web (prd.md V-05, V-06): the console shows a handle, a hash, a status
 // and the Processor's timeline, and nothing they receive or render can contain customer data.
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { VaultEvent } from "@sammati/shared";
 import { VaultPanel, VaultTimeline, decidedText, foldTimeline, heldFromEvents } from "./ui/VaultPanel";
-import { loanOutcome } from "./pages/company/LiveRequestsSection";
 
 afterEach(cleanup);
 
@@ -88,16 +87,3 @@ describe("the QuickLoan card", () => {
   });
 });
 
-describe("the simulator's loan line", () => {
-  it("reads the Processor's answer as QuickLoan relays it", () => {
-    expect(loanOutcome({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] })).toBe("Approved · limit 3,00,000 · SCORE_FAIR");
-    expect(loanOutcome({ decision: "declined", limit: null, reasonCodes: ["SCORE_LOW"] })).toBe("Declined · SCORE_LOW");
-  });
-
-  it("says nothing about any other payload, in particular a vault view or a refusal", () => {
-    expect(loanOutcome({ handle: H1, ciphertextHash: HASH, status: "stored" })).toBeNull();
-    expect(loanOutcome({ code: "CONSENT_WITHDRAWN", message: "x" })).toBeNull();
-    expect(loanOutcome(null)).toBeNull();
-    expect(loanOutcome("Approved")).toBeNull();
-  });
-});

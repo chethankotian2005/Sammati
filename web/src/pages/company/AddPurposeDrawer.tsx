@@ -7,6 +7,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { RegisterPurposeBody, FiduciaryInfo } from "@sammati/shared";
 import { Drawer } from "../../ui";
 import { registerPurpose } from "../../api";
+import { CategoryPicker } from "../../join/CategoryPicker";
 
 interface AddPurposeDrawerProps {
   open: boolean;
@@ -28,7 +29,7 @@ export function AddPurposeDrawer({
   const [descEn, setDescEn] = useState("");
   const [descHi, setDescHi] = useState("");
   const [descKn, setDescKn] = useState("");
-  const [categoriesStr, setCategoriesStr] = useState("PAN, statement");
+  const [categories, setCategories] = useState<string[]>([]);
   const [retentionDays, setRetentionDays] = useState(365);
   const [sharesThirdParty, setSharesThirdParty] = useState(false);
   const [required, setRequired] = useState(false);
@@ -44,7 +45,7 @@ export function AddPurposeDrawer({
     setDescEn("");
     setDescHi("");
     setDescKn("");
-    setCategoriesStr("PAN, statement");
+    setCategories([]);
     setRetentionDays(365);
     setSharesThirdParty(false);
     setRequired(false);
@@ -53,18 +54,13 @@ export function AddPurposeDrawer({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!code.trim() || !titleEn.trim() || !descEn.trim()) {
-      setError("Purpose code, English title, and English description are required.");
+    if (!code.trim() || !titleEn.trim() || !descEn.trim() || categories.length === 0) {
+      setError("Purpose code, English title, English description and at least one data category are required.");
       return;
     }
 
     setLoading(true);
     setError(null);
-
-    const categories = categoriesStr
-      .split(",")
-      .map((c) => c.trim())
-      .filter(Boolean);
 
     const body: RegisterPurposeBody = {
       code: code.trim().toLowerCase().replace(/\s+/g, "_"),
@@ -78,7 +74,7 @@ export function AddPurposeDrawer({
         hi: descHi.trim() || `[hi] ${descEn.trim()}`,
         kn: descKn.trim() || `[kn] ${descEn.trim()}`,
       },
-      dataCategories: categories.length > 0 ? categories : ["general"],
+      dataCategories: categories,
       retentionDays: Number(retentionDays) || 365,
       sharesThirdParty,
       required,
@@ -209,14 +205,7 @@ export function AddPurposeDrawer({
             <label className="block text-xs font-bold uppercase tracking-wider text-mute">
               Data categories
             </label>
-            <input
-              type="text"
-              placeholder="PAN, salary, income"
-              value={categoriesStr}
-              onChange={(e) => setCategoriesStr(e.target.value)}
-              className="mt-1 w-full rounded-row border border-line bg-surface px-3 py-2 text-ink focus:border-marigold focus:outline-none"
-            />
-            <p className="mt-1 text-[11px] text-mute">Comma-separated</p>
+            <CategoryPicker value={categories} onChange={setCategories} />
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-mute">

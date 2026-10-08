@@ -4,7 +4,6 @@ export const CORE_URL: string;
 export function rpc(method: string, params?: unknown[], url?: string): Promise<unknown>;
 export function waitForChain(timeoutMs?: number): Promise<unknown>;
 export function runContracts(script: string): void;
-export function deployAndSeed(): void;
+export function deployAndFund(): void;
 export function syncClock(url?: string): Promise<number>;
 export function clockSkew(url?: string): Promise<number>;
-export function resetCore(core?: string): Promise<string | null>;

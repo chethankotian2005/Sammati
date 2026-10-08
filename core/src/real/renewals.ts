@@ -9,7 +9,7 @@ import { noticeHash } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError } from "../errors";
 import { noticeInput } from "../notice";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Db } from "./db";
 import type { Notifications } from "./notifications";
 import { NOTICE_VERSION, addr, type FiduciaryRow, type Repo } from "./repo";

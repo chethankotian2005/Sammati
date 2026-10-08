@@ -1,7 +1,8 @@
 // Test rig: the real service, vault and enclave, with consent, events, webhooks and the access log replaced by recorders.
-import { Wallet } from "ethers";
+import { Wallet, getBytes } from "ethers";
 import { seal, handleOf, submitMessage, type Envelope } from "@sammati/shared/src/envelope";
-import { SEED_FIDUCIARIES, demoApiKey, type Hex, type ReasonCode, type VaultEvent } from "@sammati/shared";
+import { type Hex, type ReasonCode, type VaultEvent } from "@sammati/shared";
+import { TEST_COMPANIES, testApiKey } from "@sammati/test-fixtures";
 import { readConfig, type ProcessorConfig } from "../src/config";
 import type { ConsentReader, ConsentVerdict } from "../src/consent";
 import { Enclave } from "../src/enclave";
@@ -10,12 +11,12 @@ import { Vault } from "../src/vault";
 
 export const PAN = "ABCDE1234F";
 export const PROFILE = { incomeBand: "6-9 LPA", pan: PAN, score: 742 };
-export const QUICKLOAN = SEED_FIDUCIARIES[0]!.address.toLowerCase() as Hex;
-export const MEDICARE = SEED_FIDUCIARIES[1]!.address.toLowerCase() as Hex;
-export const QL_KEY = demoApiKey("quickloan");
-export const MC_KEY = demoApiKey("medicare");
+export const QUICKLOAN = TEST_COMPANIES[0]!.address.toLowerCase() as Hex;
+export const MEDICARE = TEST_COMPANIES[1]!.address.toLowerCase() as Hex;
+export const QL_KEY = testApiKey("quickloan");
+export const MC_KEY = testApiKey("medicare");
 
-export class FakeConsent implements ConsentReader {
+export class ScriptedConsent implements ConsentReader {
   /** "principal|fiduciary|purpose" -> verdict; anything unlisted is NO_CONSENT. */
   verdicts = new Map<string, ConsentVerdict>();
   unavailable = false;
@@ -45,10 +46,12 @@ export interface LogRecord {
 }
 
 export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8Array | null = null, clock?: () => number) {
-  const config: ProcessorConfig = { ...readConfig({}), dbPath: ":memory:", ...overrides };
+  const companyKeys = new Map(TEST_COMPANIES.map((f) => [testApiKey(f.slug), f.address.toLowerCase() as Hex]));
+  const callbacks = Object.fromEntries(TEST_COMPANIES.map((f) => [f.address.toLowerCase(), `http://localhost:${f.port}/vault/events`]));
+  const config: ProcessorConfig = { ...readConfig({}), apiKeys: companyKeys, callbacks, dbPath: ":memory:", ...overrides };
   const vault = new Vault(":memory:");
   const enclave = new Enclave(privateKey);
-  const consent = new FakeConsent();
+  const consent = new ScriptedConsent();
   const events: VaultEvent[] = [];
   const webhooks: Array<Parameters<CompanyNotifier["notify"]>> = [];
   const logs: LogRecord[] = [];
@@ -82,4 +85,16 @@ export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8A
   const evaluateBody = (handle: Hex, purposeCode = "credit_check", fiduciary: Hex = QUICKLOAN) => ({ handle, fiduciary, purposeCode, action: "loan_decision" });
 
   return { config, vault, enclave, consent, events, webhooks, logs, service, wallet, principal, walletSubmission, submitted, evaluateBody };
+}
+
+/** What a database administrator could do to a stored row: flip one bit of the ciphertext. Returns false if nothing is live under the handle. */
+export function tamperStored(vault: Vault, handle: string): boolean {
+  const row = vault.get(handle);
+  if (!row?.ciphertext) return false;
+  const envelope = JSON.parse(row.ciphertext.toString("utf8")) as Envelope;
+  const bytes = getBytes(envelope.ciphertext);
+  bytes[0] = (bytes[0] ?? 0) ^ 0x01;
+  const edited = Buffer.from(JSON.stringify({ ...envelope, ciphertext: "0x" + Buffer.from(bytes).toString("hex") }));
+  const db = (vault as unknown as { db: { prepare(sql: string): { run(...args: unknown[]): { changes: number } } } }).db;
+  return db.prepare("UPDATE vault SET ciphertext = ? WHERE handle = ? AND erased_at IS NULL").run(edited, handle).changes > 0;
 }

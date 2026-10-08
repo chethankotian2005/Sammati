@@ -1,9 +1,10 @@
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_FIDUCIARIES, type FiduciaryInfo } from "@sammati/shared";
+import { type FiduciaryInfo } from "@sammati/shared";
 import { AppRoutes } from "./App";
 
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
 // WsProvider opens a WebSocket which is not available in jsdom. Stub it so
 // tests don't throw, while still exercising routing and rendering.
 const MockWs = vi.fn().mockImplementation(() => ({
@@ -19,8 +20,8 @@ const MockWs = vi.fn().mockImplementation(() => ({
   CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3,
 }));
 
-const SEEDS: FiduciaryInfo[] = SEED_FIDUCIARIES.map((f) => ({ address: f.address, slug: f.slug, name: f.name, sector: f.sector, color: f.color, sandbox: false, demo: true }));
-const DEMOBANK: FiduciaryInfo = { address: "0x1111111111111111111111111111111111111111", slug: "demobank", name: "DemoBank", sector: "Banking", color: "#16173F", sandbox: true, demo: false };
+const SEEDS: FiduciaryInfo[] = TEST_COMPANIES.map((f) => ({ address: f.address, slug: f.slug, name: f.name, sector: f.sector, color: f.color, sandbox: false }));
+const DEMOBANK: FiduciaryInfo = { address: "0x1111111111111111111111111111111111111111", slug: "demobank", name: "DemoBank", sector: "Banking", color: "#16173F", sandbox: true };
 
 /** A Core that answers the directory and nothing else usefully, like the page's first second. */
 function coreWith(companies: FiduciaryInfo[] | "down"): void {
@@ -69,11 +70,6 @@ describe("routes", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Auditor" })).toBeTruthy();
   });
 
-  it("/stage loads", () => {
-    at("/stage");
-    expect(screen.getByText("Citizen")).toBeTruthy();
-  });
-
   it("an unknown company falls back to the first company Core lists, whichever it is", async () => {
     coreWith([DEMOBANK, ...SEEDS]);
     at("/company/nope");
@@ -119,8 +115,8 @@ describe("routes", () => {
 
     // Click Live requests
     fireEvent.click(document.getElementById("rail-live-requests")!);
-    expect(screen.getByRole("heading", { level: 2, name: /Live Requests & Simulator/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Run credit check/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: /Your requests come from your own server/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Run credit check/i })).toBeNull();
 
     // Click Consents
     fireEvent.click(document.getElementById("rail-consents")!);
@@ -134,7 +130,8 @@ describe("routes", () => {
     expect(screen.getByText("Regulator Board")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scorecards (A-01)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ledger Explorer (A-02)" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Tamper demo/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Tamper/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Reset/i })).toBeNull();
 
     // Switch to Ledger Explorer tab
     fireEvent.click(screen.getByRole("button", { name: "Ledger Explorer (A-02)" }));
@@ -164,7 +161,7 @@ describe("routes", () => {
       expect(select.value).toBe("beta");
     });
 
-    it("gives a company with no simulator backend the own-server card instead of QuickLoan's buttons", async () => {
+    it("gives every company the own-server card and no request buttons", async () => {
       coreWith([...SEEDS, DEMOBANK]);
       at("/company/demobank");
       await screen.findByRole("heading", { level: 1, name: "DemoBank" });

@@ -13,8 +13,7 @@ CREATE TABLE IF NOT EXISTS fiduciaries (
   color TEXT,
   registered_tx TEXT,
   slug TEXT,
-  sandbox INTEGER NOT NULL DEFAULT 0,
-  demo INTEGER NOT NULL DEFAULT 0
+  sandbox INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS purposes (
@@ -158,6 +157,7 @@ CREATE TABLE IF NOT EXISTS fiduciary_applications (
   slug TEXT NOT NULL,
   sector TEXT NOT NULL,
   contact_email TEXT,
+  password_hash TEXT,
   purposes TEXT NOT NULL,
   processors TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -185,6 +185,24 @@ CREATE TABLE IF NOT EXISTS sandbox_testers (
   principal TEXT PRIMARY KEY, added_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS console_operators (
+  email TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fiduciary_operators (
+  fiduciary TEXT REFERENCES fiduciaries(address),
+  operator_email TEXT REFERENCES console_operators(email),
+  PRIMARY KEY (fiduciary, operator_email)
+);
+
+CREATE TABLE IF NOT EXISTS console_sessions (
+  token TEXT PRIMARY KEY,
+  operator_email TEXT REFERENCES console_operators(email),
+  expires_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_access_principal ON access_logs (principal, at);
 CREATE INDEX IF NOT EXISTS idx_ledger_key ON ledger_events (principal, fiduciary, purpose_id, block_number);
 `;
@@ -200,6 +218,9 @@ const ALL_TABLES = [
   "identities",
   "requests",
   "rights_requests",
+  "console_sessions",
+  "fiduciary_operators",
+  "console_operators",
   "fiduciary_applications",
   "fiduciary_credentials",
   "fiduciary_keys",
@@ -228,7 +249,6 @@ function migrate(db: Db): void {
   const have = new Set((db.prepare("PRAGMA table_info(fiduciaries)").all() as Array<{ name: string }>).map((c) => c.name));
   if (!have.has("slug")) db.exec("ALTER TABLE fiduciaries ADD COLUMN slug TEXT");
   if (!have.has("sandbox")) db.exec("ALTER TABLE fiduciaries ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0");
-  if (!have.has("demo")) db.exec("ALTER TABLE fiduciaries ADD COLUMN demo INTEGER NOT NULL DEFAULT 0");
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_fiduciaries_slug ON fiduciaries (slug)");
 }
 

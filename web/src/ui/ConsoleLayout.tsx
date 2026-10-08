@@ -105,13 +105,6 @@ export function ConsoleLayout({
             <span aria-hidden="true" className="text-base leading-none">⚖</span>
             Auditor
           </Link>
-          <Link
-            to="/stage"
-            className="mt-0.5 flex items-center gap-3 rounded-row px-3 py-2.5 text-sm font-medium text-paper/70 transition-colors hover:bg-white/10 hover:text-paper"
-          >
-            <span aria-hidden="true" className="text-base leading-none">▶</span>
-            Stage view
-          </Link>
         </div>
       </nav>
 

@@ -35,7 +35,7 @@ export function badRequest(message: string, code = "BAD_REQUEST"): HttpError {
   return new HttpError(400, code, message);
 }
 
-// --- small body validators; the stub trusts nothing it parses ---
+// --- small body validators; Core trusts nothing it parses ---
 
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

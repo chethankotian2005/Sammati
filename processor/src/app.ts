@@ -67,16 +67,13 @@ export function createApp(service: ProcessorService, config: ProcessorConfig, lo
     }),
   );
 
-  if (config.demoMode) {
-    app.post("/v1/demo/reset", (_req, res) => {
-      service.reset();
-      res.json({ ok: true });
-    });
-    app.post("/v1/demo/tamper/:handle", (req, res) => {
-      const ok = service.tamper(String(req.params.handle));
-      res.status(ok ? 200 : 404).json(ok ? { ok: true } : { error: { code: "HANDLE_NOT_FOUND", message: "Nothing live to edit under that handle" } });
-    });
-  }
+  app.post(
+    "/v1/processor/callback",
+    handle(async (req, res) => {
+      await service.registerCallback(req.header("x-sammati-api-key"), req.body);
+      res.status(204).end();
+    }),
+  );
 
   app.use((req, _res, next) => next(new ApiFailure(404, "NOT_FOUND", `No route for ${req.method} ${req.path}`)));
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

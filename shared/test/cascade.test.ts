@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Wallet } from "ethers";
 import {
-  SEED_FIDUCIARIES,
   ackDigest,
   ackSigner,
   notificationDigest,
@@ -12,8 +11,9 @@ import {
   type CascadeAck,
   type CascadeNotification,
 } from "../src";
+import { TEST_COMPANIES } from "../../test/src";
 
-const company = SEED_FIDUCIARIES[0]!;
+const company = TEST_COMPANIES[0]!;
 const adPartner = company.processors.find((p) => p.name === "AdPartnerQ")!;
 const fiduciaryWallet = new Wallet(company.demoKey);
 const processorWallet = new Wallet(adPartner.demoKey);
@@ -37,7 +37,7 @@ describe("cascade messages", () => {
   it("changing any field of a notification changes who it appears to be signed by", async () => {
     const signed = await signNotification(notification, fiduciaryWallet);
     for (const forged of [
-      { ...notification, processor: SEED_FIDUCIARIES[1]!.processors[0]!.address },
+      { ...notification, processor: TEST_COMPANIES[1]!.processors[0]!.address },
       { ...notification, withdrawalTx: "0x" + "cd".repeat(32) },
       { ...notification, withdrawnAt: notification.withdrawnAt + 1 },
       { ...notification, principal: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" },

@@ -12,14 +12,12 @@ interface ScorecardsSectionProps {
   scorecards: Scorecard[];
   onVerify: (company: Scorecard) => void;
   onViewReport: (company: Scorecard) => void;
-  onTamper: (company: Scorecard) => void;
 }
 
 export function ScorecardsSection({
   scorecards,
   onVerify,
   onViewReport,
-  onTamper,
 }: ScorecardsSectionProps): ReactNode {
   return (
     <div className="space-y-6">
@@ -125,14 +123,6 @@ export function ScorecardsSection({
                   className="rounded-row border border-line bg-paper px-3 py-2 text-xs font-extrabold text-ink transition-colors hover:bg-white"
                 >
                   Report
-                </button>
-                <button
-                  type="button"
-                  title="Presenter shortcut: simulate record tamper"
-                  onClick={() => onTamper(sc)}
-                  className="rounded-row border border-line bg-surface px-2.5 py-2 text-xs font-bold text-mute hover:text-block transition-colors"
-                >
-                  ⚡
                 </button>
               </div>
             </div>

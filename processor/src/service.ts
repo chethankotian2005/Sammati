@@ -1,6 +1,6 @@
 // The Processor's logic (trd.md §6.7), free of HTTP so it can be tested directly. Plaintext exists in exactly one
 // place, Enclave.decide; nothing in this file ever holds, logs or returns it.
-import { getBytes, isAddress, verifyMessage } from "ethers";
+import { isAddress, verifyMessage } from "ethers";
 import {
   EnvelopeError,
   ciphertextHashOf,
@@ -184,6 +184,16 @@ export class ProcessorService {
     };
   }
 
+  /** A company says where to tell it about stored and erased entries (trd.md §6.7). Memory only: it registers again after a restart. */
+  async registerCallback(apiKey: string | undefined, body: unknown): Promise<void> {
+    const company = apiKey ? await this.companyOf(apiKey) : undefined;
+    if (!company) throw new ApiFailure(401, "UNAUTHORIZED", "A valid x-sammati-api-key is required");
+    const url = record(body).url;
+    if (typeof url !== "string" || url.length > 300 || !/^https?:\/\/[^\s]+$/.test(url)) throw new ApiFailure(400, "BAD_REQUEST", '"url" must be an http or https address');
+    this.config.callbacks[company] = url;
+    this.config.registeredKeys.set(company, apiKey!);
+  }
+
   // --- evaluate (V-03) ---
 
   /** Companies registered after the Processor started are asked of Core, which alone knows their keys (trd.md §6.2a). */
@@ -296,22 +306,5 @@ export class ProcessorService {
   /** Covers expiry (no event announces it) and any event the Core socket missed. */
   async sweep(): Promise<void> {
     for (const row of this.vault.allLive()) await this.recheck(row);
-  }
-
-  // --- demo controls (DEMO_MODE) ---
-
-  /** Flips one bit of the stored ciphertext, like someone editing the database. Returns false if there is nothing live to edit. */
-  tamper(handle: string): boolean {
-    const row = this.vault.get(handle);
-    if (!row?.ciphertext) return false;
-    const envelope = JSON.parse(row.ciphertext.toString("utf8")) as Envelope;
-    const bytes = getBytes(envelope.ciphertext);
-    bytes[0] = (bytes[0] ?? 0) ^ 0x01;
-    const edited = { ...envelope, ciphertext: "0x" + Buffer.from(bytes).toString("hex") };
-    return this.vault.overwrite(handle, Buffer.from(JSON.stringify(edited)));
-  }
-
-  reset(): void {
-    this.vault.clear();
   }
 }

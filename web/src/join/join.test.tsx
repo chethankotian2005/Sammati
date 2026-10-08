@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { validateApplication, type ApplicationView, type RegistrationStatusResponse } from "@sammati/shared";
+import { type ApplicationView, type RegistrationStatusResponse } from "@sammati/shared";
 import { AppRoutes } from "../App";
 import { gatewaySnippet } from "./quickstart";
 
@@ -76,28 +76,11 @@ describe("/join (R-01)", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 
-  it("fills the DemoBank example, sends a body Core's validation accepts, and moves to the status page", async () => {
-    stubCore((c) => (c.method === "POST" && c.url === "/v1/registrations" ? { status: 201, json: { applicationId: "a".repeat(32), status: "pending" } } : undefined), (c) =>
-      c.url === `/v1/registrations/${"a".repeat(32)}` ? { json: { applicationId: "a".repeat(32), name: "DemoBank", sector: "Banking", status: "pending", note: null, createdAt: 1, decidedAt: null, result: null } } : undefined,
-    );
+  it("offers no prefilled example: the form starts empty", () => {
+    stubCore(() => undefined);
     at("/join");
-    fireEvent.click(screen.getByRole("button", { name: "Fill in the DemoBank example" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send for review" }));
-
-    expect(await screen.findByText("Waiting for the regulator")).toBeTruthy();
-    const post = calls.find((c) => c.method === "POST")!;
-    expect(validateApplication(post.body).ok).toBe(true);
-    expect(post.body).toMatchObject({ name: "DemoBank", processors: [{ name: "BureauOne", purposeCode: "bureau_share" }] });
-    expect((post.body as { purposes: Array<{ title: { hi: string } }> }).purposes[0]!.title.hi).not.toBe("");
-  });
-
-  it("shows Core's refusal in words and keeps the form", async () => {
-    stubCore((c) => (c.method === "POST" ? { status: 409, json: { error: { code: "NAME_TAKEN", message: 'A company called "DemoBank" is already registered or applying. Choose another name.' } } } : undefined));
-    at("/join");
-    fireEvent.click(screen.getByRole("button", { name: "Fill in the DemoBank example" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send for review" }));
-    expect((await screen.findByText(/already registered or applying/)).textContent).toContain("Choose another name");
-    expect((document.getElementById("name") as HTMLInputElement).value).toBe("DemoBank");
+    expect(screen.queryByRole("button", { name: /example/i })).toBeNull();
+    expect((document.getElementById("name") as HTMLInputElement).value).toBe("");
   });
 
   it("switches language, labels included", () => {
@@ -205,7 +188,7 @@ function app(over: Partial<ApplicationView> = {}): ApplicationView {
         code: "loan_offers",
         title: { en: "Loan offers", hi: "ऋण प्रस्ताव", kn: "ಸಾಲದ ಕೊಡುಗೆಗಳು" },
         description: { en: "Send you loan offers", hi: "ऋण प्रस्ताव भेजना", kn: "ಸಾಲದ ಕೊಡುಗೆಗಳನ್ನು ಕಳುಹಿಸುವುದು" },
-        dataCategories: ["phone"],
+        dataCategories: ["contact.mobile"],
         retentionDays: 90,
         sharesThirdParty: true,
         required: false,

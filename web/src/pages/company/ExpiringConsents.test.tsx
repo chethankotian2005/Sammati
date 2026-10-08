@@ -3,11 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_FIDUCIARIES, type ExpiringRow } from "@sammati/shared";
+import { type ExpiringRow } from "@sammati/shared";
 import { WsProvider } from "../../ws";
 import { effectiveState, ExpiringConsents, relativeTime } from "./ExpiringConsents";
 
-const seed = SEED_FIDUCIARIES[0]!;
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
+const seed = TEST_COMPANIES[0]!;
 const company = { address: seed.address, slug: seed.slug, name: seed.name, sector: seed.sector, color: seed.color, sandbox: false, demo: true };
 const purposes = seed.purposes.map((p) => ({
   id: `0x${p.code}`,
@@ -181,7 +182,7 @@ describe("Request renewal", () => {
     rows = [row({ renewal: { requestId: "req_ren00001", status: "sent", requestedAt: NOW } })];
     mount();
     await rowEl();
-    await push({ event: "request.updated", fiduciary: SEED_FIDUCIARIES[1]!.address, requestId: "req_ren00001", status: "granted", at: NOW });
+    await push({ event: "request.updated", fiduciary: TEST_COMPANIES[1]!.address, requestId: "req_ren00001", status: "granted", at: NOW });
     expect(screen.getByTestId(`expiring-${PRINCIPAL}:credit_check`).textContent).toContain("Sent");
   });
 

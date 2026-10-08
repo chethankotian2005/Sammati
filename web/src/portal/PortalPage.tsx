@@ -1,26 +1,30 @@
 /**
- * QuickLoan's customer page (C-09, ui.md §3.1): the company's own website, with Sammati's consent in the middle.
+ * A company's customer page (C-09, ui.md §3.1): the company's own website, with Sammati's consent in the middle.
  * It has no field for a PAN or an income and no code that could show one: the sensitive fields are entered in the
  * Sammati app and reach only the Processor.
  */
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { SEED_FIDUCIARIES } from "@sammati/shared";
+import type { FiduciaryPurposesResponse } from "@sammati/shared";
+import { CORE_URL } from "../core";
+import { useDirectory } from "../directory";
 import { HashLabel } from "../ui";
 import { StatusChip } from "../ui/StatusChip";
 import { formatInr } from "../ui/VaultPanel";
-import { OPTIONAL_PURPOSES, type JourneyState } from "./journey";
-import { useJourney, type JourneyView } from "./useJourney";
+import type { JourneyState, PortalCompany } from "./journey";
+import { makeBrowserDeps, useJourney, type JourneyView } from "./useJourney";
 
-const QUICKLOAN = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
-const purposeText = (code: string): string => QUICKLOAN.purposes.find((p) => p.code === code)?.description.en ?? code;
+type Purpose = FiduciaryPurposesResponse["purposes"][number];
+const PortalContext = createContext<{ company: PortalCompany; purposes: Purpose[] }>({ company: { address: "", name: "", loanPurpose: "credit_check", optionalPurposes: [] }, purposes: [] });
+const usePortal = () => useContext(PortalContext);
 
 const SENSITIVE_FIELDS = ["PAN", "Income", "Employment"] as const;
 
 const card = "rounded-pass border border-line bg-surface p-6 shadow-sm";
 const primary =
-  "min-h-[48px] rounded-pill bg-quickloan px-6 text-lg font-extrabold text-paper disabled:opacity-40 focus:outline-none focus-visible:ring-4 focus-visible:ring-marigold";
+  "min-h-[48px] rounded-pill bg-ink px-6 text-lg font-extrabold text-paper disabled:opacity-40 focus:outline-none focus-visible:ring-4 focus-visible:ring-marigold";
 
 function Live({ children }: { children: ReactNode }): ReactNode {
   return <div aria-live="polite">{children}</div>;
@@ -38,15 +42,14 @@ function Login({ view }: { view: JourneyView }): ReactNode {
         Sign in to apply
       </h2>
       <label className="block">
-        <span className="text-base font-bold">Your customer name or ID</span>
+        <span className="text-base font-bold">Your customer ID</span>
         <input
           type="text"
           name="customer-name"
           autoComplete="off"
           value={alias}
           onChange={(e) => setAlias(e.target.value)}
-          placeholder="for example Asha"
-          className="mt-2 w-full rounded-row border-2 border-line px-4 py-3 text-lg focus:border-quickloan focus:outline-none"
+          className="mt-2 w-full rounded-row border-2 border-line px-4 py-3 text-lg focus:border-ink focus:outline-none"
         />
       </label>
       {view.state.notice && (
@@ -63,18 +66,20 @@ function Login({ view }: { view: JourneyView }): ReactNode {
 
 function Purposes({ view }: { view: JourneyView }): ReactNode {
   const { state, journey } = view;
+  const { company, purposes } = usePortal();
+  const purposeText = (code: string): string => purposes.find((p) => p.code === code)?.description.en ?? code;
   const locked = state.stage !== "form";
   return (
-    <ul className="ml-8 space-y-3" aria-label="What QuickLoan will use your data for">
-      <li className="text-lg">{purposeText("credit_check")}</li>
-      {OPTIONAL_PURPOSES.map((code) => {
-        const purpose = QUICKLOAN.purposes.find((p) => p.code === code)!;
+    <ul className="ml-8 space-y-3" aria-label={`What ${company.name} will use your data for`}>
+      <li className="text-lg">{purposeText(company.loanPurpose)}</li>
+      {company.optionalPurposes.map((code) => {
+        const purpose = purposes.find((p) => p.code === code)!;
         return (
           <li key={code}>
             <label className="flex min-h-[48px] cursor-pointer items-center gap-3 text-lg">
               <input
                 type="checkbox"
-                className="h-6 w-6 accent-quickloan"
+                className="h-6 w-6 accent-ink"
                 checked={state.optional.includes(code)}
                 disabled={locked}
                 onChange={() => journey.toggleOptional(code)}
@@ -150,7 +155,7 @@ function Received({ state }: { state: JourneyState }): ReactNode {
               <HashLabel value={state.vault.ciphertextHash} prefixLen={10} suffixLen={6} className="text-base text-ink" />
             </dd>
           </dl>
-          <p className="text-base text-mute">QuickLoan holds only a reference. Only the Sammati Processor can open your details.</p>
+          <p className="text-base text-mute">{usePortal().company.name} holds only a reference. Only the Sammati Processor can open your details.</p>
         </div>
       ) : (
         <ul className="space-y-2" aria-label="Your sensitive details">
@@ -211,12 +216,12 @@ function Application({ view }: { view: JourneyView }): ReactNode {
       <label className="flex min-h-[48px] cursor-pointer items-start gap-3">
         <input
           type="checkbox"
-          className="mt-1 h-6 w-6 accent-quickloan"
+          className="mt-1 h-6 w-6 accent-ink"
           checked={ticked}
           disabled={state.stage === "consent-received" || state.stage === "data-submitted" || state.stage === "decided" || state.stage === "withdrawn" || state.stage === "error"}
           onChange={(e) => (e.target.checked ? void journey.tick() : journey.untick())}
         />
-        <span className="text-xl font-bold">Allow QuickLoan to use my data for loan purposes</span>
+        <span className="text-xl font-bold">Allow {usePortal().company.name} to use my data for loan purposes</span>
       </label>
       <Purposes view={view} />
       <Live>
@@ -240,16 +245,17 @@ function Application({ view }: { view: JourneyView }): ReactNode {
   );
 }
 
-export function PortalPage(): ReactNode {
-  const view = useJourney();
+function Portal(): ReactNode {
+  const { company } = usePortal();
+  const deps = useMemo(() => makeBrowserDeps(company), [company]);
+  const view = useJourney(deps);
   const { state, journey } = view;
   return (
     <main className="min-h-screen bg-paper text-ink">
-      <header className="bg-quickloan text-paper">
+      <header className="bg-ink text-paper">
         <div className="mx-auto flex max-w-[640px] items-center justify-between gap-4 p-4">
           <div>
-            <h1 className="text-3xl font-extrabold">QuickLoan</h1>
-            <p className="text-base opacity-90">Loans, quickly.</p>
+            <h1 className="text-3xl font-extrabold">{company.name}</h1>
           </div>
           {state.alias && (
             <div className="flex items-center gap-3 text-base">
@@ -276,7 +282,45 @@ export function PortalPage(): ReactNode {
           </div>
         )}
       </div>
-      <footer className="mx-auto max-w-[640px] p-4 text-sm text-mute">Demo page. Consent by Sammati.</footer>
+      <footer className="mx-auto max-w-[640px] p-4 text-sm text-mute">Sample page. Consent by Sammati.</footer>
     </main>
+  );
+}
+
+/** `/portal/:slug`: the customer page of any approved company. The loan purpose is `?purpose=` (default `credit_check`). */
+export function PortalPage(): ReactNode {
+  const { slug } = useParams();
+  const { status, bySlug } = useDirectory();
+  const info = bySlug(slug);
+  const [purposes, setPurposes] = useState<Purpose[] | null>(null);
+  const wanted = new URLSearchParams(window.location.search).get("purpose") ?? "credit_check";
+
+  useEffect(() => {
+    if (!info) return;
+    let cancelled = false;
+    fetch(`${CORE_URL}/v1/fiduciaries/${info.address}/purposes`)
+      .then((r) => (r.ok ? (r.json() as Promise<FiduciaryPurposesResponse>) : Promise.reject(new Error(String(r.status)))))
+      .then((body) => !cancelled && setPurposes(body.purposes))
+      .catch(() => !cancelled && setPurposes([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [info]);
+
+  const value = useMemo(() => {
+    if (!info || !purposes) return null;
+    const loanPurpose = purposes.some((p) => p.code === wanted) ? wanted : (purposes[0]?.code ?? wanted);
+    const company: PortalCompany = { address: info.address, name: info.name, loanPurpose, optionalPurposes: purposes.map((p) => p.code).filter((c) => c !== loanPurpose) };
+    return { company, purposes };
+  }, [info, purposes, wanted]);
+
+  if (!value) {
+    const text = status === "loading" || (info && !purposes) ? "Loading…" : "No company with that address is registered with Sammati.";
+    return <main className="grid min-h-screen place-items-center bg-paper p-6 text-lg font-bold text-mute">{text}</main>;
+  }
+  return (
+    <PortalContext.Provider value={value}>
+      <Portal />
+    </PortalContext.Provider>
   );
 }

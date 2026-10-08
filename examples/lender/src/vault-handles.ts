@@ -1,5 +1,5 @@
-// What QuickLoan keeps about a customer's vault entry: the handle the Processor gave it, its hash, and whether
-// the ciphertext still exists. Never the data (trd.md §6.8). In memory, like the rest of this demo backend.
+// What the lender keeps about a customer's vault entry: the handle the Processor gave it, its hash, and whether
+// the ciphertext still exists. Never the data (trd.md §6.8). In memory, like the rest of this sample.
 import type { Hex, VaultView } from "@sammati/shared";
 
 export interface HeldHandle {

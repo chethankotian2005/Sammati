@@ -10,7 +10,8 @@ import {
 } from "../src/eip712";
 import { noticeHash, purposeIdOf } from "../src/canonical";
 import { REASON_CODES } from "../src/types";
-import { DEMO_PRINCIPAL, DEMO_RELAYER_ADDRESS, DEMO_RELAYER_KEY, SEED_FIDUCIARIES } from "../src/seed";
+import { LOCAL_RELAYER_ADDRESS, LOCAL_RELAYER_KEY } from "../src/constants";
+import { TEST_CUSTOMER, TEST_COMPANIES } from "../../test/src";
 
 describe("EIP-712 definitions", () => {
   it("field names and order match trd.md §3.1", () => {
@@ -82,31 +83,31 @@ describe("shared constants", () => {
   });
 
   it("demo relayer key is keccak256 of its label and matches its address", () => {
-    expect(DEMO_RELAYER_KEY).toBe(id("sammati-demo-relayer"));
-    expect(computeAddress(DEMO_RELAYER_KEY)).toBe(DEMO_RELAYER_ADDRESS);
+    expect(LOCAL_RELAYER_KEY).toBe(id("sammati-demo-relayer"));
+    expect(computeAddress(LOCAL_RELAYER_KEY)).toBe(LOCAL_RELAYER_ADDRESS);
   });
 
-  it("seed matches drd.md §5", () => {
-    expect(SEED_FIDUCIARIES.map((f) => f.name)).toEqual(["QuickLoan", "MediCare+", "FoodRush"]);
-    expect(SEED_FIDUCIARIES.flatMap((f) => f.purposes.map((p) => p.code))).toEqual([
+  it("test companies are well formed", () => {
+    expect(TEST_COMPANIES.map((f) => f.name)).toEqual(["QuickLoan", "MediCare+", "FoodRush"]);
+    expect(TEST_COMPANIES.flatMap((f) => f.purposes.map((p) => p.code))).toEqual([
       "credit_check", "marketing", "bureau_share",
       "treatment", "insurance_claim", "research",
       "delivery", "ad_targeting", "partner_share",
     ]);
-    expect(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => p.name))).toEqual([
+    expect(TEST_COMPANIES.flatMap((f) => f.processors.map((p) => p.name))).toEqual([
       "CreditBureauX", "AdPartnerQ", "InsureCo", "ResearchLab", "AdNetworkZ",
     ]);
     const addresses = [
-      DEMO_PRINCIPAL,
-      ...SEED_FIDUCIARIES.flatMap((f) => [f.address, ...f.processors.map((p) => p.address)]),
+      TEST_CUSTOMER,
+      ...TEST_COMPANIES.flatMap((f) => [f.address, ...f.processors.map((p) => p.address)]),
     ];
-    for (const f of SEED_FIDUCIARIES) {
+    for (const f of TEST_COMPANIES) {
       expect(computeAddress(f.demoKey)).toBe(f.address); // the held key really is the company's
       for (const p of f.processors) expect(computeAddress(p.demoKey), p.name).toBe(p.address); // and the processor's
     }
     for (const a of addresses) expect(getAddress(a)).toBe(a); // valid EIP-55 checksum
     expect(new Set(addresses).size).toBe(addresses.length);
-    for (const f of SEED_FIDUCIARIES) {
+    for (const f of TEST_COMPANIES) {
       const codes = f.purposes.map((p) => p.code);
       for (const proc of f.processors) expect(codes).toContain(proc.purposeCode);
     }

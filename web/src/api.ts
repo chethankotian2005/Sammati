@@ -24,9 +24,6 @@ import type {
   ConsentRow,
   CreateRequestBody,
   CreateRequestResponse,
-  DemoFireBody,
-  DemoFireResponse,
-  DemoResetResponse,
   ExportResponse,
   FiduciaryAccessResponse,
   FiduciaryConsentsResponse,
@@ -39,7 +36,6 @@ import type {
   RegisterPurposeResponse,
   Scorecard,
   StoredAccessLogEntry,
-  TamperResponse,
   TargetedRequestBody,
   TargetedRequestResponse,
   TargetedRequestRow,
@@ -47,11 +43,10 @@ import type {
   ExpiringRow,
   TargetedRequestsResponse,
   VerifyResponse,
-  WithdrawResponse,
 } from "@sammati/shared";
 import { CORE_URL } from "./core";
 
-/** A refusal from Core with its machine code, e.g. `NOT_A_DEMO_PRINCIPAL`. Still an Error with Core's message. */
+/** A refusal from Core with its machine code, e.g. `BAD_REQUEST`. Still an Error with Core's message. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -169,22 +164,10 @@ export async function requestRenewal(fiduciary: string, principal: string, purpo
   return request<TargetedRequestResponse>(`/v1/fiduciaries/${fiduciary}/renewals`, { method: "POST", body: JSON.stringify({ principal, purposeCode }) });
 }
 
-export async function demoFire(body: DemoFireBody): Promise<DemoFireResponse> {
-  return request<DemoFireResponse>("/v1/demo/fire", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
 /** Where the Sammati Processor is (`GET /v1/processor`, trd.md §6.1). */
 export async function fetchProcessorUrl(): Promise<string> {
   const data = await request<{ url: string }>("/v1/processor");
   return data.url.replace(/\/+$/, "");
-}
-
-/** The presenter's withdraw for the demo customer (`POST /v1/demo/withdraw`, trd.md §6.4). Throws ApiError `NOT_A_DEMO_PRINCIPAL` for a real wallet. */
-export async function demoWithdraw(body: { principal: string; fiduciary: string; purposeCode: string }): Promise<WithdrawResponse> {
-  return request<WithdrawResponse>("/v1/demo/withdraw", { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function fetchExport(fiduciary: string): Promise<ExportResponse> {
@@ -229,18 +212,6 @@ export async function verifyFiduciaryIntegrity(fiduciary: string): Promise<Verif
 
 export async function fetchAuditReport(fiduciary: string): Promise<AuditReportResponse> {
   return request<AuditReportResponse>(`/v1/audit/report/${fiduciary}`);
-}
-
-export async function triggerTamper(fiduciary: string): Promise<TamperResponse> {
-  return request<TamperResponse>(`/v1/demo/tamper/${fiduciary}`, {
-    method: "POST",
-  });
-}
-
-export async function triggerDemoReset(): Promise<DemoResetResponse> {
-  return request<DemoResetResponse>("/v1/demo/reset", {
-    method: "POST",
-  });
 }
 
 // --- directory and onboarding (R-01 to R-04) ---

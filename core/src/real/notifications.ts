@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Hex, NotificationAction, NotificationItem, NotificationPatchBody, NotificationType, NotificationsResponse, VaultEvent, WsEvent } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError, badRequest } from "../errors";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Db } from "./db";
 import type { Repo } from "./repo";
 
@@ -29,7 +29,7 @@ export class Notifications {
     private readonly db: Db,
     private readonly repo: Repo,
     private readonly publish: (event: WsEvent) => void,
-    private readonly config: Pick<Config, "expiryThresholdsSeconds" | "demoFastExpiry">,
+    private readonly config: Pick<Config, "expiryThresholdsSeconds">,
     private readonly clock: () => number = now,
   ) {}
 
@@ -85,7 +85,7 @@ export class Notifications {
 
   /** What the wallet needs to schedule its own reminders (trd.md §6.12). */
   settings(): NotificationsResponse["config"] {
-    return { thresholdsSeconds: this.config.expiryThresholdsSeconds, fastExpiry: this.config.demoFastExpiry };
+    return { thresholdsSeconds: this.config.expiryThresholdsSeconds };
   }
 
   markAllRead(principal: Hex): number {

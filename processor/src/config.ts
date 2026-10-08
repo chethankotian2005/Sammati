@@ -1,5 +1,5 @@
 import { getBytes } from "ethers";
-import { PROCESSOR_PORT, SEED_FIDUCIARIES, demoApiKey, type Deployment, type Hex } from "@sammati/shared";
+import { PROCESSOR_PORT, type Deployment, type Hex } from "@sammati/shared";
 
 export interface ProcessorConfig {
   port: number;
@@ -25,7 +25,6 @@ export interface ProcessorConfig {
   sweepMs: number;
   /** How long after expiry the ciphertext is kept (every use is refused meanwhile), so a renewal need not resend it (trd.md §6.7, §6.12). */
   expiryGraceSeconds: number;
-  demoMode: boolean;
 }
 
 function json<T>(raw: string | undefined, fallback: T): T {
@@ -40,11 +39,11 @@ function json<T>(raw: string | undefined, fallback: T): T {
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ProcessorConfig {
-  const keys = json<Record<string, string>>(env.FIDUCIARY_API_KEYS, Object.fromEntries(SEED_FIDUCIARIES.map((f) => [demoApiKey(f.slug), f.address])));
-  const callbacks = json<Record<string, string>>(
-    env.FIDUCIARY_CALLBACKS,
-    Object.fromEntries(SEED_FIDUCIARIES.map((f) => [f.address, `http://localhost:${f.port}/vault/events`])),
-  );
+  // DEV_TOOLS only enables command-line scripts, but a service that sits beside NODE_ENV=production refuses it all the same.
+  if (env.DEV_TOOLS === "true" && env.NODE_ENV === "production") throw new Error("DEV_TOOLS=true is not allowed with NODE_ENV=production");
+  // No company is built in: keys are learned from Core on a company's first call, callbacks registered by the company (trd.md §6.7).
+  const keys = json<Record<string, string>>(env.FIDUCIARY_API_KEYS, {});
+  const callbacks = json<Record<string, string>>(env.FIDUCIARY_CALLBACKS, {});
   return {
     port: Number(env.PROCESSOR_PORT ?? PROCESSOR_PORT),
     privateKey: env.PROCESSOR_KEY ? getBytes(env.PROCESSOR_KEY) : null,
@@ -55,9 +54,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ProcessorConfi
     apiKeys: new Map(Object.entries(keys).map(([k, a]) => [k, a.toLowerCase() as Hex])),
     registeredKeys: new Map(),
     callbacks: Object.fromEntries(Object.entries(callbacks).map(([a, u]) => [a.toLowerCase(), u])),
-    eventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
+    eventKey: env.PROCESSOR_EVENT_KEY ?? "local-processor-events",
     sweepMs: Number(env.PROCESSOR_SWEEP_MS ?? 30_000),
-    expiryGraceSeconds: Number(env.EXPIRY_ERASURE_GRACE_SECONDS ?? (env.DEMO_FAST_EXPIRY === "1" || env.DEMO_FAST_EXPIRY === "true" ? 60 : 604_800)),
-    demoMode: env.DEMO_MODE !== "false",
+    expiryGraceSeconds: Number(env.EXPIRY_ERASURE_GRACE_SECONDS ?? 604_800),
   };
 }

@@ -1,6 +1,6 @@
 /**
  * The companies Sammati knows, from Core (`GET /v1/fiduciaries`, prd.md R-04). Nothing in the web app assumes which
- * companies exist: the console switcher, the Stage view, the Auditor and the ledger filter all read this. It refreshes
+ * companies exist: the console switcher, the Auditor and the ledger filter all read this. It refreshes
  * when a company is approved or moves in or out of the sandbox, and subscribes the socket to each company's topic.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";

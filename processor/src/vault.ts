@@ -98,15 +98,6 @@ export class Vault {
     return this.db.prepare("UPDATE vault SET ciphertext = NULL, erased_at = ?, erase_cause = ? WHERE handle = ? AND erased_at IS NULL").run(at, cause, handle).changes > 0;
   }
 
-  /** Demo only: replaces the stored bytes, like an administrator editing a row. */
-  overwrite(handle: string, ciphertext: Buffer): boolean {
-    return this.db.prepare("UPDATE vault SET ciphertext = ? WHERE handle = ? AND erased_at IS NULL").run(ciphertext, handle).changes > 0;
-  }
-
-  clear(): void {
-    this.db.exec("DELETE FROM vault");
-  }
-
   close(): void {
     this.db.close();
   }

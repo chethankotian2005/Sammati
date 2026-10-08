@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import type { HealthResponse } from "@sammati/shared";
 
 export const CORE_URL: string = import.meta.env.VITE_CORE_URL ?? "http://localhost:4000";
 
-export type CoreStatus = { state: "checking" } | { state: "down" } | { state: "up"; mode: HealthResponse["mode"] };
+export type CoreStatus = { state: "checking" } | { state: "down" } | { state: "up" };
 
 /** Polls /v1/health so every page can show whether Core is reachable. */
 export function useCoreStatus(intervalMs = 5000): CoreStatus {
@@ -13,8 +12,8 @@ export function useCoreStatus(intervalMs = 5000): CoreStatus {
     const check = async () => {
       try {
         const res = await fetch(`${CORE_URL}/v1/health`);
-        const body = (await res.json()) as HealthResponse;
-        if (!cancelled) setStatus({ state: "up", mode: body.mode });
+        await res.json();
+        if (!cancelled) setStatus({ state: "up" });
       } catch {
         if (!cancelled) setStatus({ state: "down" });
       }

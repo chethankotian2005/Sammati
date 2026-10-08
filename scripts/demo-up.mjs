@@ -1,6 +1,6 @@
-// `pnpm demo:up`: the whole stack, with Core in real mode (backed by the chain and SQLite). `pnpm demo:up:stub`
-// serves fixtures instead, with no chain, for building clients without one. `demo:up:real` is an alias of `demo:up`.
-// A failing process takes the rest down; the one-shot seed process exiting cleanly does not.
+// `pnpm demo:up`: the whole stack on one laptop: a fresh chain, Core (SQLite and the chain), the Processor and the web
+// app. It starts empty: no company, purpose or customer exists until a company joins at /join (X-01).
+// A failing process takes the rest down; the one-shot bootstrap process exiting cleanly does not.
 import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { URL } from "node:url";
@@ -35,34 +35,23 @@ try {
 const qr = describeQrUrl({ port: process.env.PORT ?? "4000", env: process.env });
 console.log(qr.banner);
 
-const real = !process.argv.includes("--stub");
-// `pnpm demo:up:fast`: consent expiry in seconds, so the demo can show reminders, expiry and erasure live (trd.md §6.12).
-if (process.argv.includes("--fast-expiry")) {
-  process.env.DEMO_FAST_EXPIRY = "1";
-  console.log("DEMO_FAST_EXPIRY is on: the wallet offers a 2-minute expiry; reminders at 60 s and 30 s; erasure 60 s after expiry.");
-}
 // The wallet fetches the Processor's key from the laptop's address too, on its own port (trd.md §10).
 const processorUrl = process.env.PROCESSOR_PUBLIC_URL?.trim() || `${new URL(qr.url).protocol}//${new URL(qr.url).hostname}:${process.env.PROCESSOR_PORT ?? "4200"}`;
 console.log(`The wallet will find the Sammati Processor (simulated enclave) on ${processorUrl}
 `);
-if (real) {
-  console.log(`A new company joins at http://localhost:5173/join; the regulator approves it under Auditor > Registrations
-(access code: ${process.env.REGULATOR_KEY?.trim() || "demo-regulator-key"}, a demo secret). Guide: docs/integration.md
+console.log(`A new company joins at http://localhost:5173/join; the regulator approves it under Auditor > Registrations
+(access code: ${process.env.REGULATOR_KEY?.trim() || "demo-regulator-key"}, a shared secret). Guide: docs/integration.md
 `);
-}
-const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
+const coreEnv = { CORE_PUBLIC_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;
 
 const { result } = concurrently(
   [
     { name: "chain", prefixColor: "gray", command: filter("contracts", "node") },
-    { name: "seed", prefixColor: "yellow", command: "node scripts/bootstrap.mjs" },
+    { name: "bootstrap", prefixColor: "yellow", command: "node scripts/bootstrap.mjs" },
     { name: "core", prefixColor: "blue", command: filter("core"), env: coreEnv },
     { name: "processor", prefixColor: "cyan", command: filter("processor") },
-    { name: "quickloan", prefixColor: "#2F5BEA", command: filter("company-quickloan") },
-    { name: "medicare", prefixColor: "#0E9AA7", command: filter("company-medicare") },
-    { name: "foodrush", prefixColor: "#E4572E", command: filter("company-foodrush") },
     { name: "web", prefixColor: "magenta", command: filter("web") },
   ],
   { killOthers: ["failure"] },

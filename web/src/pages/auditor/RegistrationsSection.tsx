@@ -87,7 +87,7 @@ export function RegistrationsSection(): ReactNode {
     return (
       <section className="mx-auto max-w-md space-y-4 rounded-pass border border-line bg-surface p-6 shadow-sm" aria-label="Regulator access">
         <h2 className="text-xl font-extrabold text-ink">Registrations</h2>
-        <p className="text-sm text-mute">Enter the regulator access code. Ask your administrator. In the demo it is on the stage sheet.</p>
+        <p className="text-sm text-mute">Enter the regulator access code. Ask your administrator for the regulator access code.</p>
         <label className="block text-sm font-bold text-ink">
           Regulator access code
           <input
@@ -456,7 +456,7 @@ function TestCustomers({ code }: { code: string }): ReactNode {
   return (
     <section className="space-y-3 rounded-pass border border-line bg-surface p-6 shadow-sm" aria-label="Test customers">
       <h3 className="text-lg font-extrabold text-ink">Test customers</h3>
-      <p className="text-sm text-mute">A company in the sandbox can ask only these customers. The demo customer is always one.</p>
+      <p className="text-sm text-mute">A company in the sandbox can ask only these customers.</p>
       <ul className="space-y-1 text-sm">
         {principals.length === 0 && <li className="text-mute">None added.</li>}
         {principals.map((p) => (

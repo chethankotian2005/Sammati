@@ -70,7 +70,6 @@ export const ENTRY_ID_HEADER = "x-sammati-entry-id";
 export interface HealthResponse {
   ok: true;
   service: "sammati-core";
-  mode: "stub" | "live";
   time: UnixSeconds;
 }
 
@@ -116,8 +115,6 @@ export interface RequestNotice {
   purposes: NoticePurpose[];
   noticeHash: Hex;
   noticeVersion: number;
-  /** True when Core runs with DEMO_FAST_EXPIRY: the wallet then offers a 2-minute expiry (trd.md §6.12). */
-  fastExpiry?: boolean;
   domain: Eip712Domain;
   typedDataTemplate: TypedData<"GrantConsent", Omit<GrantConsent, "purposeId" | "expiresAt" | "deadline">>;
   nonce: string;
@@ -146,6 +143,8 @@ export interface ConsentView {
   noticeHash: Hex | null;
   lastTx: Hex | null;
   required: boolean;
+  /** Registry ids of the data this purpose uses, in registry order (trd.md §4.6): what the wallet maps to profile fields. */
+  dataCategories: string[];
 }
 
 export interface FiduciaryConsents {
@@ -433,56 +432,6 @@ export interface AuditReportResponse {
   recentEvents: LedgerEventView[];
 }
 
-// --- 6.4 Demo controls (DEMO_MODE=true only) ---
-
-export interface TamperResponse {
-  fiduciary: Hex;
-  seq: number;
-  field: keyof AccessLogEntry;
-  before: unknown;
-  after: unknown;
-}
-
-export interface DemoFireBody {
-  fiduciary: Hex;
-  purposeCode: string;
-  principal: Hex;
-  endpoint?: string;
-  /** "loan_decision" (QuickLoan, credit_check) calls the apply endpoint instead of the credit-profile one (trd.md §6.4). */
-  action?: "loan_decision";
-}
-export interface DemoFireResponse {
-  decision: Decision;
-  reason: AccessReason;
-  entryId: string;
-  /** Only for the two QuickLoan endpoints that return no personal data by construction (trd.md §6.4). */
-  result?: VaultView | LoanDecision;
-}
-
-export interface DemoAnchorBody {
-  /** One company, or all of them when omitted. */
-  fiduciary?: Hex;
-}
-
-export interface DemoAnchoredBatch {
-  fiduciary: Hex;
-  index: number;
-  fromSeq: number;
-  toSeq: number;
-  count: number;
-  merkleRoot: Hex;
-  txHash: Hex;
-}
-
-/** The batches anchored by this call; empty when nothing was waiting. */
-export interface DemoAnchorResponse {
-  batches: DemoAnchoredBatch[];
-}
-
-export interface DemoResetResponse {
-  ok: true;
-}
-
 // --- 6.5 WebSocket /ws ---
 
 /** "principal:0x..", "fiduciary:0x..", or "auditor". */
@@ -697,6 +646,11 @@ export interface RegisterIdentityBody {
   issuedAt: UnixSeconds;
   signature: string;
 }
+/** `GET /v1/identities/availability` (trd.md §6.1, W-15). */
+export interface AvailabilityResponse {
+  handle: string;
+  available: boolean;
+}
 export interface IdentityResponse {
   handle: string | null;
 }
@@ -740,7 +694,7 @@ export interface NotificationEvent {
 export interface NotificationsResponse {
   notifications: NotificationItem[];
   unread: number;
-  config: { thresholdsSeconds: number[]; fastExpiry: boolean };
+  config: { thresholdsSeconds: number[] };
 }
 export interface NotificationPatchBody {
   read?: true;

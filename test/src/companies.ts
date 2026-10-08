@@ -1,10 +1,8 @@
-// Demo seed (drd.md §5). Fiduciary and processor identities are Hardhat's
-// public accounts #1 to #8 (account #0 is the demo principal): a disclosed demo
-// shortcut, the keys are held by Core (trd.md §12).
-// hi/kn strings are placeholders until the native-speaker copy pass.
-import type { LocalizedText } from "./types";
+// Throwaway companies for tests (X-01). Nothing here ships: the app registers no company. Identities are Hardhat's
+// public accounts #1 to #8 (account #0 is the test customer and the chain's admin).
+import type { LocalizedText } from "@sammati/shared";
 
-export interface SeedPurpose {
+export interface TestPurpose {
   code: string;
   title: LocalizedText;
   description: LocalizedText;
@@ -14,29 +12,29 @@ export interface SeedPurpose {
   required: boolean;
 }
 
-export interface SeedProcessor {
+export interface TestProcessor {
   name: string;
   address: string;
-  /** Hardhat's public test key for this account. Core signs the processor's acknowledgements with it: a disclosed demo shortcut (demo.md). */
+  /** Hardhat's public test key for this account. */
   demoKey: string;
   purposeCode: string;
 }
 
-export interface SeedFiduciary {
+export interface TestCompany {
   slug: "quickloan" | "medicare" | "foodrush";
   name: string;
   address: string;
-  /** Hardhat's public test key for this account. Core signs the company's anchor transactions with it: a disclosed demo shortcut (trd.md §12). */
+  /** Hardhat's public test key for this account. */
   demoKey: string;
   sector: string;
-  color: string; // ui.md company identity colours
+  color: string;
   port: number;
-  purposes: SeedPurpose[];
-  processors: SeedProcessor[];
+  purposes: TestPurpose[];
+  processors: TestProcessor[];
 }
 
 function text(en: string): LocalizedText {
-  return { en, hi: `[hi] ${en}`, kn: `[kn] ${en}` };
+  return { en, hi: `${en} (hi)`, kn: `${en} (kn)` };
 }
 
 function purpose(
@@ -47,7 +45,7 @@ function purpose(
   retentionDays: number,
   sharesThirdParty: boolean,
   required = false,
-): SeedPurpose {
+): TestPurpose {
   return {
     code,
     title: text(title),
@@ -59,7 +57,7 @@ function purpose(
   };
 }
 
-export const SEED_FIDUCIARIES: readonly SeedFiduciary[] = [
+export const TEST_COMPANIES: readonly TestCompany[] = [
   {
     slug: "quickloan",
     name: "QuickLoan",
@@ -69,9 +67,9 @@ export const SEED_FIDUCIARIES: readonly SeedFiduciary[] = [
     color: "#2F5BEA",
     port: 4101,
     purposes: [
-      purpose("credit_check", "Credit check", "Check your credit eligibility", ["PAN", "income", "12 months of statements"], 365, false),
-      purpose("marketing", "Loan offers", "Send you loan offers", ["phone", "email"], 180, true),
-      purpose("bureau_share", "Credit bureau sharing", "Share repayment history with credit bureaus", ["repayment history"], 1095, true),
+      purpose("credit_check", "Credit check", "Check your credit eligibility", ["financial.pan", "financial.income_band", "financial.employment"], 365, false),
+      purpose("marketing", "Loan offers", "Send you loan offers", ["contact.mobile", "contact.email"], 180, true),
+      purpose("bureau_share", "Credit bureau sharing", "Share repayment history with credit bureaus", ["financial.income_band"], 1095, true),
     ],
     processors: [
       { name: "CreditBureauX", address: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", demoKey: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", purposeCode: "bureau_share" },
@@ -87,9 +85,9 @@ export const SEED_FIDUCIARIES: readonly SeedFiduciary[] = [
     color: "#0E9AA7",
     port: 4102,
     purposes: [
-      purpose("treatment", "Treatment", "Use your records for your treatment", ["medical records"], 3650, false, true),
-      purpose("insurance_claim", "Insurance claims", "Share records with your insurer for claims", ["medical records", "billing"], 730, true),
-      purpose("research", "Medical research", "Use anonymised data for medical research", ["anonymised records"], 1825, true),
+      purpose("treatment", "Treatment", "Use your records for your treatment", ["health.blood_group", "health.allergies"], 3650, false, true),
+      purpose("insurance_claim", "Insurance claims", "Share records with your insurer for claims", ["health.insurance_policy", "identity.name"], 730, true),
+      purpose("research", "Medical research", "Use anonymised data for medical research", ["health.blood_group"], 1825, true),
     ],
     processors: [
       { name: "InsureCo", address: "0x976EA74026E726554dB657fA54763abd0C3a0aa9", demoKey: "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e", purposeCode: "insurance_claim" },
@@ -105,66 +103,20 @@ export const SEED_FIDUCIARIES: readonly SeedFiduciary[] = [
     color: "#E4572E",
     port: 4103,
     purposes: [
-      purpose("delivery", "Delivery", "Use your location to deliver orders", ["location"], 30, false, true),
-      purpose("ad_targeting", "Personalised ads", "Personalise ads from your order history", ["order history"], 180, true),
-      purpose("partner_share", "Restaurant partners", "Share your orders with restaurant partners", ["order history"], 90, true),
+      purpose("delivery", "Delivery", "Use your location to deliver orders", ["prefs.delivery_address"], 30, false, true),
+      purpose("ad_targeting", "Personalised ads", "Personalise ads from your order history", ["prefs.food"], 180, true),
+      purpose("partner_share", "Restaurant partners", "Share your orders with restaurant partners", ["prefs.food"], 90, true),
     ],
     processors: [{ name: "AdNetworkZ", address: "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f", demoKey: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97", purposeCode: "ad_targeting" }],
   },
 ];
 
-/** Where a purpose is guarded in its company's backend. */
-export interface GuardedEndpoint {
-  /** Express path; `:id` is the company-side customer id. */
-  path: string;
-}
+/** The API key a test gives a test company (the real keys are generated at approval and shown once). */
+export const testApiKey = (slug: string): string => `sk_test_${slug}`;
 
-/**
- * The endpoint Core's /v1/demo/fire calls for each purpose. The company apps (`companies/*`) own the
- * routes and their fictional data (drd.md §5) and register them with the gateway SDK; this map only
- * says where to knock. A test (core/test/companies.test.ts) fails if a company stops serving one of
- * these, so the two cannot drift apart unnoticed. Purpose codes are unique across the companies.
- */
-export const GUARDED_ENDPOINTS: Readonly<Record<string, GuardedEndpoint>> = {
-  credit_check: { path: "/customers/:id/credit-profile" },
-  marketing: { path: "/marketing/campaign/sms" },
-  bureau_share: { path: "/bureau/sync" },
-  treatment: { path: "/patients/:id/records" },
-  insurance_claim: { path: "/claims/file" },
-  research: { path: "/research/export" },
-  delivery: { path: "/customers/:id/profile" },
-  ad_targeting: { path: "/ads/recommendations" },
-  partner_share: { path: "/orders/partner-dispatch" },
-};
+/** Hardhat account #0: the test customer. A real phone generates its own key. */
+export const TEST_CUSTOMER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+export const TEST_CUSTOMER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
-/** QuickLoan's apply endpoint, called by /v1/demo/fire with action "loan_decision" (trd.md §6.8). */
-export const LOAN_DECISION_ENDPOINT = { path: "/customers/:id/apply", method: "POST" } as const;
-/** Purposes whose data the wallet can send to the Processor (ui.md V2). */
-export const VAULT_PURPOSES: readonly string[] = ["credit_check"];
-/** Demo company API keys for the Processor: public on purpose, like the demo chain keys (trd.md §10). */
-export const demoApiKey = (slug: string): string => `sk_demo_${slug}`;
-export const PROCESSOR_PORT = 4200;
-/** The fictional profile the wallet encrypts (drd.md §5). It exists nowhere else but the Processor's memory. */
-export const DEMO_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
-/** The income bands and employment statuses the loan rules know (trd.md §6.7, §6.10). */
-export const INCOME_BANDS = ["0-3 LPA", "3-6 LPA", "6-9 LPA", "9+ LPA"] as const;
-export const EMPLOYMENT_STATUSES = ["salaried", "self-employed", "student", "unemployed"] as const;
-
-/** Company-side customer id used by the simulator; the real id never leaves the company (drd.md §1). */
-export const SIMULATOR_CUSTOMER_ID = "1";
-/**
- * Demo relayer key, keccak256("sammati-demo-relayer"). Public on purpose: it only ever holds
- * test ETH, and Core holds it for the demo (trd.md §12). Not a Hardhat account, so the seed has
- * to fund it, as a real deployment would.
- */
-export const DEMO_RELAYER_KEY = "0xfbe32bfa0c2ff2102e9a5f0cc05b7d469749f75ee21bdca151642f85525b2ecf";
-export const DEMO_RELAYER_ADDRESS = "0xf448D3bbB6B8F2d1780215F8a1137B896d69Be60";
-
-/**
- * Hardhat account #0's public test key, the demo principal's. Core holds it so the presenter's "Withdraw and re-run"
- * can withdraw for the demo customer without a phone (trd.md §6.4): a disclosed demo shortcut, like the company keys.
- */
-export const DEMO_PRINCIPAL_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
-/** Hardhat account #0; the real phone generates its own key (drd.md §5). */
-export const DEMO_PRINCIPAL = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+/** A throwaway profile with made-up values; the e2e searches the whole run for the PAN. */
+export const TEST_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;

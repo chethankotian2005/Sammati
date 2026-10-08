@@ -269,7 +269,7 @@ export function ReportModal({
               This report lists evidence from the consent ledger and the company&apos;s access log, and whether that log matches its on-chain
               anchors. It is not a legal finding and does not certify that anyone complies with any law. How Sammati lines up with the
               principles of India&apos;s DPDP Act, 2023, and which points are still unchecked, is in <span className="font-mono">docs/dpdp-mapping.md</span>.
-              The data in this demo is fictional.
+              Use only made-up data while Sammati is a prototype.
             </p>
           </div>
         </article>

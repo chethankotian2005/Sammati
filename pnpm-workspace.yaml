@@ -5,4 +5,5 @@ packages:
   - shared
   - web
   - processor
-  - 'companies/*'
+  - test
+  - 'examples/*'
