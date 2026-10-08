@@ -44,7 +44,7 @@ CREATE TABLE fiduciaries (
   sector TEXT NOT NULL,
   color TEXT,
   registered_tx TEXT,
-  slug TEXT NOT NULL UNIQUE,           -- console route /company/<slug> (R-04)
+  slug TEXT UNIQUE,                    -- console route /company/<slug> (R-04). Always set; nullable only because a database created before R-01 gets the column by migration and the seed fills it
   sandbox INTEGER NOT NULL DEFAULT 0,  -- 1: only test customers may be asked (R-03). Seed companies are 0
   demo INTEGER NOT NULL DEFAULT 0      -- 1 for the seed companies, which have a simulator backend
 );
