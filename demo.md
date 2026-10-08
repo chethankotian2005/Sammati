@@ -51,21 +51,40 @@ Total ≈ 3:50, leaving ~10 seconds slack. To make room for the Data flow panel,
 | Projector or mirroring fails | Show the phone to the judges directly and keep the console on the projector |
 | Anything unexplained | Say "let me show you the recording of this step", never debug live in front of judges |
 
-## 6. Pitch deck (6 slides, optional but short)
+## 6. Pitch deck (7 slides, optional but short)
 1. Problem: consent is a checkbox nobody controls
-2. The DPDP moment: the law now requires purpose-specific, withdrawable consent and proof
+2. The DPDP moment: the Act, as we understand it, asks for purpose-specific, withdrawable consent and a record of it (exact wording is marked VERIFY in `dpdp-mapping.md`)
 3. Sammati: wallet, gateway, auditor, ledger (the architecture picture, simplified)
 4. Live demo
 5. Why this is real: Account Aggregator-style consent layer, production path, who pays (companies pay per verified check, citizens free)
-6. Team and what we built in 24 hours
+6. How Sammati lines up with the Act's principles (L-01): the mapping in one slide, gaps included (content below)
+7. Team and what we built in 24 hours
+
+The legal-alignment slide, in full. Say "aligned with the principles of", never "compliant" or "certified"; keep the three numbers in step with `dpdp-mapping.md`.
+
+**Slide 6: How Sammati lines up with the Act's principles**
+**Title:** Aligned with the principles. Not certified.
+**Content:**
+- Notice and consent: itemised plain-language purposes, a separate choice per purpose, nothing pre-ticked, in English, Hindi and Kannada (the seed's Hindi and Kannada purpose text is still being reviewed).
+- Withdrawal and erasure: two taps to withdraw, the company's next request is blocked, the sealed copy is erased, processors are told and acknowledge on chain.
+- Consent-manager role: accountable to the person (only her signature changes consent); Core never receives the data it manages.
+- Honest gaps: simulated enclave, demo-held keys, no breach flow, no children's data, no correction or nomination.
+- Footer: "28 obligations mapped: 10 implemented, 12 partial, 6 out of scope. Every legal point is marked VERIFY until checked. docs/dpdp-mapping.md"
+
+**Speaker Notes:**
+*20 seconds. "We mapped the Act's obligations to what we built, and we put the gaps on the same slide. We say aligned with the principles, not compliant: nobody has certified this, and every legal point we haven't checked against the official text is marked for a lawyer to verify."*
+
 
 ## 7. Judge Q&A
 
 **Why blockchain, not a database?**
 "Consent is a dispute between a user and a company, so the company cannot hold the evidence. A user-signed, shared ledger means neither side, and no single company, can rewrite history. A normal database gives you a log. This gives you a log that the audited party doesn't control."
 
-**What about the right to erasure and immutability?**
-"No personal data is on chain, only pseudonymous addresses, hashes and statuses. Erasure happens in the company's systems and is tracked as a rights request. The chain proves consent history, it does not store the person."
+**Is the consent manager able to see user data?**
+"Not the sensitive data. Core, which plays the consent manager, never receives the encrypted data and holds no key. It handles consent records and access metadata: a pseudonymous address, which purpose, allowed or blocked, and when. The sensitive profile is encrypted on the phone and only the Sammati Processor opens it, for one evaluation, and our test run searches every log, event, response and database file for the demo PAN and finds nothing. The honest limit: the Processor is a simulated enclave that we run, so in this build it is a component you have to trust. The production design puts it in a hardware enclave with remote attestation. Whether the law requires a consent manager to be unable to read the data, and in what way, is one of the points we have marked to verify."
+
+**How do you handle erasure with a ledger?**
+"By keeping personal data off the ledger. The chain holds pseudonymous addresses, purpose ids, hashes, a status and an expiry, so there is nothing personal on it to erase. The sensitive profile sits as ciphertext in the Processor and is erased on withdrawal or expiry: on the Data flow screen you can watch the entry go from stored to erased while its metadata stays as the audit trail. A company's own databases are the company's to erase. The cascade tells its processors and they acknowledge on chain, and an erasure request filed in the wallet is recorded, though in this build nothing moves it forward. One caveat we flag ourselves: a pseudonymous address is not anonymous, and whether it counts as personal data once someone can link it to a person is a legal question we have marked to verify."
 
 **What if a company just bypasses your gateway?**
 "We split it into prevention and detection. Honest companies are enforced in real time. A company that bypasses the gateway shows up in the audit: data use without an anchored access record, or anchored access without valid consent at that moment. And the user's wallet has the signed receipts."
@@ -80,7 +99,7 @@ Total ≈ 3:50, leaving ~10 seconds slack. To make room for the Data flow panel,
 "Cookie banners record a click on the company's own server. We have purpose-level, user-signed consent, enforced in the company's code path, with independent proof."
 
 **Is this legally compliant?**
-"It is designed around the Act's principles: itemised notice, purpose limitation, withdrawal as easy as consent, a consent-manager model, and auditability. We aren't claiming certification."
+"We don't claim that. Sammati is aligned with the principles of the Act: an itemised notice, a separate choice per purpose with nothing pre-ticked, withdrawal in two taps, erasure of the sealed copy on withdrawal, and a record anyone can check. We have not had it legally reviewed, we are not a registered consent manager, and every point we have not checked against the official text is marked VERIFY in our mapping, `docs/dpdp-mapping.md`. The mapping also lists what we have not built: breach notification, children's data, correction and nomination. And all the data is fictional."
 
 **Is the data real?**
 "No. All customer data is fictional. The consent flow, signatures, enforcement and anchoring are real and running."
