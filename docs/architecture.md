@@ -118,6 +118,14 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 
 **What stops a company asking for another purpose.** The envelope is authenticated with the purpose in its AAD, the evaluate call is checked against consent for the purpose it names, and the attempt, allowed or blocked, is an anchored log entry. A company that asks for `marketing` with a `credit_check` handle is refused (`NO_CONSENT`) and the refusal is on the record.
 
+### 5.6 Asking a specific customer (no QR)
+1. The customer registers a Sammati ID in the wallet (`asha@sammati`): a signed message, `trd.md` §4.5. Core stores handle to address; nothing else.
+2. A company's console posts a request to that handle. Core answers the company with an opaque request id and `sent`, **the same answer for any well-formed handle**. If the handle is registered and the customer has not blocked the company or reached the open-request limit, Core pushes `consent.requested` to the wallet's socket; otherwise nothing is pushed and the request quietly expires.
+3. The wallet shows the request in its inbox within a second or two. **Review** opens the ordinary consent notice (W3): the notice hash is recomputed on the phone and the grant is an ordinary EIP-712 `GrantConsent`. Opening it makes the company's status Seen; granting makes it Granted; **Decline** and **Block this company** are signed messages that Core stores and respects.
+4. The company never learns the customer's address from any of this. It hears Seen, Granted or Declined by request id; the address appears in its consents table only once consent exists, as with a QR.
+
+Trust: Core is trusted to apply the rules above (it holds the handle map). It cannot grant consent for anyone (no signature, no effect). The honest limit is in `trd.md` §6.11: a company may still infer registration by other means.
+
 ## 6. Why blockchain here (the answer to "why not a database?")
 - **Consent is a dispute between a user and a company.** The company cannot be the one holding the evidence.
 - **User-signed state** gives non-repudiation both ways.
@@ -137,7 +145,8 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 | Failure | Behaviour |
 |---|---|
 | Chain node down | Gateway uses last cached state up to a short TTL, then fails closed (BLOCKED, reason `LEDGER_UNAVAILABLE`) |
-| Core down | Wallet shows offline banner; no signing without a notice fetched |
+| Core down | Wallet shows offline banner; no signing without a notice fetched. The inbox keeps its last known list, and Decline and Block wait for a connection |
+| Wallet offline when a request is sent | Nothing is lost: the request waits in the inbox until it expires, and the wallet fetches the list when it reconnects |
 | Relayer out of funds | Alert in console; demo wallet topped up at start |
 | Clock skew | Expiry uses block timestamp on chain; cache re-validates |
 | Processor cannot read the chain | Submit and evaluate answer `451 LEDGER_UNAVAILABLE`, nothing is decrypted, **nothing is erased** (an outage must not destroy data) |

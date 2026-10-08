@@ -63,6 +63,18 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | C-08 | Compliance export | P1 | One-click evidence pack for the regulator |
 | C-09 | Demo company portal | P1 | A QuickLoan customer page (`/portal/quickloan`): demo login with a company-side alias, a loan application form with one unticked consent checkbox and the purposes listed beneath it in plain language; ticking it creates the consent request and shows the QR inline with a live status; the page follows the customer through consent received, data submitted securely, decided and withdrawn from real events. It never asks for, receives, shows or logs a PAN or an income, and no text input of the login or the form takes one. Apply calls the QuickLoan backend, which calls the Processor with the handle only; the decision card shows approved or declined, the limit and the reasons, never the data |
 
+### 6.2b Reaching a customer without a QR
+
+A company can ask a specific customer for consent, and the customer is told in the wallet at once. Design in `trd.md` §4.5 and §6.11, `architecture.md` §5.6.
+
+| ID | Feature | Pri | Acceptance criteria |
+|---|---|---|---|
+| N-01 | Sammati ID | P1 | The wallet registers a handle like `asha@sammati` by signing a short plain message (no new EIP-712 type); Core stores handle to principal in `identities`. One handle per wallet, each handle unique. No phone number or email is stored or asked for. A company can address a handle only to send a request: no API returns a principal address to a company before that customer has granted consent |
+| N-02 | Targeted consent request | P1 | A company posts a request to a handle with purposes, an optional message and an expiry. The customer's wallet receives `consent.requested` over the WebSocket. The company sees only an opaque request id and a status (Sent, Seen, Granted, Declined, Expired). The answer to the company is **identical** for a known handle, an unknown handle, a blocked company and a customer at the open-request limit, so a company cannot learn who is registered. Abuse controls: a per-company rate limit, a cap on open requests per customer per company, requests that expire, Decline, and Block this company (stored in Core and respected) |
+| W-14 | Requests inbox | P1 | A badge on the wallet's Home opens a list of open requests. Each is a card (company, purposes, message, expiry) with Review (the existing consent notice W3), Decline and Block this company. A new request arrives with a brief colour wash within 2 seconds of being sent. Offline, the last known list is shown. English, Hindi and Kannada. Blocked companies can be listed and unblocked |
+
+The console's "New consent request" gains a second tab, "Send to user" (a Sammati ID field and the status of each request sent). The QR stays for in-person use.
+
 ### 6.3 Regulator Auditor
 
 | ID | Feature | Pri | Acceptance criteria |
@@ -104,6 +116,7 @@ Acceptance, end to end (all of it is in `pnpm e2e`):
 - Submit encrypted → evaluate returns `approved` → the admin view shows ciphertext metadata only → withdraw → evaluate returns 451 `CONSENT_WITHDRAWN` → the vault entry is erased.
 - Tampering with a stored ciphertext makes decryption fail (GCM tag) and the answer is an error (`CIPHERTEXT_INVALID`), never a guessed decision.
 - A search of every log line, WebSocket event, HTTP response from the company and database file produced by the run for the known plaintext (`ABCDE1234F`) finds nothing.
+- Targeted request (N-01, N-02, W-14): from the console, send a request to a test handle, see it in the wallet's inbox within 2 seconds, approve it, see Granted in the console and the consent in the wallet's Consents list. An unknown handle gets exactly the same answer as a known one and nothing is pushed. `pnpm e2e` covers send, inbox, grant, and the no-signal cases.
 - Customer journey (C-09, W-13), by one person on stage: tick the checkbox, scan, approve, submit the details in the wallet, Apply, see the decision, withdraw, see Apply blocked, with the page following each step live. `pnpm e2e` plays the same journey with a headless client in place of the wallet, driving the portal's own state machine with the real events.
 - Data Flow Inspector (V-07, S-04): with the full flow running, all four lanes update live from events; the staff lane's two buttons return only a handle, a ciphertext hash, a status and ciphertext; the privacy line stays hidden if a plaintext value is injected into any event; replay mode reproduces a recorded run with no stack running. Checked by web tests (reducer, privacy check, staff-view filter, replay file) and by recording the replay file from a real `pnpm e2e` run.
 

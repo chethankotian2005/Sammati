@@ -88,6 +88,21 @@ Three actions: "See what a company holds" (access), "Ask a company to erase data
 ### W9 Me
 Language, security (biometric), wallet address (copy), developer settings (Core URL, network), about.
 
+### W11 Requests inbox (W-14), from the bell on W1 Home
+- Home's app bar gets a bell with a count badge (`marigold` fill, number in `ink`) of open requests; the badge is also read by screen readers ("3 requests"). Tap opens W11. The badge and the list update the moment a `consent.requested` arrives.
+- W11 lists request cards, newest first. A card: the company's name with its colour dot, "{company} is asking for {n} purposes", the purposes' titles, the company's message under "Message from {company}" if there is one, "Expires in 23 hours". Three actions, each 48 dp: **Review** (primary, opens the consent notice W3 for this request, and everything after that is W3, W4), **Decline** (text button), **Block this company** (text button in `block`).
+- Decline signs and removes the card, with the toast "Request declined." Block asks first in a bottom sheet ("Block {company}? They will not be able to send you requests."; **Block** in `block`, **Keep** in the usual place), then signs, removes every card of that company and says "{company} is blocked."
+- A new card arrives at the top with a brief colour wash (`marigold` fading to `surface` over 1.2 s; with reduced motion the card is simply there).
+- Footer link "Blocked companies": a list with **Unblock** on each, and "You have not blocked anyone." when empty.
+- Empty state: "No requests. When a company asks for your consent it will appear here."
+- Offline (or Core unreachable): the last known list stays, with the banner "No connection. Showing last known requests." (the same banner pattern as W1). Actions need a connection and say so.
+
+### W12 Your Sammati ID (N-01), from W9 Me
+- A row on Me: "Your Sammati ID", its value `asha@sammati` or "No Sammati ID yet". Tap opens W12.
+- W12 explains: "Companies can send you consent requests here. They never see your wallet address until you say yes." Without an ID: a field "Choose your ID" with the fixed suffix `@sammati` shown after it, the hint "3 to 30 letters, numbers, dots or dashes", and **Register**. Registering is a device-credential prompt, then the new ID in `ink` with a copy action.
+- Errors: not 3 to 30 letters, numbers, dots, underscores or dashes: "Use 3 to 30 letters, numbers, dots or dashes"; taken: "That ID is taken. Try another."; no connection: "Could not reach Sammati. Check Wi-Fi."
+- Changing the ID is registering another one; the old one is released. No phone number or email is ever asked for.
+
 ### V1 My demo details (V-01, V-06), opened from W9 Me
 - Read-only card with the fictional profile: PAN `ABCDE1234F` (IBM Plex Mono), income `6-9 LPA`, credit score `742`.
 - Note under it: "Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere."
@@ -121,7 +136,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 
 - **Overview:** four numbers (active consents, allowed today, blocked today, last anchor), live feed beside a small consent trend chart.
 - **Purposes:** table plus "Add purpose" drawer (code, plain description in 3 languages, categories, retention, sharing flag).
-- **New consent request:** choose customer alias and purposes, large QR on right. "Waiting for scan…" then "Consent received" with tx.
+- **New consent request:** two tabs. **QR (in person)**: choose customer alias and purposes, large QR on right. "Waiting for scan…" then "Consent received" with tx. **Send to user** (N-02): a field "Sammati ID" (placeholder `asha@sammati`), the same purposes picker, an optional message (140 characters, with a counter) and "Expires in" (1 hour, 24 hours, 3 days, 7 days), then **Send request**. The answer is always "Request sent" for a well-formed ID, and the page says so: "We tell you nothing about whether this ID exists." Below, a table of requests sent: ID as typed, purposes, a status chip (Sent, Seen, Granted, Declined, Expired: each with icon and word), sent time, expiry; it updates live from `request.updated`, and a Granted row links to the Consents section. A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
 - **Live requests:** two-column. Left: **Simulator** with big buttons ("Run credit check", "Send marketing SMS", "Share with bureau") firing real requests. Right: feed with ALLOWED/BLOCKED, reason code, latency. Blocked rows use `block` left border and show "451 · Consent withdrawn".
 - **Live requests, QuickLoan only (V-05, V-06):** the simulator gains **Run loan decision**. The result row reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow`, or "Declined · …" in `block`, or the usual "451 · Consent withdrawn". Beside the feed, a **What QuickLoan holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "QuickLoan staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
 - **Consents:** table of customers by purpose with status, filterable.
@@ -347,6 +362,40 @@ Share your details securely (W10, W-13), same status as above. `{company}` is a 
 | emp_student | Student | विद्यार्थी | ವಿದ್ಯಾರ್ಥಿ |
 | emp_unemployed | Not employed | बेरोज़गार | ಉದ್ಯೋಗವಿಲ್ಲ |
 | share_cta | Share your details securely | अपना विवरण सुरक्षित रूप से साझा करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ |
+
+Requests inbox (W11) and Sammati ID (W12), same status as above. `{company}`, `{handle}`, `{count}` and `{hours}` are placeholders; counted keys use ICU plurals in the ARB files:
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| inbox_title | Requests | अनुरोध | ವಿನಂತಿಗಳು |
+| inbox_badge_label | {count, plural, =1{1 request} other{{count} requests}} | {count, plural, other{{count} अनुरोध}} | {count, plural, other{{count} ವಿನಂತಿಗಳು}} |
+| inbox_empty | No requests. When a company asks for your consent it will appear here. | कोई अनुरोध नहीं। जब कोई कंपनी आपकी सहमति माँगेगी, वह यहाँ दिखेगा। | ಯಾವುದೇ ವಿನಂತಿ ಇಲ್ಲ. ಕಂಪನಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಕೇಳಿದಾಗ ಅದು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ. |
+| inbox_asks | {company} is asking for {count, plural, =1{1 purpose} other{{count} purposes}} | {company} {count, plural, other{{count} उद्देश्यों के लिए सहमति माँग रही है}} | {company} {count, plural, other{{count} ಉದ್ದೇಶಗಳಿಗಾಗಿ ಒಪ್ಪಿಗೆ ಕೇಳುತ್ತಿದೆ}} |
+| inbox_message_from | Message from {company} | {company} का संदेश | {company} ಅವರ ಸಂದೇಶ |
+| inbox_expires_hours | {hours, plural, =1{Expires in 1 hour} other{Expires in {hours} hours}} | {hours, plural, other{{hours} घंटे में समाप्त}} | {hours, plural, other{{hours} ಗಂಟೆಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ}} |
+| inbox_expires_soon | Expires in under an hour | एक घंटे से कम में समाप्त | ಒಂದು ಗಂಟೆಗಿಂತ ಕಡಿಮೆಯಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ |
+| inbox_offline | No connection. Showing last known requests. | कनेक्शन नहीं है। पिछले ज्ञात अनुरोध दिख रहे हैं। | ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ವಿನಂತಿಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ. |
+| request_review | Review | देखें | ಪರಿಶೀಲಿಸಿ |
+| request_decline | Decline | अस्वीकार करें | ತಿರಸ್ಕರಿಸಿ |
+| request_block | Block this company | इस कंपनी को ब्लॉक करें | ಈ ಕಂಪನಿಯನ್ನು ನಿರ್ಬಂಧಿಸಿ |
+| request_block_confirm | Block {company}? They will not be able to send you requests. | {company} को ब्लॉक करें? वे आपको अनुरोध नहीं भेज सकेंगी। | {company} ಅನ್ನು ನಿರ್ಬಂಧಿಸಬೇಕೇ? ಅವರು ನಿಮಗೆ ವಿನಂತಿಗಳನ್ನು ಕಳುಹಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. |
+| request_declined | Request declined. | अनुरोध अस्वीकार किया गया। | ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ. |
+| request_blocked | {company} is blocked. | {company} ब्लॉक है। | {company} ಅನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. |
+| blocked_title | Blocked companies | ब्लॉक की गई कंपनियाँ | ನಿರ್ಬಂಧಿತ ಕಂಪನಿಗಳು |
+| blocked_empty | You have not blocked anyone. | आपने किसी को ब्लॉक नहीं किया है। | ನೀವು ಯಾರನ್ನೂ ನಿರ್ಬಂಧಿಸಿಲ್ಲ. |
+| request_unblock | Unblock | अनब्लॉक करें | ನಿರ್ಬಂಧ ತೆಗೆಯಿರಿ |
+| auth_reason_decline | Confirm to decline this request | इस अनुरोध को अस्वीकार करने की पुष्टि करें | ಈ ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಲು ದೃಢೀಕರಿಸಿ |
+| auth_reason_block | Confirm to block this company | इस कंपनी को ब्लॉक करने की पुष्टि करें | ಈ ಕಂಪನಿಯನ್ನು ನಿರ್ಬಂಧಿಸಲು ದೃಢೀಕರಿಸಿ |
+| id_title | Your Sammati ID | आपकी Sammati ID | ನಿಮ್ಮ Sammati ID |
+| id_none | No Sammati ID yet | अभी कोई Sammati ID नहीं | ಇನ್ನೂ Sammati ID ಇಲ್ಲ |
+| id_explain | Companies can send you consent requests here. They never see your wallet address until you say yes. | कंपनियाँ आपको यहाँ सहमति अनुरोध भेज सकती हैं। जब तक आप हाँ नहीं कहते, वे आपका वॉलेट पता नहीं देखतीं। | ಕಂಪನಿಗಳು ನಿಮಗೆ ಇಲ್ಲಿ ಒಪ್ಪಿಗೆ ವಿನಂತಿಗಳನ್ನು ಕಳುಹಿಸಬಹುದು. ನೀವು ಹೌದು ಎನ್ನುವವರೆಗೆ ಅವರು ನಿಮ್ಮ ವಾಲೆಟ್ ವಿಳಾಸವನ್ನು ನೋಡುವುದಿಲ್ಲ. |
+| id_choose | Choose your ID | अपनी ID चुनें | ನಿಮ್ಮ ID ಆಯ್ಕೆಮಾಡಿ |
+| id_hint | 3 to 30 letters, numbers, dots or dashes | 3 से 30 अक्षर, अंक, बिंदु या डैश | 3 ರಿಂದ 30 ಅಕ್ಷರಗಳು, ಅಂಕೆಗಳು, ಚುಕ್ಕೆ ಅಥವಾ ಡ್ಯಾಶ್ |
+| id_invalid | Use 3 to 30 letters, numbers, dots or dashes | 3 से 30 अक्षर, अंक, बिंदु या डैश इस्तेमाल करें | 3 ರಿಂದ 30 ಅಕ್ಷರಗಳು, ಅಂಕೆಗಳು, ಚುಕ್ಕೆ ಅಥವಾ ಡ್ಯಾಶ್ ಬಳಸಿ |
+| id_taken | That ID is taken. Try another. | यह ID ली जा चुकी है। दूसरी आज़माएँ। | ಆ ID ಈಗಾಗಲೇ ಬಳಕೆಯಲ್ಲಿದೆ. ಬೇರೆಯದನ್ನು ಪ್ರಯತ್ನಿಸಿ. |
+| id_register | Register | पंजीकृत करें | ನೋಂದಾಯಿಸಿ |
+| id_registered | Your ID is {handle} | आपकी ID {handle} है | ನಿಮ್ಮ ID {handle} |
+| auth_reason_id | Confirm to register your Sammati ID | अपनी Sammati ID पंजीकृत करने की पुष्टि करें | ನಿಮ್ಮ Sammati ID ನೋಂದಾಯಿಸಲು ದೃಢೀಕರಿಸಿ |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 

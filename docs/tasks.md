@@ -51,6 +51,9 @@ Built after V-01 to V-06 work end to end, since it reads their events. Order: (1
 ### Customer portal and wallet data entry (C-09, W-13)
 Built after the Inspector. Order: (1) spec commit; (2) Processor rules for employment and a missing score, with tests; (3) `web/src/portal/journey.ts` and its tests, then the page; (4) the wallet's W10 screen and strings; (5) the e2e section that drives the journey with a headless wallet. Gate: one person can do the whole loop on stage, and `pnpm e2e` plays it.
 
+### Sammati ID and targeted requests (N-01, N-02, W-14)
+Built after the portal. Order: (1) spec commit; (2) Core: tables, signed-message checks, targeted send with the anti-enumeration rule and abuse controls, with tests; (3) wallet: ID registration, inbox, Decline and Block; (4) console tab; (5) e2e. Gate: send from the console, inbox within 2 s, grant, Granted in the console; an unknown handle gives the same answer and no push.
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.

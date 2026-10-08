@@ -10,6 +10,8 @@
 | Access log entries | Who requested what, decision, time | **Hash only** (via Merkle root) | Core DB (full entry) |
 | Notice text | Plain-language purpose descriptions | **Hash only** | Core DB / console |
 | Personal data | Name, phone, income, health record | **Never** | Company's own system (fake data in demo) |
+| Sammati ID (handle) | `asha@sammati` mapped to a principal address | **Never** | Core DB (`identities`). Pseudonymous: it names no one, and no phone or email is stored |
+| Request target | Which wallet a targeted request is addressed to | **Never** | Core DB (`request_targets`). Never returned to the company: it sees an opaque request id and a status |
 | Company-side alias | "Customer #4821" mapped to a principal address | **Never** | Company's system only |
 | Vault ciphertext | An AES-GCM envelope of PAN, income band and score | **Never** | The Processor's own database only (§3, `vault`) |
 | Vault handle and ciphertext hash | `keccak256(envelope)`, `keccak256(ciphertext ‖ tag)` | No (they could be anchored, but are not) | Processor DB, the company's system, WebSocket events |
@@ -127,6 +129,27 @@ CREATE TABLE cascade_acks (
   principal TEXT NOT NULL, purpose_id TEXT NOT NULL, processor TEXT NOT NULL,
   notified_at INTEGER, acked_at INTEGER, tx_hash TEXT,
   PRIMARY KEY (principal, purpose_id, processor)
+);
+
+CREATE TABLE identities (               -- Sammati IDs (N-01); pseudonymous, no phone or email
+  handle TEXT PRIMARY KEY,             -- asha@sammati, lower case
+  principal TEXT NOT NULL UNIQUE,      -- one handle per wallet
+  registered_at INTEGER NOT NULL
+);
+
+CREATE TABLE request_targets (         -- who a request is addressed to (N-02); extends `requests`
+  request_id TEXT PRIMARY KEY REFERENCES requests(id),
+  fiduciary TEXT NOT NULL,
+  principal TEXT,                      -- NULL when the handle was unknown or the request was dropped: the row looks the same to the company
+  message TEXT,                        -- at most 140 characters
+  status TEXT NOT NULL,                -- sent | seen | granted | declined (expired is computed from expires_at)
+  created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+  seen_at INTEGER, decided_at INTEGER
+);
+
+CREATE TABLE blocks (                  -- "Block this company" (N-02)
+  principal TEXT NOT NULL, fiduciary TEXT NOT NULL, blocked_at INTEGER NOT NULL,
+  PRIMARY KEY (principal, fiduciary)
 );
 
 CREATE TABLE rights_requests (
