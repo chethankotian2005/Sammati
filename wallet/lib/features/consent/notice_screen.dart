@@ -258,7 +258,7 @@ class _PurposeCard extends StatelessWidget {
               children: [
                 const Icon(Icons.info_outline, size: 16, color: SammatiColors.mute),
                 const SizedBox(width: 6),
-                Text(t.needed_for_service, style: style.bodySmall),
+                Text(t.needed_for_service, style: style.bodyMedium),
               ],
             ),
           ],
@@ -326,7 +326,11 @@ class _Chip extends StatelessWidget {
         children: [
           if (icon != null) ...[Icon(icon, size: 16, color: color), const SizedBox(width: 4)],
           Flexible(
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color)),
+            child: Text(
+              label,
+              style: (danger ? Theme.of(context).textTheme.bodyMedium : Theme.of(context).textTheme.bodySmall)
+                  ?.copyWith(color: color, fontWeight: danger ? FontWeight.w700 : null),
+            ),
           ),
         ],
       ),
@@ -371,7 +375,7 @@ class _Footer extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              Text(t.withdraw_easy, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+              Text(t.withdraw_easy, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,

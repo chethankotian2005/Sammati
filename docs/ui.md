@@ -145,13 +145,15 @@ Added with the app shell. Hindi and Kannada are first drafts and need the native
 | rights_erasure | Ask a company to erase data | कंपनी से डेटा मिटाने को कहें | ಡೇಟಾ ಅಳಿಸಲು ಕಂಪನಿಗೆ ಕೇಳಿ |
 | rights_grievance | Raise a complaint | शिकायत दर्ज करें | ದೂರು ಸಲ್ಲಿಸಿ |
 | me_language | Language | भाषा | ಭಾಷೆ |
+| language_english | English | English | English |
+| language_hindi | हिन्दी | हिन्दी | हिन्दी |
+| language_kannada | ಕನ್ನಡ | ಕನ್ನಡ | ಕನ್ನಡ |
 | me_developer | Developer settings | डेवलपर सेटिंग्स | ಡೆವಲಪರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು |
 | dev_core_url | Core URL | Core URL | Core URL |
 | dev_core_url_hint | Address of the Sammati Core on your Wi-Fi, for example http://192.168.1.5:4000 | आपके Wi-Fi पर Sammati Core का पता, जैसे http://192.168.1.5:4000 | ನಿಮ್ಮ Wi-Fi ನಲ್ಲಿರುವ Sammati Core ವಿಳಾಸ, ಉದಾಹರಣೆಗೆ http://192.168.1.5:4000 |
 | dev_core_url_invalid | Enter a full address starting with http:// or https:// | http:// या https:// से शुरू होने वाला पूरा पता दर्ज करें | http:// ಅಥವಾ https:// ನಿಂದ ಪ್ರಾರಂಭವಾಗುವ ಪೂರ್ಣ ವಿಳಾಸ ನಮೂದಿಸಿ |
 | dev_save | Save | सहेजें | ಉಳಿಸಿ |
 | dev_saved | Saved | सहेजा गया | ಉಳಿಸಲಾಗಿದೆ |
-| scan_placeholder | Camera scanning arrives with the scan screen. | कैमरा स्कैनिंग स्कैन स्क्रीन के साथ आएगी। | ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನಿಂಗ್ ಸ್ಕ್ಯಾನ್ ಪರದೆಯೊಂದಿಗೆ ಬರುತ್ತದೆ. |
 
 Onboarding and wallet creation (W0), same status as above:
 

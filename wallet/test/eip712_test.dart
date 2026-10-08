@@ -44,6 +44,14 @@ void main() {
         deadline: m['deadline'] as int,
       );
 
+  test('fixture is an exact copy of shared/test-vectors/eip712.json', () {
+    final shared = File('../shared/test-vectors/eip712.json');
+    // Absent when the wallet is built outside the monorepo; the fixture is then all there is.
+    if (!shared.existsSync()) return;
+    expect(jsonDecode(shared.readAsStringSync()), vectors,
+        reason: 'shared vectors changed: copy them to wallet/test/fixtures/eip712.json');
+  });
+
   group('GrantConsent', () {
     final v = vectors['grant'] as Map<String, dynamic>;
     final message = (v['typedData'] as Map<String, dynamic>)['message'] as Map<String, dynamic>;

@@ -162,6 +162,8 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 | GET | `/v1/proof/consent/:txHash` | Event data, ledger head, explorer link |
 | GET | `/v1/proof/access/:entryId` | Entry, Merkle path, anchor tx |
 
+Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs the i-th purpose the user switched on (in notice order) with `nonce + i` and posts the grants one after another. A purpose the user left off does not consume a nonce. Before signing, the wallet re-fetches the notice (fresh nonce) and refuses if its `noticeHash` differs from the one shown.
+
 `qrPayload` (JSON in QR): `{ "v":1, "core":"http://...", "requestId":"...", "fiduciary":"0x..", "name":"QuickLoan" }`.
 
 ### 6.2 Company and gateway
@@ -242,3 +244,5 @@ On `ConsentWithdrawn`: look up processors for the purpose; for each, POST a sign
 - Fail-closed gateway on ledger outage.
 - No personal data on chain; erasure of company-side data does not conflict with immutability.
 - Demo shortcuts: company and processor keys are held by Core; production would use company-held keys or HSMs.
+- Demo shortcut: the wallet talks to Core over plain HTTP on the venue LAN (Android `usesCleartextTraffic`, iOS `NSAllowsLocalNetworking`), because the laptop has no certificate. Production uses HTTPS only. The wallet sends only addresses, hashes and purpose ids to Core.
+- The wallet key sits in secure storage and is read only after a device-credential prompt (app-level gate, not an OS key bound to biometrics).

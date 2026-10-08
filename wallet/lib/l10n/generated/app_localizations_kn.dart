@@ -103,10 +103,6 @@ class AppLocalizationsKn extends AppLocalizations {
   String get dev_saved => 'ಉಳಿಸಲಾಗಿದೆ';
 
   @override
-  String get scan_placeholder =>
-      'ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನಿಂಗ್ ಸ್ಕ್ಯಾನ್ ಪರದೆಯೊಂದಿಗೆ ಬರುತ್ತದೆ.';
-
-  @override
   String get language_title => 'ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ';
 
   @override

@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- Demo shortcut (trd.md §12): Core is plain HTTP on the venue LAN. -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="Sammati"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

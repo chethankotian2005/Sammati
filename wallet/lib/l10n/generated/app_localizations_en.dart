@@ -103,10 +103,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dev_saved => 'Saved';
 
   @override
-  String get scan_placeholder =>
-      'Camera scanning arrives with the scan screen.';
-
-  @override
   String get language_title => 'Choose your language';
 
   @override

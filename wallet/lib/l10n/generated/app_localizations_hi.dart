@@ -103,9 +103,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get dev_saved => 'सहेजा गया';
 
   @override
-  String get scan_placeholder => 'कैमरा स्कैनिंग स्कैन स्क्रीन के साथ आएगी।';
-
-  @override
   String get language_title => 'अपनी भाषा चुनें';
 
   @override

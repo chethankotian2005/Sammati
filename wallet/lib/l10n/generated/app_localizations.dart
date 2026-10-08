@@ -274,12 +274,6 @@ abstract class AppLocalizations {
   /// **'Saved'**
   String get dev_saved;
 
-  /// No description provided for @scan_placeholder.
-  ///
-  /// In en, this message translates to:
-  /// **'Camera scanning arrives with the scan screen.'**
-  String get scan_placeholder;
-
   /// No description provided for @language_title.
   ///
   /// In en, this message translates to:
