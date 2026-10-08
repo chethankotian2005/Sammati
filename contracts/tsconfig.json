@@ -4,7 +4,12 @@
     "module": "commonjs",
     "moduleResolution": "node10",
     "noEmit": false,
-    "types": ["node"]
+    "esModuleInterop": true,
+    "noUncheckedIndexedAccess": false,
+    "types": ["node", "mocha", "chai"]
   },
-  "include": ["hardhat.config.ts", "test", "scripts"]
+  "ts-node": {
+    "moduleTypes": { "../shared/src/**/*.ts": "cjs" }
+  },
+  "include": ["hardhat.config.ts", "networks.ts", "test", "scripts"]
 }

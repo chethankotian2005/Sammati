@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
-import type { Hex, WsEvent, WsSubscribe, WsTopic } from "@sammati/shared";
+import type { Hex, WsAck, WsEvent, WsSubscribe, WsTopic } from "@sammati/shared";
 
 const lc = (s: string): string => s.toLowerCase();
 
@@ -68,6 +68,7 @@ export class WsHub {
       for (const t of msg.sub) {
         if (typeof t === "string") client.topics.add(lc(t));
       }
+      client.socket.send(JSON.stringify({ event: "subscribed", topics: [...client.topics] } satisfies WsAck));
     } catch {
       // ignore malformed frames; the socket stays usable
     }

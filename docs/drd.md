@@ -19,7 +19,9 @@ See `trd.md` §3 for Solidity structs. Keys:
 - `consentKey = keccak256(abi.encode(fiduciary, purposeId))`, stored as `consents[principal][consentKey]`.
 - `purposeId = keccak256(abi.encodePacked(fiduciary, code))`.
 - `nonces[principal]` monotonic.
-- `ledgerHead` single rolling hash. `actionHash = keccak256(abi.encode(actionType, principal, fiduciary, purposeId, expiresAtOrZero, blockTimestamp))`.
+- `ledgerHead` single rolling hash, `bytes32(0)` at deployment: `ledgerHead = keccak256(abi.encode(ledgerHead, actionHash))`.
+  `actionHash = keccak256(abi.encode(uint8 actionType, address principal, address fiduciary, bytes32 purposeId, uint64 expiresAtOrZero, uint64 blockTimestamp))`.
+  Action types: `0` RegisterFiduciary, `1` RegisterPurpose, `2` RegisterProcessor, `3` SetPurposeActive, `4` Grant, `5` Withdraw, `6` Acknowledge. Slots by action (unused slots are zero): RegisterFiduciary → `fiduciary` = the new fiduciary. RegisterPurpose and SetPurposeActive → `fiduciary` = caller, `purposeId`. RegisterProcessor → `principal` = the processor address (the slot is reused), `fiduciary` = caller, `purposeId`. Grant and Withdraw → principal, fiduciary, purposeId. Acknowledge → principal, fiduciary, purposeId (the processor is in the event only). `expiresAtOrZero` is the consent expiry on Grant, 1 or 0 for SetPurposeActive (active or not), otherwise 0.
 
 ## 3. Off-chain schema (SQLite)
 
@@ -79,7 +81,14 @@ CREATE TABLE ledger_events (            -- indexed chain events for explorer
   principal TEXT, fiduciary TEXT, purpose_id TEXT,
   tx_hash TEXT NOT NULL, block_number INTEGER NOT NULL,
   ledger_head TEXT, at INTEGER NOT NULL,
-  payload TEXT                         -- JSON
+  payload TEXT,                        -- JSON
+  log_index INTEGER NOT NULL DEFAULT 0, -- position in the block; (tx_hash, log_index) makes indexing idempotent
+  UNIQUE (tx_hash, log_index)
+);
+
+CREATE TABLE indexer_state (            -- the indexer's cursor, so a restart resumes where it stopped
+  key TEXT PRIMARY KEY,                -- last_block | last_block_hash
+  value TEXT NOT NULL
 );
 
 CREATE TABLE access_logs (
@@ -135,6 +144,10 @@ Sorted keys, no whitespace, UTF-8. `hash = keccak256(prevHash || bytes(canonical
 `noticeHash = keccak256(canonicalJSON({ fiduciary, purposes:[{id, desc_en, desc_hi, desc_kn, dataCategories, retentionDays, sharesThirdParty}], version }))`.
 The wallet recomputes this locally and compares with the server value before signing.
 
+### 4.2a Description and metadata hashes
+- `descHash = keccak256(canonicalJSON({ desc_en, desc_hi, desc_kn }))` of the purpose's plain-language text (the `descHash` passed to `registerPurpose`).
+- `metaHash` for a fiduciary is `keccak256(canonicalJSON({ name, sector }))`, for a processor `keccak256(canonicalJSON({ name }))`. Helpers live in `shared/src/canonical.ts`.
+
 ### 4.3 Merkle tree
 Leaves = `entry.hash`. Parent = `keccak256(min(a,b) || max(a,b))`. Odd node is promoted unchanged. Proof = list of sibling hashes.
 
@@ -148,7 +161,7 @@ Leaves = `entry.hash`. Parent = `keccak256(min(a,b) || max(a,b))`. Odd node is p
 
 Required (core) purposes such as `delivery` and `treatment` are marked `required`; the wallet shows them as "needed for the service" but still records and allows withdrawal (withdrawing stops the service use, the UI explains the effect).
 
-Demo principal: one seeded wallet address is not used; the real phone generates its own key. Pre-funded relayer account pays gas.
+Demo principal: one seeded wallet address is not used; the real phone generates its own key. A dedicated demo relayer key pays gas; the seed funds it from the admin account.
 
 Fake customer payloads (examples returned by guarded endpoints):
 - QuickLoan `credit-profile`: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 }` (fictional)
@@ -164,4 +177,5 @@ Fake customer payloads (examples returned by guarded endpoints):
 - `access_logs.seq` strictly increasing per fiduciary with no gaps. A gap is a tamper signal.
 - `hash` must equal recomputation from `prev_hash` and canonical entry.
 - Every `batch_index` set implies a row in `anchor_batches` whose root matches recomputation.
-- `consents_cache` must equal `getConsent` on chain; a reconciliation job runs every 30 s and logs drift.
+- `consents_cache` must equal `getConsent` on chain; a reconciliation job runs every 30 s, logs drift, and repairs the cache from the chain (the chain wins).
+- If the chain is behind the indexer cursor, or the block at the cursor has a different hash (a reset node), the indexer discards everything it derived from the chain and re-reads from the start block.

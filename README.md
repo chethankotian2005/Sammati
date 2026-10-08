@@ -9,18 +9,72 @@ Needs Node 20+, pnpm 9 (`npm i -g pnpm@9`) and, for the wallet, Flutter 3.x.
 
 ```
 pnpm install
-pnpm demo:up        # chain :8545, Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
+pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
 ```
 
-Core starts in **stub mode** (`STUB_MODE=true`): it serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state, and no chain is touched yet. Build wallet and web against it.
+`demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Core runs in **real mode** (`docs/trd.md` §6.6): the same routes as the stub, backed by SQLite, the chain and a relayer wallet.
+
+**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks (its Wi-Fi and the hotspot the phone joined) the banner lists every address: pick the phone's network by setting `CORE_PUBLIC_URL=http://<that address>:4000` in the environment or `.env`, which always wins over detection.
+
+**Reset between runs with `pnpm demo:reset`.** It resets Core's database, then the chain, redeploys, reseeds, and resets Core again, in that order on purpose (see the comment at the top of `scripts/demo-reset.mjs`). Core also keeps a record of which chain its database describes and wipes itself if it is started against a different one, and `demo:up` clears the old database file, so a restart can never mix one run's log with another run's chain. The chain's clock is put back on the wall clock after every reset and at start.
+
+To build a client without a chain, `pnpm demo:up:stub` serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state. (`pnpm demo:up:real` is an alias of `demo:up`.)
+
+Real mode needs nothing but the chain (config in `.env.example`, all optional). What it does not build yet answers `501 NOT_IMPLEMENTED`: console purpose/processor registration (the seed registers them).
+The tamper demo, in real mode (every 10 s, or after 20 entries, Core anchors each company's access log on chain):
+
+```
+POST /v1/demo/fire            # run a few requests through a company's gateway
+POST /v1/demo/anchor          # anchor them now instead of at the next 10 s tick
+POST /v1/audit/verify/<fid>   # ok: true, every batch matches its on-chain root
+POST /v1/demo/tamper/<fid>    # edits one stored log row
+POST /v1/audit/verify/<fid>   # ok: false, firstMismatch names the exact record
+```
+
+### `pnpm e2e`: the whole story, in under 30 s
+
+```
+pnpm e2e            # starts the stack itself if none is running, and stops it afterwards
+```
+
+It plays the demo once, against real services: reset → a company creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → tamper with one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step. It prints each step with its time and exits non-zero, naming the step, if anything is off.
+
+- With `pnpm demo:up` already running it reuses that stack and resets it first (about 6 s); with nothing running it starts one (about 12 s more). The 30 s budget (`E2E_BUDGET_MS`) covers the story, not starting the stack. A typical run takes 8 to 10 s.
+- It refuses a Core in stub mode, and `--no-start` makes it fail instead of starting a stack.
+- It ends with the QuickLoan log deliberately tampered with, so run `pnpm demo:reset` before rehearsing.
+- Set `E2E_CORE_URL` to point it at another Core.
+
+### Deploy to Polygon Amoy (public proof)
+
+The live demo runs on the local chain. For a public, checkable proof the same contracts can be deployed to Polygon's Amoy testnet.
+
+1. Get test MATIC for a wallet you control from an Amoy faucet. Use a wallet made for this: its key goes into a file.
+2. Put its private key in the repo-root `.env` (never committed). `AMOY_RPC_URL` is optional; the default is Polygon's public endpoint, which is rate limited.
+   ```
+   DEPLOYER_KEY=0x…           # 0x followed by 64 hex characters
+   AMOY_RPC_URL=https://…     # optional
+   ```
+3. Deploy:
+   ```
+   pnpm deploy:amoy
+   ```
+   It prints the two contract addresses with their explorer pages and writes them to `shared/deployments.json` under `amoy`, with `explorerUrl` and `links` to both contracts and both deployment transactions. **Commit that file** so the links travel with the repo.
+4. To run Core against it: `CHAIN_NETWORK=amoy CHAIN_RPC=<your Amoy RPC> STUB_MODE=false pnpm --filter @sammati/core start`. Proof responses (`/v1/proof/consent/...`, `/v1/proof/access/...`, the ledger explorer) then carry an `explorerUrl` pointing at Amoy's explorer. On the local chain that field is `null`, because there is no explorer to link to. `CHAIN_EXPLORER_URL` overrides the base.
+
+Things to know:
+- A wrong or missing `DEPLOYER_KEY`, an empty wallet and an unreachable RPC each stop the script with a message that says what to fix, before anything is sent.
+- `pnpm seed` refuses to run on Amoy: it registers the demo companies with Hardhat's publicly known keys, which is fine locally and an open invitation on a public network. Companies on Amoy need their own funded keys.
+- The Amoy path (network config, the deployment record with its links, the failure messages, Core's proof links) is covered by tests, but I could not run a real deployment from the environment this was written in (no network access and no funded wallet), so the first `pnpm deploy:amoy` is untested against the live network.
 
 | Check | Command |
 |---|---|
 | Core is up | `curl localhost:4000/v1/health` |
 | Web | http://localhost:5173 (`/company/quickloan`, `/auditor`, `/stage`) |
 | Guarded endpoint | `curl -H "x-sammati-principal: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" localhost:4101/customers/1/credit-profile` returns data; without the header, `451 NO_PRINCIPAL` |
-| Reset state | `pnpm demo:reset` |
+| Reset state | `pnpm demo:reset` (wipes the chain, redeploys, reseeds, resets Core) |
+| Chain only | `pnpm deploy:local` and `pnpm seed` against a running node (`pnpm --filter @sammati/contracts node`); `pnpm --filter @sammati/contracts abi` re-exports the ABIs |
 | Everything | `pnpm lint && pnpm typecheck && pnpm -r test` |
+| The demo story, end to end | `pnpm e2e` (see below) |
 | Wallet | `cd wallet && flutter analyze && flutter run` |
 
 Useful for stub development:
@@ -28,7 +82,6 @@ Useful for stub development:
 - `POST /v1/demo/tamper/:fid` then `POST /v1/audit/verify/:fid` shows the tamper alarm; `pnpm demo:reset` clears it.
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
 - Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
-- `pnpm e2e` is a placeholder for now.
 
 Layout: `contracts/` `core/` `gateway/` `shared/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
 

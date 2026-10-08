@@ -1,66 +1,30 @@
 import { Router } from "express";
-import { ZeroAddress, getAddress, isAddress, isHexString, recoverAddress } from "ethers";
+import { recoverAddress } from "ethers";
 import {
-  GRANT_TYPES,
   buildDomain,
   eip712Digest,
+  explorerTxUrl,
   grantTypedData,
-  noticeHash,
   withdrawTypedData,
   type AccessProofResponse,
   type ActivityResponse,
   type CascadeResponse,
   type ConsentProofResponse,
   type CreateRequestResponse,
-  type GrantConsent,
   type GrantResponse,
   type PrincipalConsentsResponse,
   type Hex,
-  type NoticeInput,
-  type RequestNotice,
-  type WithdrawConsent,
   type WithdrawResponse,
 } from "@sammati/shared";
 import { accessProof } from "../audit";
+import { stubExplorerUrl } from "../config";
 import type { Ctx } from "../context";
-import { HttpError, badRequest, requireBody, requireNumber, requireString } from "../errors";
+import { HttpError, badRequest, requireBody, requireString } from "../errors";
+import { buildNotice } from "../notice";
 import { now } from "../store";
+import { address, bytes32, parseGrant, parseWithdraw } from "../validate";
 
 const DEFAULT_ACTIVITY_LIMIT = 50;
-
-function address(v: string, label: string): Hex {
-  if (!isAddress(v)) throw badRequest(`"${label}" must be an address`);
-  return getAddress(v);
-}
-
-function bytes32(v: string, label: string): Hex {
-  if (!isHexString(v, 32)) throw badRequest(`"${label}" must be a 32-byte hex string`);
-  return v.toLowerCase();
-}
-
-function parseGrant(raw: unknown): GrantConsent {
-  const o = requireBody(raw);
-  return {
-    principal: address(requireString(o, "principal"), "principal"),
-    fiduciary: address(requireString(o, "fiduciary"), "fiduciary"),
-    purposeId: bytes32(requireString(o, "purposeId"), "purposeId"),
-    expiresAt: requireNumber(o, "expiresAt"),
-    noticeHash: bytes32(requireString(o, "noticeHash"), "noticeHash"),
-    nonce: requireString(o, "nonce"),
-    deadline: requireNumber(o, "deadline"),
-  };
-}
-
-function parseWithdraw(raw: unknown): WithdrawConsent {
-  const o = requireBody(raw);
-  return {
-    principal: address(requireString(o, "principal"), "principal"),
-    fiduciary: address(requireString(o, "fiduciary"), "fiduciary"),
-    purposeId: bytes32(requireString(o, "purposeId"), "purposeId"),
-    nonce: requireString(o, "nonce"),
-    deadline: requireNumber(o, "deadline"),
-  };
-}
 
 function assertSigner(digest: string, signature: string, principal: Hex): void {
   let signer: string;
@@ -78,7 +42,7 @@ export function consentRoutes(ctx: Ctx): Router {
   const { store, config } = ctx;
   const r = Router();
   const domain = () => buildDomain(store.fx.directory.chainId, store.fx.directory.verifyingContract);
-  const explorer = (tx: Hex) => `${config.explorerUrl}/tx/${tx}`;
+  const explorer = (tx: Hex) => explorerTxUrl(stubExplorerUrl(config), tx);
 
   r.post("/fiduciaries/:fid/requests", (req, res) => {
     const f = store.fiduciary(req.params.fid!);
@@ -103,45 +67,16 @@ export function consentRoutes(ctx: Ctx): Router {
     const purposes = request.purposeIds.map((id) => store.purpose(f, id));
     const version = store.fx.directory.noticeVersion;
 
-    const notice: NoticeInput = {
-      fiduciary: f.address,
-      version,
-      purposes: purposes.map((p) => ({
-        id: p.id,
-        desc_en: p.description.en,
-        desc_hi: p.description.hi,
-        desc_kn: p.description.kn,
-        dataCategories: p.dataCategories,
-        retentionDays: p.retentionDays,
-        sharesThirdParty: p.sharesThirdParty,
-      })),
-    };
-    const hash = noticeHash(notice);
     const nonce = principalQ ? String(store.nonce(principalQ)) : "0";
-    const out: RequestNotice = {
+    const out = buildNotice({
       requestId: request.id,
       fiduciary: { address: f.address, name: f.name, color: f.color },
-      purposes: purposes.map((p) => ({
-        id: p.id,
-        code: p.code,
-        title: p.title,
-        description: p.description,
-        dataCategories: p.dataCategories,
-        retentionDays: p.retentionDays,
-        sharesThirdParty: p.sharesThirdParty,
-        required: p.required,
-      })),
-      noticeHash: hash,
-      noticeVersion: version,
+      purposes,
+      version,
       domain: domain(),
-      typedDataTemplate: {
-        domain: domain(),
-        types: GRANT_TYPES,
-        primaryType: "GrantConsent",
-        message: { principal: principalQ ?? ZeroAddress, fiduciary: f.address, noticeHash: hash, nonce },
-      },
+      principal: principalQ,
       nonce,
-    };
+    });
     res.json(out);
   });
 
@@ -264,7 +199,7 @@ export function consentRoutes(ctx: Ctx): Router {
   });
 
   r.get("/proof/access/:entryId", (req, res) => {
-    res.json(accessProof(store, req.params.entryId!, config.explorerUrl) satisfies AccessProofResponse);
+    res.json(accessProof(store, req.params.entryId!, stubExplorerUrl(config)) satisfies AccessProofResponse);
   });
 
   return r;

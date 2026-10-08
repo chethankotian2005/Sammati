@@ -3,6 +3,7 @@ import {
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
+  explorerTxUrl,
   hashEntry,
   keccakUtf8,
   purposeIdOf,
@@ -18,12 +19,13 @@ import {
   type LedgerEventType,
   type LedgerEventView,
   type PrincipalConsentsResponse,
+  type RightsRequest,
   type ReasonCode,
   type Status,
   type StoredAccessLogEntry,
   type WithdrawConsent,
 } from "@sammati/shared";
-import type { Config } from "./config";
+import { stubExplorerUrl, type Config } from "./config";
 import { HttpError } from "./errors";
 import {
   loadFixtures,
@@ -53,17 +55,6 @@ export interface StoredRequest {
   purposeIds: Hex[];
   customerAlias: string;
   createdAt: number;
-}
-
-export interface RightsRequest {
-  id: string;
-  principal: Hex;
-  fiduciary: Hex;
-  type: "access" | "erasure" | "grievance";
-  note: string;
-  status: "open" | "in_progress" | "resolved";
-  createdAt: number;
-  updatedAt: number;
 }
 
 const DEMO_REQUEST_ID = "req_demo_quickloan";
@@ -459,7 +450,7 @@ export class StubStore {
         ledgerHead: this.head,
         at: now(),
         payload,
-        explorerUrl: `${this.config.explorerUrl}/tx/${txHash}`,
+        explorerUrl: explorerTxUrl(stubExplorerUrl(this.config), txHash),
       },
     ];
   }

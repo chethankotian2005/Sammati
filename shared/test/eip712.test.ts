@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TypedDataEncoder, computeAddress, getAddress, recoverAddress } from "ethers";
+import { TypedDataEncoder, computeAddress, getAddress, id, recoverAddress } from "ethers";
 import vectors from "../test-vectors/eip712.json";
 import {
   GRANT_CONSENT_TYPE,
@@ -10,7 +10,7 @@ import {
 } from "../src/eip712";
 import { noticeHash, purposeIdOf } from "../src/canonical";
 import { REASON_CODES } from "../src/types";
-import { DEMO_PRINCIPAL, SEED_FIDUCIARIES } from "../src/seed";
+import { DEMO_PRINCIPAL, DEMO_RELAYER_ADDRESS, DEMO_RELAYER_KEY, SEED_FIDUCIARIES } from "../src/seed";
 
 describe("EIP-712 definitions", () => {
   it("field names and order match trd.md §3.1", () => {
@@ -81,6 +81,11 @@ describe("shared constants", () => {
     ]);
   });
 
+  it("demo relayer key is keccak256 of its label and matches its address", () => {
+    expect(DEMO_RELAYER_KEY).toBe(id("sammati-demo-relayer"));
+    expect(computeAddress(DEMO_RELAYER_KEY)).toBe(DEMO_RELAYER_ADDRESS);
+  });
+
   it("seed matches drd.md §5", () => {
     expect(SEED_FIDUCIARIES.map((f) => f.name)).toEqual(["QuickLoan", "MediCare+", "FoodRush"]);
     expect(SEED_FIDUCIARIES.flatMap((f) => f.purposes.map((p) => p.code))).toEqual([
@@ -95,6 +100,10 @@ describe("shared constants", () => {
       DEMO_PRINCIPAL,
       ...SEED_FIDUCIARIES.flatMap((f) => [f.address, ...f.processors.map((p) => p.address)]),
     ];
+    for (const f of SEED_FIDUCIARIES) {
+      expect(computeAddress(f.demoKey)).toBe(f.address); // the held key really is the company's
+      for (const p of f.processors) expect(computeAddress(p.demoKey), p.name).toBe(p.address); // and the processor's
+    }
     for (const a of addresses) expect(getAddress(a)).toBe(a); // valid EIP-55 checksum
     expect(new Set(addresses).size).toBe(addresses.length);
     for (const f of SEED_FIDUCIARIES) {
