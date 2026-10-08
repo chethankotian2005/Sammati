@@ -229,7 +229,6 @@ export function AddPurposeDrawer({
               onChange={(e) => setRetentionDays(Number(e.target.value))}
               className="mt-1 w-full rounded-row border border-line bg-surface px-3 py-2 text-ink focus:border-marigold focus:outline-none"
             />
-            <p className="mt-1 text-[11px] text-mute">DPDP compliant expiry</p>
           </div>
         </div>
 

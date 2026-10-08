@@ -160,7 +160,7 @@ function QrRequestPanel({
       <div>
         <h2 className="text-xl font-extrabold text-ink">New Consent Request</h2>
         <p className="text-sm text-mute">
-          Generate a standardized DPDP consent QR payload for citizen onboarding.
+          Create a consent request and show it to the customer as a QR code.
         </p>
       </div>
 

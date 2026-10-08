@@ -141,7 +141,7 @@ export function OverviewSection({
         <StatCard
           label="Blocked today"
           value={blockedCount}
-          sub={blockedCount > 0 ? "HTTP 451 · Enforced" : "0 violations"}
+          sub={blockedCount > 0 ? "HTTP 451 · Enforced" : "None blocked"}
           accentColor="#C8283B"
         />
         <StatCard

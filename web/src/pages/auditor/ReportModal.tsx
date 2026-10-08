@@ -74,10 +74,7 @@ export function ReportModal({
         {/* Controls bar (hidden in print) */}
         <div className="mb-6 flex items-center justify-between border-b border-line pb-4 print:hidden">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-extrabold text-ink">Compliance Inspection Pack</span>
-            <span className="rounded-pill bg-paper px-2 py-0.5 text-xs text-mute font-mono">
-              DPDP §6.3
-            </span>
+            <span className="text-sm font-extrabold text-ink">Evidence pack</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -105,10 +102,10 @@ export function ReportModal({
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-extrabold tracking-tight">
-                  SAMMATI REGULATORY AUDIT REPORT
+                  Consent and access evidence report
                 </h1>
                 <p className="text-xs text-mute uppercase tracking-wider font-bold mt-0.5">
-                  Digital Personal Data Protection (DPDP) Compliance Proof
+                  Sammati · ledger and access-log evidence
                 </p>
               </div>
               <div className="text-right text-xs">
@@ -193,7 +190,7 @@ export function ReportModal({
           {/* Verification Result */}
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-mute mb-2">
-              2. Cryptographic Integrity Certification (A-03)
+              2. Log integrity check (A-03)
             </h3>
             {reportData ? (
               <div
@@ -207,14 +204,14 @@ export function ReportModal({
                   <span>{reportData.verification.ok ? "✓" : "⚠"}</span>
                   <span>
                     {reportData.verification.ok
-                      ? "VERIFIED: Access log hash chain matches on-chain Merkle anchors"
-                      : "VIOLATION: Database tampering detected against on-chain anchors"}
+                      ? "MATCH: the access log hash chain matches the on-chain Merkle anchors"
+                      : "MISMATCH: the stored access log does not match its on-chain anchors"}
                   </span>
                 </div>
                 <p className="mt-1 text-ink text-xs">
                   {reportData.verification.ok
                     ? `All ${reportData.verification.batches.length} batches verified monotonic with 0 sequence gaps.`
-                    : "Cryptographic hash chain diverges from anchored Merkle root."}
+                    : "The stored log differs from what was anchored. That is a finding about the log's integrity, not a legal finding."}
                 </p>
               </div>
             ) : (
@@ -264,6 +261,16 @@ export function ReportModal({
               <div className="font-bold text-ink uppercase">Auditor Session Stamp</div>
               <div className="font-mono text-allow font-bold">SHA-256 / EIP-712 VERIFIED</div>
             </div>
+          </div>
+          {/* Scope and limits (L-02): say what the report is, and is not */}
+          <div className="rounded-row border border-line bg-paper p-3 text-[11px] text-mute" data-testid="report-scope">
+            <div className="font-extrabold text-ink">Scope and limits</div>
+            <p className="mt-1">
+              This report lists evidence from the consent ledger and the company&apos;s access log, and whether that log matches its on-chain
+              anchors. It is not a legal finding and does not certify that anyone complies with any law. How Sammati lines up with the
+              principles of India&apos;s DPDP Act, 2023, and which points are still unchecked, is in <span className="font-mono">docs/dpdp-mapping.md</span>.
+              The data in this demo is fictional.
+            </p>
           </div>
         </article>
       </div>
