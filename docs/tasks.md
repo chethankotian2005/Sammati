@@ -8,6 +8,8 @@
 | **B: Wallet** | `wallet/` | Flutter app: W-01 to W-10, signing, live feed, proofs, i18n, APK. Confidential processing: `envelope.dart` against the shared vectors, "Send securely" on a pass whose purpose uses the Processor (V-01, V-06). Developer settings with the short-expiry option (X-01) |
 | **C: Web and Story** | `web/`, `examples/`, deck, demo | Company console, Auditor, customer portal, `/join`, the sample lender, deck, rehearsals. Confidential processing: a company without plaintext (handle store, apply endpoint), "What {company} holds" card and timeline, Act 4 (V-05, V-06) |
 
+Account and profile (W-15 to W-17): B owns the wallet side, A the registry in `shared/`, the availability route and the privacy search, C the category picker in `/join` and the console.
+
 Whoever finishes first helps whoever is behind, in this order: B (wallet is the hero), then A, then C polish.
 
 ## 2. The golden path (build this first, nothing else matters until it works)
@@ -60,6 +62,9 @@ Built after targeted requests. Order: (1) spec commit; (2) Core: tables and migr
 ### Expiry, renewal and notification centre (N-03, N-04, N-05, W-11)
 Built after the inbox. Order: (1) spec commit; (2) Core: `notifications`, the scheduler, renewal requests and routes, with tests; (3) the Processor's erasure grace; (4) wallet: Alerts tab, actions, local notifications, strings; (5) console Expiring table; (6) e2e with a few seconds of expiry. Gate: with the wallet's short-expiry option on, grant 2 minutes, see expiring then expired, 451 `CONSENT_EXPIRED`, Renew, ALLOWED again.
 
+### Account and profile (W-15 to W-17)
+Built after company onboarding and the expiry work, and it replaces the wallet's leftover sample profile. Order: (1) spec commit; (2) `shared/src/categories.ts` with the registry, `profilePayload` and vectors, and registry-only categories in applications (`BAD_APPLICATION`); (3) Core: `GET /v1/identities/availability` with its rate limit, `dataCategories` in the consent view; (4) wallet: Dart registry against the vectors, the profile vault (encrypt, lock, tamper), strings in en/hi/kn; (5) wallet screens: create account, My details, About, the share screen driven by categories, the changed-details marker and one-tap update; (6) web: a category picker in `/join` and the purpose drawer; (7) the privacy search in `pnpm e2e`. Gate: kill the app, reopen it, unlock and see the profile; a consent that needs a missing field asks for that field only; a search of Core's and the Processor's databases, logs and events finds none of the profile's values. It depends on the Sammati ID (N-01) and on the Processor (V-01 to V-06). Its ID and profile steps are skippable, so cutting them leaves W-01 as it was (cut line below, item 6).
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.
@@ -77,7 +82,7 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 3. Cascade (W-08, C-06), proof sheet (W-07), Auditor scorecard (A-01), languages (W-09)
 4. Confidential processing as a whole (V-01 to V-06): if it is cut, remove Act 4 from `demo.md`, but then a hero moment is gone, so cut something else first
 5. The inline QR page (portal, C-09, W-13): if cut, Act 1 uses the console QR
-6. Notifications and the inbox (N-01 to N-05, W-11, W-14): cut Act 7 first, then Act 6; the Alerts tab and Sammati ID are the last to go
+6. Notifications and the inbox (N-01 to N-05, W-11, W-14), then the account profile (W-15 to W-17, which falls back to the plain create-wallet of W-01): cut Act 7 first, then Act 6; the Alerts tab and Sammati ID are the last to go
 7. The DPDP document and "How this protects you" (L-01, L-02)
 8. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06)
 9. P2 items (nominee, grievance overview). Company onboarding (R-01 to R-04) is built
@@ -90,6 +95,7 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 | Inline QR page | The portal journey plays with a headless wallet, and by hand with the phone | `pnpm e2e`, web tests |
 | Notifications and inbox | A targeted request reaches the inbox in 2 s; an unknown ID gives the same answer and no push; expiry gives expiring, expired, 451, renew, ALLOWED | `pnpm e2e` (a stack it starts itself, with short reminder settings) |
 | DPDP document | Claims reviewed; no compliance overclaim | `docs/dpdp-mapping.md` |
+| Account and profile | Create account, kill and reopen, unlock, profile still there; missing-field prompts only when a consent needs them; no profile value in Core, the Processor's database, logs or events | wallet tests, `shared` vectors, `pnpm e2e` (privacy search) |
 | Whole | `pnpm e2e` under 45 s, `pnpm -r test`, `pnpm -r typecheck`, lint, wallet `flutter test` and `flutter analyze` | before every rehearsal |
 
 ## 5. Checklists
@@ -107,6 +113,7 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 - Reason codes: `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`
 - Colours and copy keys: `ui.md`
 - Company API keys, the `x-sammati-api-key` header and the registration routes: `trd.md` §6.2a, §6.12 (the SDK, the Processor and the console depend on them)
+- Data category ids, their order and the profile field map: `shared/src/categories.ts`, `shared/test-vectors/data-categories.json` (and the Dart copy `wallet/lib/core/data_categories.dart`); they are part of the notice hash
 - Vault envelope format and test vectors: `shared/src/envelope.ts`, `shared/test-vectors/envelope.json` (and the Dart copy `wallet/lib/core/envelope.dart`); Processor endpoints and `vault.*` / `processor.*` events: `trd.md` §6.5, §6.7
 
 ### Onboarding checklist (R-01 to R-04)

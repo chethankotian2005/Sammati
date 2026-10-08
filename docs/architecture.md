@@ -63,7 +63,7 @@
 | Applicant (not yet a company) | Submit an application, follow its status | Have a fiduciary id, an API key or a single request until approved |
 | Relayer | Submit signed messages, pay gas | Create consent on a user's behalf (no signature, no effect) |
 | Regulator | Read everything, verify independently; **decide who may join** (approve or reject a registration, promote a company out of the sandbox, name the test customers, reissue a key) | Alter consent state, read a company's API key (it is shown once, to the company) |
-| Sammati Core | Relay, index, cache, anchor, fan out events | Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
+| Sammati Core | Relay, index, cache, anchor, fan out events | Receive or store a customer's profile (W-16): it has no endpoint, column or event for one. Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
 | Sammati Processor | Open an envelope in memory when the chain shows valid consent for that purpose, return a decision | Return plaintext to anyone, use data for another purpose (the envelope is bound to one purpose and the check is per purpose), keep data after consent ends, or hide a use (every evaluation is a hash-chained, anchored log entry). **In this build it is also the one component you must trust** (see the limitation below) |
 
 **Honest limitation:** the gateway is run by the company, so a malicious company could bypass it. Sammati detects this: any data access not present in the anchored log, or any anchored access without valid consent at that time, is flagged by the Auditor. We provide *prevention for honest implementers and detection for dishonest ones*.
@@ -118,6 +118,25 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 **What each party can see.** Wallet: everything, it is the owner. Processor: plaintext for the duration of one evaluation. The company, Core, the web apps, the Auditor, a database dump: handles, hashes, ciphertext, decisions, never the data.
 
 **What stops a company asking for another purpose.** The envelope is authenticated with the purpose in its AAD, the evaluate call is checked against consent for the purpose it names, and the attempt, allowed or blocked, is an anchored log entry. A company that asks for `marketing` with a `credit_check` handle is refused (`NO_CONSENT`) and the refusal is on the record.
+
+### 5.9 Account, profile and recovery (W-15 to W-17)
+```text
+ phone                                                   Core                  Processor
+ 1 choose ID ──GET /v1/identities/availability──────────► handle table only
+ 2 device lock ─► wallet key (secure storage)
+   ──sign + POST /v1/identities (handle, principal)─────► identities: handle -> principal
+ 3 profile ─► AES-256-GCM under profile_key ─► profile_blob (secure storage, phone only)
+                                                          (nothing is sent)
+ consent needs fields ─► read profile (device check) ─► seal ONLY that purpose's fields
+   ──ciphertext envelope (per purpose)──────────────────────────────────────► vault (ciphertext)
+```
+1. **Create.** Three steps in the wallet: pick a Sammati ID (Core answers only whether it is free), secure the phone (the wallet key is created and the ID registered), fill the profile. Core learns a handle, an address and a time. It never learns a profile value.
+2. **Store.** The profile is encrypted on the phone under a random profile key kept in the platform's secure storage and read only after a successful device check. It is opened in memory for the foreground session and dropped when the app goes to the background.
+3. **Reuse.** A consent names data categories (`trd.md` §4.6); the wallet maps them to profile fields. If a needed field is missing it asks for that field only, on the share screen, and saves it. The envelope for the Processor contains just the fields of that one purpose and is bound to that company and purpose by its AAD, so a name given for one company is not usable by another.
+4. **Correct.** Editing a field already sent marks the consent; one tap seals the new values and submits again, and the Processor replaces the old copy (`superseded`). Nothing is pushed to a company without the customer's tap.
+5. **Trust.** The wallet is trusted with the profile; the phone's lock is the gate. Core, the chain, the company and the web apps hold none of it. The Processor sees one purpose's fields for one evaluation.
+
+**Recovery: out of scope here, and said so** (`prd.md` §5, `drd.md` §3b, the wallet's About screen). Losing the phone or clearing the app's data loses the wallet key, the profile and control of the Sammati ID; the customer starts again with a new account, and the old on-chain consents stay on chain until they expire or the old key withdraws them (which nobody can do any more). That last point is a real gap: a lost key cannot withdraw. **Production path:** (a) the profile and keys are backed up as a ciphertext the customer holds (a recovery phrase or a passkey-protected cloud blob), never readable by Sammati; (b) a recovery flow re-binds the Sammati ID and rotates the wallet key, with the contract allowing a recovery key or guardian to withdraw on a lost wallet's behalf; (c) hardware-backed keys bound to the biometric. Each is a separate piece of work with its own threat model, which is why none is half-built here.
 
 ### 5.6 Asking a specific customer (no QR)
 1. The customer registers a Sammati ID in the wallet (`asha@sammati`): a signed message, `trd.md` §4.5. Core stores handle to address; nothing else.
@@ -193,6 +212,8 @@ The two shortcuts that remain, said plainly: Core holds the keys of companies an
 | Wallet offline when a request is sent | Nothing is lost: the request waits in the inbox until it expires, and the wallet fetches the list when it reconnects |
 | Relayer out of funds | Alert in console; `pnpm seed` tops it up on the local chain |
 | Clock skew | Expiry uses block timestamp on chain; cache re-validates |
+| Wallet profile cannot be decrypted (blob damaged, key lost) | The wallet says the saved details could not be read and starts with an empty profile; nothing partial is shown and nothing is sent. Consents and the wallet key are untouched |
+| Core unreachable while creating an account | Step 1 cannot check an ID and says so (**Choose later** skips it); if registration fails after the wallet exists, the step shows Retry and Choose another; the wallet is never created twice |
 | Processor cannot read the chain | Submit and evaluate answer `451 LEDGER_UNAVAILABLE`, nothing is decrypted, **nothing is erased** (an outage must not destroy data) |
 | Registration fails half-way (chain error, Core restart) | The application stays `pending`, the directory is untouched, the company key is kept on the row; Approve can be repeated and skips what is already on chain. Nothing is half-visible to companies or the wallet |
 | Core restarts before the applicant reads their API key | The key lived only in memory, so the status page says it can no longer be shown; the regulator reissues it (the old one is revoked) |

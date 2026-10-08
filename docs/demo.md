@@ -41,7 +41,7 @@ Cut, in this order, until it fits: **Act 7** (−15 s), the optional new-company
 - [ ] One company registered through `/join` and approved in the Auditor beforehand, with its API key saved; the sample lender running for it: `FIDUCIARY=<address> SAMMATI_API_KEY=<key> pnpm --filter @sammati/example-lender start`. Its customer page `/portal/<company>` opens
 - [ ] Phone on the same hotspot, and the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (if the laptop is on two networks the banner lists both: set `CORE_PUBLIC_URL` to the right one); relayer funded
 - [ ] The Processor answers: `curl http://<lan-ip>:4200/health` says `simulated-enclave`, and the phone can reach it on the same hotspot
-- [ ] The phone has a Sammati ID registered (Me → Your Sammati ID) and the regulator has added it as a **test customer** (Auditor > Registrations > Test customers), because a new company is in the sandbox until promoted
+- [ ] The phone has an account (W-15: ID chosen, device lock set) with **made-up** details in My details, so the share screen asks for nothing it has already been given, and the regulator has added its Sammati ID as a **test customer** (Auditor > Registrations > Test customers), because a new company is in the sandbox until promoted
 - [ ] For Act 7: **Short expiry for testing** switched on in the phone's Developer settings, and a 2-minute consent given about two minutes before the act
 - [ ] Phone shown to the room (mirrored or held up), brightness up, Do Not Disturb **off for this app only** if you want to show the phone notification, otherwise on
 - [ ] Browser tabs preloaded: the company console (open on **Send to user**), the customer page signed out, Auditor, Amoy explorer. A terminal open in the repo with `DEV_TOOLS=true` set, for `pnpm dev:tamper`
@@ -55,6 +55,11 @@ Cut, in this order, until it fits: **Act 7** (−15 s), the optional new-company
 - **Reminders for consents the phone already knows** (3 days and 1 day before expiry, and at expiry) are scheduled on the phone, so they fire with the app closed.
 - **Everything a company sends** (a renewal request, "your data was erased", a processor's confirmation) reaches the phone over the live connection. So **the app must be open, or the phone awake with the app still running**. Anything missed waits on the Alerts tab.
 - **Push to a closed app (Firebase) is not built.** Local notifications have **not been tested on a real phone** yet. Do not claim background push; see `RELEASE_CHECKLIST.md` for the test that would change that.
+
+### The profile on the phone (W-15 to W-17), if asked
+- "Where are my details?" Only on the phone, encrypted, opened by your fingerprint or PIN. Sammati's servers never get them; a company gets a decision, and only the fields a purpose needs, sealed for the Processor.
+- "What if I lose the phone?" There is no recovery in this build, and the app says so on its About screen. The production path is an encrypted backup the customer holds and a recovery flow (`architecture.md` §5.9). Say it plainly; do not improvise a feature.
+- "Show me you don't have it." `pnpm e2e` submits a profile of distinctive values and searches every database, log and event of the run for them.
 
 ### Demo shortcuts
 "Demo shortcuts" means exactly two things, and nothing else in the product is staged:

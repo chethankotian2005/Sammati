@@ -50,7 +50,7 @@ These are the places a reviewer is most likely to want something different.
 
 ## Not covered here
 
-- **Data categories and retention** (`PAN`, `income`, `12 months of statements`, `phone`, `email`, `repayment history`, `medical records`, `billing`, `anonymised records`, `location`, `order history`) are shown in the notice too and are entered by the company, in English unless it translates them. If they should be translated, that needs a small change to the data model (they are plain strings, not per-language text), so it is a separate decision.
+- **Data categories** are ids from a fixed registry (`shared/src/categories.ts`, `docs/trd.md` §4.6), each with a label in English, Hindi and Kannada that the wallet shows in the notice and in My details. Those labels are in `docs/ui.md` §6.3 and need the same native-speaker review. **Retention** is a number of days, which the wallet words in the customer's language.
 - **Company names** are brands and stay as the company wrote them.
 
 ## When this is approved

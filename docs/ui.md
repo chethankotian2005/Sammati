@@ -34,7 +34,7 @@ A company has no colour of its own: pass headers, dots and chips use `ink` for e
 ### W0 Splash and onboarding
 - Splash with logo only. Onboarding: 3 short screens ("See every company that has your consent", "Say yes to a purpose, not to everything", "Withdraw in one tap").
 - Language picker first (English, हिन्दी, ಕನ್ನಡ).
-- Create wallet: "Secure with fingerprint or PIN". No jargon.
+- Then **W14 Create account** (W-15): choose a Sammati ID, secure with fingerprint or PIN, fill in your details. No jargon.
 
 ### W1 Home (bottom nav: Consents · Activity · Scan · Rights · Me)
 ```
@@ -71,6 +71,7 @@ Animated stamp, then a receipt: company, purposes, expiry, ledger tx (short, cop
 ### W5 Company pass detail
 - Purpose list with switches, expiry, last used, count of accesses.
 - Withdraw flow: flip switch off, bottom sheet "Stop QuickLoan using your data for marketing? They will be blocked right away." Buttons "Withdraw" (red) and "Keep". Result: pass-cut animation and a toast "Withdrawn. QuickLoan blocked."
+- **Your details changed** (W-17): when an edit in My details touched a field that was sent for this purpose and the consent is still Active, the purpose row carries a `marigold`-outlined note with the icon `sync_problem` and the text "Your details changed. Update what {company} holds?" with a **Update** button (48 dp). One tap: device-credential prompt, re-encrypt only the fields that purpose needs, re-submit; the note disappears when the Processor confirms (`vault.stored`). The same note appears under the company's card on W1. It never appears for a withdrawn or expired consent.
 - Below: **Cascade** section: "Also told: AdPartnerQ ✓ 2 s ago, CreditBureauX waiting…" filling live.
 
 ### W6 Activity
@@ -87,7 +88,7 @@ Animated stamp, then a receipt: company, purposes, expiry, ledger tx (short, cop
 Three actions: "See what a company holds" (access), "Ask a company to erase data" (erasure), "Raise a complaint" (grievance). Each opens a short form (company, note) and shows status: Open, In progress, Resolved.
 
 ### W9 Me
-Language, security (biometric), wallet address (copy), developer settings (see W9b), about.
+Language, **My details** (W15), Your Sammati ID (W12), security (biometric), wallet address (copy), developer settings (see W9b), **About** (W16).
 
 ### W9b Developer settings (X-01), from W9 Me
 A plain list screen titled "Developer settings", with a `mute` caption "For testing. Nothing here is needed to use Sammati."
@@ -123,13 +124,14 @@ Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under
 - The vault never changes the pass-cut animation or the cascade list.
 
 ### W10 Share your details securely (W-13), after consent or from a pass
-Opens from the receipt (W4) as a primary button "Share your details securely" when a data-using purpose was granted, and from "Send securely" on W5 (V2). Closing it never withdraws anything.
-- Intro: "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them."
-- Fields: **PAN** (text, upper-cased as typed, hint "Like ABCDE1234F", error "Enter a PAN like ABCDE1234F" shown after the field was touched), **Income band** (choice of four: up to 3 LPA, 3 to 6 LPA, 6 to 9 LPA, 9 LPA and above), **Employment** (choice of four: salaried, self-employed, student, unemployed). Nothing is pre-filled and no sample is offered; "Send securely" stays disabled until all three are valid.
+Opens from the receipt (W4) as a primary button "Share your details securely" when a data-using purpose was granted, from "Send securely" on W5 (V2), and from "Update" on a changed-details note (W-17). Closing it never withdraws anything.
+- Opening it asks for the device credential once (`auth_reason_profile`), because the profile is locked (W-16). Cancelled or failed: the screen says the details are locked and offers **Unlock**; nothing is shown.
+- Intro: "{company} needs these details for this purpose. They are encrypted on this phone, so {company} never sees them."
+- **Only the fields this purpose's data categories need** (`trd.md` §4.6) are shown, grouped in two lists. **From My details**: fields the profile already has, each a read-only row (label and value, the PAN and mobile value shown in full because the person is looking at their own phone) with **Edit**. **{company} also needs these**: fields the profile lacks, as inputs with the same labels, hints and errors as My details (W15). Nothing else is asked: a field no category of this purpose names never appears here. If every needed field is present the second list is absent and the button is one tap. If the purpose names no field the wallet can supply: "{company} does not need any details from you for this." and no button.
+- Typed values are validated on the device as they are entered (errors appear after the field was touched), and are saved into My details when sent (hint under the inputs: "Saved in My details, so you only type them once."). "Send securely" stays disabled until every needed field is present and valid. No sample, "use demo details" or prefilled value exists.
 - Send: device-credential prompt (`auth_reason_vault`), "Encrypting and sending…", then the sent state of V2 ("Sent encrypted. {company} holds only a reference.", the handle shortened) and a "Done" button. Failed, unreachable and refused states are V2's.
-- The fields live only in this screen's memory: they are cleared once sent, and when the screen closes. Nothing is logged, saved or shown on any other screen.
+- The values on this screen live in its state only and are cleared once sent and when it closes. Nothing is logged or shown on any other screen except My details, where the person put them.
 - A standing line, `mute` colour, always shown: "Processor (simulated enclave, not real hardware protection)". The simulation is never presented as production security. Hint under the fields: "Use made-up details while Sammati is a prototype."
-
 ### Edge states
 **Many companies and sandbox (R-04, R-03).** Home lists a pass for every company the customer has consented to, however many; the company's colour comes from Core (`ink` for a company that joined through R-01, so no new colour exists). If a request belongs to a sandbox company and the customer is not a test customer, Core answers 403 `SANDBOX_COMPANY` and the wallet shows its existing generic "could not open this request" state; this build adds no wallet string for it.
 
@@ -143,6 +145,25 @@ Offline banner "No connection. Showing last known consents."; expired consent ch
 - A new alert arrives at the top with the same brief colour wash as W11 (reduced motion: it is simply there). Tapping an item, or any action, marks it read; **Mark all as read** sits in the app bar. The banner "No connection. Showing last known alerts." appears when Core cannot be reached, with the list kept.
 - Empty: "No alerts. Expiry reminders and updates from companies will appear here."
 - On a consent card (W1) and the pass (W5) an expired consent keeps the chip "Expired {n} days ago, give consent again", and tapping it now starts the same Renew flow.
+
+### W14 Create account (W-15), after the language picker and onboarding
+One screen, three steps, with "Step {n} of 3" and a progress bar of three segments (`ink` filled, `line` empty). Back moves one step; nothing is created before step 2.
+- **Step 1, Choose your Sammati ID.** Explanation as W12. A field with the fixed suffix `@sammati` after it, lower-cased as typed. As the person types (checked 400 ms after the last key, and not for an invalid format), a status line under it: "Checking…", then `allow`-coloured "{handle} is available" (check icon) or `block`-coloured "That ID is taken. Try another." Invalid shape: "Use 3 to 30 letters, numbers, dots or dashes". No connection: "Could not reach Sammati. Check Wi-Fi." (the field is kept). **Continue** is enabled only for an available ID. A text button **Choose later** skips the ID (it can be registered in W12); the account is otherwise complete.
+- **Step 2, Secure with fingerprint or PIN.** The existing create-wallet copy and button. Pressing it asks for the device credential, creates the wallet, then registers the ID (a second prompt, `auth_reason_id`) while the screen says "Your wallet is created. Registering {handle}…". If registering fails the screen stays on this step: "Your wallet is ready, but {handle} could not be registered." with **Try again** and **Choose another ID**; the wallet is not created twice. A phone with no screen lock gets the existing "no lock" message and nothing is created.
+- **Step 3, Your details.** The title "Your details", the line "Fill in what you like, once. Every field is optional. A company only gets a detail after you say yes to a purpose that needs it.", then the same grouped form as W15 (Identity, Contact, Financial, Health, Preferences; groups collapsed except the first), and a `mute` privacy line ("Stored only on this phone, locked with your fingerprint or PIN. Sammati's servers never receive them."). **Save and continue** (disabled when nothing was typed and nothing is wrong) and **Skip for now**. Saving encrypts the profile on the device (no extra prompt: the person has just passed it) and lands on Home. A field with an error blocks Save until fixed or cleared.
+- Killing the app between steps: a wallet that exists but has not finished setup is returned to step 3 on the next launch (an ID that was not registered can be done from W12).
+
+### W15 My details (W-16, W-17), from W9 Me
+- Locked on entry: the screen shows a lock icon, "Your details are locked" and **Unlock**, and prompts immediately (`auth_reason_profile`). Success shows the profile; a cancel or failure keeps it locked. The profile locks again when the app goes to the background.
+- Unlocked: five groups with headings ("Who you are", "How to reach you", "Money", "Health", "Your preferences"), each a list of rows: the label (from the category registry, `trd.md` §4.6) and the value, or `mute` "Not added". Tap a row to edit it in a sheet: a text field, a date field (DD/MM/YYYY), or a choice list, per the kind; **Save**, and **Remove** for a field that has a value. Errors are shown under the field after it is touched. A choice shows its translated label; the stored value is the English code.
+- Empty profile: "Nothing added yet. Add a detail once and use it with any company." above the groups.
+- Under the groups, always: "Stored only on this phone, locked with your fingerprint or PIN. Sammati's servers never receive them."
+- Saving a value that was already sent to a company (W-17) marks that consent (W5, W1) and toasts "Saved on this phone". Saving never contacts any server.
+- If the stored blob cannot be authenticated or read: "Your saved details could not be read. Add them again." and an empty profile; nothing partial is shown.
+- 48 dp rows; labels never truncated (wrap), checked at 360 dp and large text, in all three languages.
+
+### W16 About, from W9 Me
+"About Sammati": one line that it is a prototype ("Sammati is a prototype. Use made-up details."), the standing simulated-processor line, the storage line ("Stored only on this phone…") and a titled block **No account recovery in this build**: "If you lose this phone or clear the app's data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release." Static text, no controls.
 
 ## 3. Company Console (web)
 
@@ -172,6 +193,7 @@ A company's customer page, not part of the console: header in `ink` with the com
 Status is never colour alone. Every dynamic line is an `aria-live` region.
 
 ### 3.2 Join Sammati (`/join`, R-01)
+**Data categories (C-01, §6.1a of the PRD):** wherever a company declares what a purpose uses, the console and `/join` show the registry as grouped checkboxes (Identity, Contact, Financial, Health, Preferences) with the English label of each category and its id in `mute` mono; there is no free-text field, so a company cannot invent a category. The Auditor's Registrations tab and the company's Purposes table show the labels, not ids.
 
 A public page, no login, in Sammati's own look (`ink` header, `paper` body, `marigold` primary action), with an **EN · हि · ಕ** switch. One column, max width 720.
 
@@ -524,6 +546,83 @@ These shipped in the app before the spec listed them; the table is the app's tex
 | cascade_acked | {n} s ago | {n} सेकंड पहले | {n} ಸೆಕೆಂಡ್ ಹಿಂದೆ |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before release.
+
+### 6.3 Keys for the account and profile (W-15 to W-17)
+
+Hindi and Kannada are first drafts and need the native-speaker check, like the rest. The `cat_*` labels are the data category labels of the registry (`shared/src/categories.ts`); a wallet test fails if an ARB label differs from the registry's. A key that already exists keeps its text unless it appears here (`share_intro` changes). The strings `vault_profile_title`, `vault_profile_note`, `vault_pan`, `vault_income`, `vault_score` and `share_use_demo` belonged to the removed sample profile and are deleted.
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| acct_step | Step {n} of 3 | चरण {n} / 3 | ಹಂತ {n} / 3 |
+| acct_id_title | Choose your Sammati ID | अपनी Sammati ID चुनें | ನಿಮ್ಮ Sammati ID ಆಯ್ಕೆಮಾಡಿ |
+| acct_id_checking | Checking… | जाँच हो रही है… | ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ… |
+| acct_id_available | {handle} is available | {handle} उपलब्ध है | {handle} ಲಭ್ಯವಿದೆ |
+| acct_id_later | Choose later | बाद में चुनें | ನಂತರ ಆಯ್ಕೆಮಾಡಿ |
+| acct_registering | Your wallet is created. Registering {handle}… | आपका वॉलेट बन गया है। {handle} पंजीकृत हो रही है… | ನಿಮ್ಮ ವಾಲೆಟ್ ರಚಿಸಲಾಗಿದೆ. {handle} ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ… |
+| acct_register_failed | Your wallet is ready, but {handle} could not be registered. | आपका वॉलेट तैयार है, लेकिन {handle} पंजीकृत नहीं हो सकी। | ನಿಮ್ಮ ವಾಲೆಟ್ ಸಿದ್ಧವಾಗಿದೆ, ಆದರೆ {handle} ನೋಂದಾಯಿಸಲು ಆಗಲಿಲ್ಲ. |
+| acct_choose_another | Choose another ID | दूसरी ID चुनें | ಬೇರೆ ID ಆಯ್ಕೆಮಾಡಿ |
+| acct_profile_title | Your details | आपकी जानकारी | ನಿಮ್ಮ ವಿವರಗಳು |
+| acct_profile_body | Fill in what you like, once. Every field is optional. A company only gets a detail after you say yes to a purpose that needs it. | जो चाहें, एक बार भर दें। हर खाना वैकल्पिक है। किसी कंपनी को कोई जानकारी तभी मिलती है जब आप उस उद्देश्य के लिए हाँ कहें जिसे उसकी ज़रूरत है। | ನಿಮಗೆ ಬೇಕಾದದ್ದನ್ನು ಒಮ್ಮೆ ತುಂಬಿ. ಪ್ರತಿ ಕ್ಷೇತ್ರವೂ ಐಚ್ಛಿಕ. ಆ ವಿವರ ಬೇಕಾದ ಉದ್ದೇಶಕ್ಕೆ ನೀವು ಹೌದು ಎಂದ ನಂತರವೇ ಕಂಪನಿಗೆ ಅದು ಸಿಗುತ್ತದೆ. |
+| acct_skip | Skip for now | अभी छोड़ें | ಈಗ ಬಿಟ್ಟುಬಿಡಿ |
+| acct_finish | Save and continue | सहेजें और आगे बढ़ें | ಉಳಿಸಿ ಮುಂದುವರಿಸಿ |
+| profile_title | My details | मेरी जानकारी | ನನ್ನ ವಿವರಗಳು |
+| profile_group_identity | Who you are | आप कौन हैं | ನೀವು ಯಾರು |
+| profile_group_contact | How to reach you | आप तक कैसे पहुँचें | ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುವ ವಿಧಾನ |
+| profile_group_financial | Money | पैसा | ಹಣಕಾಸು |
+| profile_group_health | Health | स्वास्थ्य | ಆರೋಗ್ಯ |
+| profile_group_prefs | Your preferences | आपकी पसंद | ನಿಮ್ಮ ಆದ್ಯತೆಗಳು |
+| profile_private | Stored only on this phone, locked with your fingerprint or PIN. Sammati's servers never receive them. | केवल इसी फ़ोन में रखी जाती है, आपके फ़िंगरप्रिंट या PIN से बंद। Sammati के सर्वर इन्हें कभी नहीं पाते। | ಈ ಫೋನ್‌ನಲ್ಲಿ ಮಾತ್ರ ಉಳಿಯುತ್ತದೆ, ನಿಮ್ಮ ಫಿಂಗರ್‌ಪ್ರಿಂಟ್ ಅಥವಾ PIN ನಿಂದ ಲಾಕ್ ಆಗಿರುತ್ತದೆ. Sammati ಸರ್ವರ್‌ಗಳಿಗೆ ಇದು ಎಂದಿಗೂ ತಲುಪುವುದಿಲ್ಲ. |
+| profile_locked | Your details are locked | आपकी जानकारी बंद है | ನಿಮ್ಮ ವಿವರಗಳು ಲಾಕ್ ಆಗಿವೆ |
+| profile_unlock | Unlock | खोलें | ಅನ್‌ಲಾಕ್ ಮಾಡಿ |
+| auth_reason_profile | Confirm to open your details | अपनी जानकारी खोलने के लिए पुष्टि करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ತೆರೆಯಲು ದೃಢೀಕರಿಸಿ |
+| profile_empty | Nothing added yet. Add a detail once and use it with any company. | अभी कुछ नहीं जोड़ा। एक बार जोड़ें और किसी भी कंपनी के साथ इस्तेमाल करें। | ಇನ್ನೂ ಏನನ್ನೂ ಸೇರಿಸಿಲ್ಲ. ಒಮ್ಮೆ ಸೇರಿಸಿ, ಯಾವುದೇ ಕಂಪನಿಯೊಂದಿಗೆ ಬಳಸಿ. |
+| profile_not_set | Not added | जोड़ा नहीं गया | ಸೇರಿಸಿಲ್ಲ |
+| profile_save | Save | सहेजें | ಉಳಿಸಿ |
+| profile_remove | Remove | हटाएँ | ತೆಗೆದುಹಾಕಿ |
+| profile_saved | Saved on this phone | इस फ़ोन में सहेजा गया | ಈ ಫೋನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ |
+| profile_lost | Your saved details could not be read. Add them again. | आपकी सहेजी जानकारी पढ़ी नहीं जा सकी। उसे फिर से जोड़ें। | ನಿಮ್ಮ ಉಳಿಸಿದ ವಿವರಗಳನ್ನು ಓದಲಾಗಲಿಲ್ಲ. ಅವನ್ನು ಮತ್ತೆ ಸೇರಿಸಿ. |
+| cat_identity_name | Full name | पूरा नाम | ಪೂರ್ಣ ಹೆಸರು |
+| cat_identity_dob | Date of birth | जन्म तिथि | ಹುಟ್ಟಿದ ದಿನಾಂಕ |
+| cat_identity_gender | Gender | लिंग | ಲಿಂಗ |
+| cat_contact_mobile | Mobile number | मोबाइल नंबर | ಮೊಬೈಲ್ ಸಂಖ್ಯೆ |
+| cat_contact_email | Email | ईमेल | ಇಮೇಲ್ |
+| cat_contact_address | Home address | घर का पता | ಮನೆಯ ವಿಳಾಸ |
+| cat_financial_pan | PAN | पैन (PAN) | ಪ್ಯಾನ್ (PAN) |
+| cat_financial_income_band | Yearly income | वार्षिक आय | ವಾರ್ಷಿಕ ಆದಾಯ |
+| cat_financial_employment | Type of work | काम का प्रकार | ಕೆಲಸದ ಬಗೆ |
+| cat_financial_employer | Employer | नियोक्ता | ಉದ್ಯೋಗದಾತ |
+| cat_health_blood_group | Blood group | रक्त समूह | ರಕ್ತದ ಗುಂಪು |
+| cat_health_allergies | Allergies | एलर्जी | ಅಲರ್ಜಿಗಳು |
+| cat_health_insurance_policy | Health insurance policy number | स्वास्थ्य बीमा पॉलिसी नंबर | ಆರೋಗ್ಯ ವಿಮೆ ಪಾಲಿಸಿ ಸಂಖ್ಯೆ |
+| cat_prefs_food | Food preference | भोजन की पसंद | ಆಹಾರದ ಆದ್ಯತೆ |
+| cat_prefs_delivery_address | Delivery address | डिलीवरी का पता | ಡೆಲಿವರಿ ವಿಳಾಸ |
+| gender_female | Female | महिला | ಮಹಿಳೆ |
+| gender_male | Male | पुरुष | ಪುರುಷ |
+| gender_other | Other | अन्य | ಇತರೆ |
+| gender_prefer_not | Prefer not to say | बताना नहीं चाहते | ಹೇಳಲು ಇಷ್ಟವಿಲ್ಲ |
+| food_vegetarian | Vegetarian | शाकाहारी | ಸಸ್ಯಾಹಾರಿ |
+| food_non_vegetarian | Non-vegetarian | मांसाहारी | ಮಾಂಸಾಹಾರಿ |
+| food_vegan | Vegan | वीगन | ವೀಗನ್ |
+| dob_hint | DD/MM/YYYY | DD/MM/YYYY | DD/MM/YYYY |
+| err_name | Enter your full name, 2 to 80 characters | अपना पूरा नाम दर्ज करें, 2 से 80 अक्षर | ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು ನಮೂದಿಸಿ, 2 ರಿಂದ 80 ಅಕ್ಷರಗಳು |
+| err_dob | Enter a real date like 31/12/1995 | 31/12/1995 जैसी असली तारीख दर्ज करें | 31/12/1995 ನಂತಹ ನಿಜವಾದ ದಿನಾಂಕ ನಮೂದಿಸಿ |
+| err_mobile | Enter a 10-digit mobile number | 10 अंकों का मोबाइल नंबर दर्ज करें | 10 ಅಂಕಿಗಳ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ |
+| err_email | Enter an email like name@example.com | name@example.com जैसा ईमेल दर्ज करें | name@example.com ನಂತಹ ಇಮೇಲ್ ನಮೂದಿಸಿ |
+| err_text | Too short or too long | बहुत छोटा या बहुत लंबा | ತುಂಬಾ ಚಿಕ್ಕದು ಅಥವಾ ತುಂಬಾ ಉದ್ದ |
+| err_policy | Use 4 to 30 letters, digits or dashes | 4 से 30 अक्षर, अंक या डैश इस्तेमाल करें | 4 ರಿಂದ 30 ಅಕ್ಷರ, ಅಂಕಿ ಅಥವಾ ಡ್ಯಾಶ್ ಬಳಸಿ |
+| share_intro | {company} needs these details for this purpose. They are encrypted on this phone, so {company} never sees them. | {company} को इस उद्देश्य के लिए ये जानकारी चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होती हैं, इसलिए {company} इन्हें कभी नहीं देखती। | ಈ ಉದ್ದೇಶಕ್ಕಾಗಿ {company} ಗೆ ಈ ವಿವರಗಳು ಬೇಕು. ಅವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ {company} ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ. |
+| share_have | From My details | मेरी जानकारी से | ನನ್ನ ವಿವರಗಳಿಂದ |
+| share_missing | {company} also needs these | {company} को ये भी चाहिए | {company} ಗೆ ಇವೂ ಬೇಕು |
+| share_saved_note | Saved in My details, so you only type them once. | मेरी जानकारी में सहेजा जाता है, ताकि आपको एक ही बार लिखना पड़े। | ನನ್ನ ವಿವರಗಳಲ್ಲಿ ಉಳಿಸಲಾಗುತ್ತದೆ, ಆದ್ದರಿಂದ ಒಮ್ಮೆ ಮಾತ್ರ ಟೈಪ್ ಮಾಡಿದರೆ ಸಾಕು. |
+| share_none_needed | {company} does not need any details from you for this. | {company} को इसके लिए आपसे कोई जानकारी नहीं चाहिए। | ಇದಕ್ಕಾಗಿ {company} ಗೆ ನಿಮ್ಮಿಂದ ಯಾವುದೇ ವಿವರ ಬೇಕಿಲ್ಲ. |
+| share_edit | Edit | बदलें | ಬದಲಿಸಿ |
+| details_changed | Your details changed. Update what {company} holds? | आपकी जानकारी बदली है। {company} के पास जो है उसे अपडेट करें? | ನಿಮ್ಮ ವಿವರಗಳು ಬದಲಾಗಿವೆ. {company} ಬಳಿ ಇರುವುದನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಬೇಕೆ? |
+| details_update | Update | अपडेट करें | ಅಪ್‌ಡೇಟ್ ಮಾಡಿ |
+| me_about | About | परिचय | ಕುರಿತು |
+| about_title | About Sammati | Sammati के बारे में | Sammati ಕುರಿತು |
+| about_prototype | Sammati is a prototype. Use made-up details. | Sammati एक प्रोटोटाइप है। बनावटी जानकारी का उपयोग करें। | Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್. ಕಾಲ್ಪನಿಕ ವಿವರಗಳನ್ನು ಬಳಸಿ. |
+| about_no_recovery_title | No account recovery in this build | इस संस्करण में खाता पुनर्प्राप्ति नहीं है | ಈ ಆವೃತ್ತಿಯಲ್ಲಿ ಖಾತೆ ಮರುಪಡೆಯುವಿಕೆ ಇಲ್ಲ |
+| about_no_recovery_body | If you lose this phone or clear the app's data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release. | यह फ़ोन खो जाए या ऐप का डेटा मिट जाए, तो आपका वॉलेट, आपकी Sammati ID और सहेजी हुई जानकारी चली जाती है और आपको नया खाता बनाना पड़ता है। असली संस्करण में बैकअप और पुनर्प्राप्ति की योजना है। | ಈ ಫೋನ್ ಕಳೆದುಹೋದರೆ ಅಥವಾ ಆ್ಯಪ್‌ನ ಡೇಟಾ ಅಳಿಸಿದರೆ, ನಿಮ್ಮ ವಾಲೆಟ್, ನಿಮ್ಮ Sammati ID ಮತ್ತು ಉಳಿಸಿದ ವಿವರಗಳು ಹೋಗುತ್ತವೆ, ಮತ್ತು ನೀವು ಹೊಸ ಖಾತೆಯೊಂದಿಗೆ ಮತ್ತೆ ಆರಂಭಿಸಬೇಕು. ನಿಜವಾದ ಬಿಡುಗಡೆಯಲ್ಲಿ ಬ್ಯಾಕಪ್ ಮತ್ತು ಮರುಪಡೆಯುವಿಕೆಗೆ ಯೋಜನೆ ಇದೆ. |
 
 ## 7. Accessibility and quality floor
 - Contrast AA minimum; status never relies on colour alone (chips carry text and icon).

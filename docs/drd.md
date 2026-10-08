@@ -10,6 +10,9 @@
 | Access log entries | Who requested what, decision, time | **Hash only** (via Merkle root) | Core DB (full entry) |
 | Notice text | Plain-language purpose descriptions | **Hash only** | Core DB / console |
 | Personal data | Name, phone, income, health record | **Never** | Company's own system. Never in Sammati's databases; a tester types made-up values |
+| Customer profile | The fields of the registry in `trd.md` §4.6 (name, date of birth, mobile, email, address, PAN, income band, employment, employer, blood group, allergies, insurance policy, food preference, delivery address) | **Never** | **The customer's phone only**, as AES-256-GCM ciphertext in `flutter_secure_storage` (§3b). Never in Core, the chain, a company, the web apps or any log |
+| Profile key | The random key that encrypts the profile at rest | **Never** | The phone's secure storage, read only after the device-credential check. Never sent anywhere |
+| Profile envelope | The profile fields one purpose needs, sealed for the Processor | **Never** | Same as the vault ciphertext below: the Processor's database only |
 | Sammati ID (handle) | `asha@sammati` mapped to a principal address | **Never** | Core DB (`identities`). Pseudonymous: it names no one, and no phone or email is stored |
 | Notification | "Your consent for credit check expires in 3 days" as a type, times and codes | **Never** | Core DB (`notifications`). The words are written on the phone from the type and payload; no personal data is in a row |
 | Request target | Which wallet a targeted request is addressed to | **Never** | Core DB (`request_targets`). Never returned to the company: it sees an opaque request id and a status |
@@ -25,7 +28,9 @@
 
 **Rule:** if a field could identify a real person on its own, it does not go on chain and does not go into Sammati's database.
 
-**Ciphertext is not personal data in Sammati's databases, and only because the key is held solely by the Processor.** Core, the company, the web apps, the auditor and anyone with a copy of a database see random-looking bytes they cannot open: Core never receives an envelope and has no key. That claim holds only while the key stays in the Processor; a deployment that gave the key to any other party would make the vault personal data again and move it out of this classification. The demo profile is fictional in any case.
+**Hard rule (W-15 to W-17): the profile never leaves the phone in plain form.** Core, the chain and every other server (the web apps, the company's backend, the Auditor) never receive a profile value, in any request, response, WebSocket event, log line, error message, URL or database row. The only way a profile value leaves the phone is inside a per-purpose ciphertext envelope addressed to the Processor (`trd.md` §4.4), built from just the fields that purpose's data categories name, and opened only by the Processor, in memory, for one evaluation. This is enforced, not just stated: `pnpm e2e` submits a profile of distinctive made-up values and searches every database file, log line and event of the run for them (`trd.md` §11), and a wallet test fails if any request the wallet makes carries one. Nothing in Core's schema has a column that could hold one; adding such a column is a change to this rule first.
+
+**Ciphertext is not personal data in Sammati's databases, and only because the key is held solely by the Processor.** Core, the company, the web apps, the auditor and anyone with a copy of a database see random-looking bytes they cannot open: Core never receives an envelope and has no key. That claim holds only while the key stays in the Processor; a deployment that gave the key to any other party would make the vault personal data again and move it out of this classification. Profile values in this build are made up in any case.
 
 ## 2. On-chain data model
 See `trd.md` §3 for Solidity structs. Keys:
@@ -55,7 +60,7 @@ CREATE TABLE purposes (
   code TEXT NOT NULL,                  -- e.g. credit_check
   title_en TEXT NOT NULL, title_hi TEXT, title_kn TEXT,
   desc_en TEXT NOT NULL, desc_hi TEXT, desc_kn TEXT,
-  data_categories TEXT NOT NULL,       -- JSON array
+  data_categories TEXT NOT NULL,       -- JSON array of ids from the registry (trd.md §4.6), unique, in registry order. No free text
   retention_days INTEGER NOT NULL,
   shares_third_party INTEGER NOT NULL DEFAULT 0,
   desc_hash TEXT NOT NULL,
@@ -241,6 +246,37 @@ CREATE INDEX vault_live ON vault (principal, fiduciary, purpose_code) WHERE eras
 
 Rules: no column ever holds plaintext, a key or a decrypted field. A live row has `ciphertext` and no `erased_at`; an erased row has the reverse and keeps its metadata so a later call can be answered ("erased because consent was withdrawn") without keeping data. At most one live row exists per `(principal, fiduciary, purpose_code)`.
 
+## 3b. Device-side data (the wallet; not Core's schema)
+
+Written here so the whole data picture is in one place. Nothing in this section is ever sent to Core.
+
+```text
+flutter_secure_storage (the platform keystore)
+  wallet_private_key   secp256k1 key, read only after the device check (trd.md §4.2)
+  wallet_address       public
+  profile_key          32 random bytes, hex; read only after the device check
+  profile_blob         base64( nonce[12] ‖ ciphertext ‖ tag[16] ), AES-256-GCM, AAD "sammati-profile-v1"
+shared_preferences (not secret)
+  locale, core_url, account_setup_done, developer options
+```
+
+Decrypted `profile_blob`:
+
+```json
+{
+  "v": 1,
+  "fields": { "fullName": "…", "pan": "…" },
+  "shares": [
+    { "fiduciary": "0x…", "purposeCode": "credit_check", "fields": ["pan", "incomeBand", "employment"],
+      "handle": "0x…", "sentAt": 1760000000, "stale": false }
+  ]
+}
+```
+
+`fields` is the profile of `trd.md` §4.6 (flat, string values, any subset). `shares` is a record of what was sent where, **names of fields and handles only, never values**: it lets the wallet say "your details changed, update what QuickLoan holds?" (W-17) when an edit touches a field in a share of a still-active consent. `stale` turns true when such a field is edited and false when the share is re-sent; a share is dropped when its consent is withdrawn.
+
+Rules. The profile is optional field by field; an empty profile is valid. It is dropped from memory when the app goes to the background and is re-opened only through the device check. **Account recovery is out of scope in this build**: if the app's data is cleared or the phone is lost, the key, the blob and the Sammati ID's controlling wallet are gone with it, and the customer starts again with a new account (a new principal). The profile cannot be rebuilt from Core, because Core never had it. The production path (an encrypted backup the customer holds, and recovery) is in `architecture.md` §5.9. The wallet's About screen says this in plain words.
+
 ## 4. Canonical formats
 
 ### 4.1 Access log entry (hashed form)
@@ -253,6 +289,7 @@ Sorted keys, no whitespace, UTF-8. `hash = keccak256(prevHash || bytes(canonical
 
 ### 4.2 Notice hash
 `noticeHash = keccak256(canonicalJSON({ fiduciary, purposes:[{id, desc_en, desc_hi, desc_kn, dataCategories, retentionDays, sharesThirdParty}], version }))`.
+`dataCategories` is the list of data category ids of the registry (`trd.md` §4.6): unique and in **registry order**, not in the order a company typed them (Core normalises when it stores an application), so the hash is the same however a purpose was declared. Adding a category to the registry does not change an existing notice; changing the id of an existing one would, which is why ids are fixed.
 The wallet recomputes this locally and compares with the server value before signing.
 
 ### 4.2a Description and metadata hashes
@@ -271,9 +308,10 @@ Nothing but infrastructure: the two contracts, the regulator's chain account (th
 
 Required (core) purposes, if a company declares them `required`, are shown by the wallet as "needed for the service" but still recorded and withdrawable (withdrawing stops the service use, the UI explains the effect).
 
-No customer data is shipped. A tester types made-up PAN, income band and employment in the wallet's W10 screen; they exist only on the phone and, for one evaluation, in the Processor. Test fixtures (companies, customers, a throwaway PAN) live in `test/` directories and in `core/scripts/e2e.ts` and never ship with the app.
+No customer data is shipped, and the wallet ships no sample profile. A tester creates an account in the wallet and types made-up values into the profile (W-15, W-17), or into W10 when a consent needs a field; they exist only on the phone (encrypted at rest) and, for the fields one purpose needs, for one evaluation in the Processor. Test fixtures (companies, customers, a throwaway PAN) live in `test/` directories and in `core/scripts/e2e.ts` and never ship with the app.
 
 ## 6. Retention and deletion
+- The customer's profile lives as long as the app's data on the phone does. Deleting a field deletes it from the blob on the next save; there is no server copy to delete. A copy sealed for the Processor follows the vault rules below (erased on withdrawal, on expiry after the grace period, and when a newer submission replaces it, which is also how a corrected value reaches a company, W-17).
 - Chain data is permanent by design and contains no personal data.
 - Core DB rows are test data in this build. `pnpm dev:reset` wipes them (`trd.md` §6.4); no HTTP endpoint can.
 - Erasure rights requests are tracked as status records; they do not touch the chain.
