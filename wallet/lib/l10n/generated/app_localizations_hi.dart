@@ -254,4 +254,124 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get error_generic => 'कुछ गड़बड़ हो गई। दोबारा कोशिश करें।';
+
+  @override
+  String consents_summary(int companies, int active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      companies,
+      locale: localeName,
+      other: '$companies कंपनियाँ · $active सक्रिय',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get status_active => 'सक्रिय';
+
+  @override
+  String get status_expired => 'समाप्त';
+
+  @override
+  String get status_withdrawn => 'वापस ली गई';
+
+  @override
+  String expired_ago(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days दिन पहले समाप्त, फिर से सहमति दें',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_days(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days दिन में समाप्त',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_months(int months) {
+    String _temp0 = intl.Intl.pluralLogic(
+      months,
+      locale: localeName,
+      other: '$months महीने में समाप्त',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get offline_banner =>
+      'कनेक्शन नहीं है। पिछली ज्ञात सहमतियाँ दिख रही हैं।';
+
+  @override
+  String withdraw_confirm(String company, String purpose) {
+    return '$company को $purpose के लिए आपका डेटा इस्तेमाल करने से रोकें? उन्हें तुरंत रोक दिया जाएगा।';
+  }
+
+  @override
+  String get keep => 'रखें';
+
+  @override
+  String get auth_reason_withdraw => 'सहमति वापस लेने के लिए पुष्टि करें';
+
+  @override
+  String get filter_all => 'सभी';
+
+  @override
+  String get reason_consent_withdrawn => 'सहमति वापस ली गई';
+
+  @override
+  String get reason_consent_expired => 'सहमति समाप्त';
+
+  @override
+  String get reason_no_consent => 'सहमति नहीं दी गई';
+
+  @override
+  String get reason_ledger_unavailable =>
+      'सहमति जाँच नहीं हो सकी, इसलिए रोका गया';
+
+  @override
+  String get reason_no_principal => 'यह पता नहीं चला कि डेटा किसका था';
+
+  @override
+  String get time_now => 'अभी अभी';
+
+  @override
+  String time_seconds(int n) {
+    return '$n सेकंड पहले';
+  }
+
+  @override
+  String time_minutes(int n) {
+    return '$n मिनट पहले';
+  }
+
+  @override
+  String time_hours(int n) {
+    return '$n घंटे पहले';
+  }
+
+  @override
+  String time_days(int n) {
+    return '$n दिन पहले';
+  }
+
+  @override
+  String activity_row_label(
+    String purpose,
+    String company,
+    String decision,
+    String time,
+  ) {
+    return '$purpose, $company, $decision, $time';
+  }
+
+  @override
+  String get offline_activity_banner =>
+      'कनेक्शन नहीं है। पिछली ज्ञात गतिविधि दिख रही है।';
 }

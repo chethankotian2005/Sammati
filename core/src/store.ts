@@ -55,6 +55,17 @@ export interface StoredRequest {
   createdAt: number;
 }
 
+export interface RightsRequest {
+  id: string;
+  principal: Hex;
+  fiduciary: Hex;
+  type: "access" | "erasure" | "grievance";
+  note: string;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: number;
+  updatedAt: number;
+}
+
 const DEMO_REQUEST_ID = "req_demo_quickloan";
 const DEMO_ALIAS = "Customer #4821";
 const ACK_DELAY_MS = [1000, 3000] as const; // trd.md Â§9: stubs ack after 1 to 3 s
@@ -78,6 +89,7 @@ export class StubStore {
   private anchors = new Map<string, AnchorBatchView[]>();
   private integrity = new Map<string, IntegrityState>();
   private ledger: LedgerEventView[] = [];
+  private rightsRequests: RightsRequest[] = [];
   private head: Hex = ZERO_HASH;
   private pendingAcks = new Set<NodeJS.Timeout>();
 
@@ -114,6 +126,7 @@ export class StubStore {
     this.anchors = new Map(Object.entries(this.fx.anchors).map(([k, v]) => [lc(k), v]));
     this.integrity = new Map();
     this.ledger = this.fx.ledger;
+    this.rightsRequests = [];
     this.head = [...this.ledger].reverse().find((e) => e.ledgerHead)?.ledgerHead ?? ZERO_HASH;
 
     const quickloan = directory.fiduciaries[0]!;
@@ -234,7 +247,8 @@ export class StubStore {
     return { txHash, record };
   }
 
-  principalConsents(principal: Hex): PrincipalConsentsResponse {
+  /** The route adds `domain`, which the store does not hold as a built object. */
+  principalConsents(principal: Hex): Omit<PrincipalConsentsResponse, "domain"> {
     const fiduciaries: FiduciaryConsents[] = [];
     for (const f of this.fiduciaries) {
       const consents: ConsentView[] = [];
@@ -261,7 +275,7 @@ export class StubStore {
         });
       }
     }
-    return { principal, fiduciaries };
+    return { principal, nonce: String(this.nonce(principal)), fiduciaries };
   }
 
   /** Every stored consent for one fiduciary, across principals. */
@@ -376,6 +390,26 @@ export class StubStore {
     const row = { ...entry, prevHash: chained.prevHash, hash: chained.hash, batchIndex: null };
     this.appendLog(row);
     return row;
+  }
+
+  // --- rights requests ---
+  createRightsRequest(principal: Hex, fiduciary: Hex, type: "access" | "erasure" | "grievance", note: string): RightsRequest {
+    const r: RightsRequest = {
+      id: `rights_${randomUUID().slice(0, 8)}`,
+      principal,
+      fiduciary,
+      type,
+      note,
+      status: "open",
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    this.rightsRequests.push(r);
+    return r;
+  }
+
+  rightsForPrincipal(principal: Hex): RightsRequest[] {
+    return this.rightsRequests.filter((r) => lc(r.principal) === lc(principal));
   }
 
   // --- anchors, integrity, ledger ---

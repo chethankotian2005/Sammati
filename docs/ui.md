@@ -205,6 +205,40 @@ Scan, consent notice (W2, W3) and receipt (W4), same status as above. `{count}`,
 | done | Done | हो गया | ಮುಗಿಯಿತು |
 | error_generic | Something went wrong. Try again. | कुछ गड़बड़ हो गई। दोबारा कोशिश करें। | ಏನೋ ತಪ್ಪಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
 
+Consent home (W1) and pass detail (W5), same status as above. Counted keys use ICU plurals in the ARB files; the withdraw sheet text and its two buttons (`withdraw`, `keep`) follow the W5 spec:
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| consents_summary | {companies, plural, =1{1 company · {active} active} other{{companies} companies · {active} active}} | {companies, plural, other{{companies} कंपनियाँ · {active} सक्रिय}} | {companies, plural, other{{companies} ಕಂಪನಿಗಳು · {active} ಸಕ್ರಿಯ}} |
+| status_active | Active | सक्रिय | ಸಕ್ರಿಯ |
+| status_expired | Expired | समाप्त | ಅವಧಿ ಮುಗಿದಿದೆ |
+| status_withdrawn | Withdrawn | वापस ली गई | ಹಿಂಪಡೆಯಲಾಗಿದೆ |
+| expired_ago | {days, plural, =0{Expired today, give consent again} =1{Expired 1 day ago, give consent again} other{Expired {days} days ago, give consent again}} | {days, plural, other{{days} दिन पहले समाप्त, फिर से सहमति दें}} | {days, plural, other{{days} ದಿನಗಳ ಹಿಂದೆ ಅವಧಿ ಮುಗಿದಿದೆ, ಮತ್ತೆ ಒಪ್ಪಿಗೆ ನೀಡಿ}} |
+| expires_in_days | {days, plural, =1{Expires in 1 day} other{Expires in {days} days}} | {days, plural, other{{days} दिन में समाप्त}} | {days, plural, other{{days} ದಿನಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ}} |
+| expires_in_months | {months, plural, =1{Expires in 1 month} other{Expires in {months} months}} | {months, plural, other{{months} महीने में समाप्त}} | {months, plural, other{{months} ತಿಂಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ}} |
+| offline_banner | No connection. Showing last known consents. | कनेक्शन नहीं है। पिछली ज्ञात सहमतियाँ दिख रही हैं। | ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಒಪ್ಪಿಗೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ. |
+| withdraw_confirm | Stop {company} using your data for {purpose}? They will be blocked right away. | {company} को {purpose} के लिए आपका डेटा इस्तेमाल करने से रोकें? उन्हें तुरंत रोक दिया जाएगा। | {purpose} ಗಾಗಿ {company} ನಿಮ್ಮ ಡೇಟಾ ಬಳಸುವುದನ್ನು ನಿಲ್ಲಿಸಬೇಕೇ? ಅವರನ್ನು ತಕ್ಷಣ ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ. |
+| keep | Keep | रखें | ಇರಿಸಿ |
+| auth_reason_withdraw | Confirm to withdraw consent | सहमति वापस लेने के लिए पुष्टि करें | ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆಯಲು ದೃಢೀಕರಿಸಿ |
+
+Activity feed (W6), same status as above. The decision chips reuse `allowed` and `blocked`; the `reason_*` lines explain a blocked row and map one-to-one to the five reason codes (`CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`):
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| filter_all | All | सभी | ಎಲ್ಲಾ |
+| reason_consent_withdrawn | Consent withdrawn | सहमति वापस ली गई | ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆಯಲಾಗಿದೆ |
+| reason_consent_expired | Consent expired | सहमति समाप्त | ಒಪ್ಪಿಗೆ ಅವಧಿ ಮುಗಿದಿದೆ |
+| reason_no_consent | No consent given | सहमति नहीं दी गई | ಒಪ್ಪಿಗೆ ನೀಡಿಲ್ಲ |
+| reason_ledger_unavailable | Could not check consent, so blocked | सहमति जाँच नहीं हो सकी, इसलिए रोका गया | ಒಪ್ಪಿಗೆ ಪರಿಶೀಲಿಸಲಾಗಲಿಲ್ಲ, ಆದ್ದರಿಂದ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ |
+| reason_no_principal | Could not tell whose data this was | यह पता नहीं चला कि डेटा किसका था | ಇದು ಯಾರ ಡೇಟಾ ಎಂದು ತಿಳಿಯಲಿಲ್ಲ |
+| time_now | Just now | अभी अभी | ಈಗಷ್ಟೇ |
+| time_seconds | {n} s ago | {n} सेकंड पहले | {n} ಸೆಕೆಂಡ್ ಹಿಂದೆ |
+| time_minutes | {n} min ago | {n} मिनट पहले | {n} ನಿಮಿಷ ಹಿಂದೆ |
+| time_hours | {n} h ago | {n} घंटे पहले | {n} ಗಂಟೆ ಹಿಂದೆ |
+| time_days | {n} d ago | {n} दिन पहले | {n} ದಿನ ಹಿಂದೆ |
+| activity_row_label | {purpose}, {company}, {decision}, {time} | {purpose}, {company}, {decision}, {time} | {purpose}, {company}, {decision}, {time} |
+| offline_activity_banner | No connection. Showing last known activity. | कनेक्शन नहीं है। पिछली ज्ञात गतिविधि दिख रही है। | ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಚಟುವಟಿಕೆಯನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ. |
+
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 
 ## 7. Accessibility and quality floor

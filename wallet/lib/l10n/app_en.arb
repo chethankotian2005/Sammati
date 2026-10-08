@@ -122,6 +122,140 @@
     }
   },
   "receipt_tx": "Ledger transaction",
+  "receipt_view_proof": "View proof",
   "done": "Done",
-  "error_generic": "Something went wrong. Try again."
+  "error_generic": "Something went wrong. Try again.",
+  "consents_summary": "{companies, plural, =1{1 company · {active} active} other{{companies} companies · {active} active}}",
+  "@consents_summary": {
+    "placeholders": {
+      "companies": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
+    }
+  },
+  "status_active": "Active",
+  "status_expired": "Expired",
+  "status_withdrawn": "Withdrawn",
+  "expired_ago": "{days, plural, =0{Expired today, give consent again} =1{Expired 1 day ago, give consent again} other{Expired {days} days ago, give consent again}}",
+  "@expired_ago": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "expires_in_days": "{days, plural, =1{Expires in 1 day} other{Expires in {days} days}}",
+  "@expires_in_days": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "expires_in_months": "{months, plural, =1{Expires in 1 month} other{Expires in {months} months}}",
+  "@expires_in_months": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "offline_banner": "No connection. Showing last known consents.",
+  "withdraw_confirm": "Stop {company} using your data for {purpose}? They will be blocked right away.",
+  "@withdraw_confirm": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "keep": "Keep",
+  "auth_reason_withdraw": "Confirm to withdraw consent",
+  "filter_all": "All",
+  "reason_consent_withdrawn": "Consent withdrawn",
+  "reason_consent_expired": "Consent expired",
+  "reason_no_consent": "No consent given",
+  "reason_ledger_unavailable": "Could not check consent, so blocked",
+  "reason_no_principal": "Could not tell whose data this was",
+  "time_now": "Just now",
+  "time_seconds": "{n} s ago",
+  "@time_seconds": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "time_minutes": "{n} min ago",
+  "@time_minutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "time_hours": "{n} h ago",
+  "@time_hours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "time_days": "{n} d ago",
+  "@time_days": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "activity_row_label": "{purpose}, {company}, {decision}, {time}",
+  "@activity_row_label": {
+    "placeholders": {
+      "purpose": {
+        "type": "String"
+      },
+      "company": {
+        "type": "String"
+      },
+      "decision": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "offline_activity_banner": "No connection. Showing last known activity.",
+
+  "proof_headline": "This access was recorded and locked on the ledger.",
+  "proof_record_hash": "Record hash",
+  "proof_batch_anchor": "Batch anchor",
+  "proof_merkle_verified": "Verified ✓",
+  "proof_merkle_failed": "Verification failed",
+  "proof_merkle_checking": "Checking…",
+  "proof_open_explorer": "Open in block explorer",
+  "proof_consent_signer": "Signer (you)",
+  "proof_ledger_head": "Ledger head",
+  "proof_consent_tx": "Transaction",
+  "proof_loading": "Loading proof…",
+  "proof_failed": "Could not load proof. Try again.",
+
+  "cascade_title": "Also told",
+  "cascade_waiting": "Waiting…",
+  "cascade_acked": "{n} s ago",
+  "@cascade_acked": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

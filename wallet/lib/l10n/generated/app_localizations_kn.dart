@@ -256,4 +256,124 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get error_generic => 'ಏನೋ ತಪ್ಪಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String consents_summary(int companies, int active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      companies,
+      locale: localeName,
+      other: '$companies ಕಂಪನಿಗಳು · $active ಸಕ್ರಿಯ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get status_active => 'ಸಕ್ರಿಯ';
+
+  @override
+  String get status_expired => 'ಅವಧಿ ಮುಗಿದಿದೆ';
+
+  @override
+  String get status_withdrawn => 'ಹಿಂಪಡೆಯಲಾಗಿದೆ';
+
+  @override
+  String expired_ago(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days ದಿನಗಳ ಹಿಂದೆ ಅವಧಿ ಮುಗಿದಿದೆ, ಮತ್ತೆ ಒಪ್ಪಿಗೆ ನೀಡಿ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_days(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days ದಿನಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_months(int months) {
+    String _temp0 = intl.Intl.pluralLogic(
+      months,
+      locale: localeName,
+      other: '$months ತಿಂಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get offline_banner =>
+      'ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಒಪ್ಪಿಗೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ.';
+
+  @override
+  String withdraw_confirm(String company, String purpose) {
+    return '$purpose ಗಾಗಿ $company ನಿಮ್ಮ ಡೇಟಾ ಬಳಸುವುದನ್ನು ನಿಲ್ಲಿಸಬೇಕೇ? ಅವರನ್ನು ತಕ್ಷಣ ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ.';
+  }
+
+  @override
+  String get keep => 'ಇರಿಸಿ';
+
+  @override
+  String get auth_reason_withdraw => 'ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆಯಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get filter_all => 'ಎಲ್ಲಾ';
+
+  @override
+  String get reason_consent_withdrawn => 'ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆಯಲಾಗಿದೆ';
+
+  @override
+  String get reason_consent_expired => 'ಒಪ್ಪಿಗೆ ಅವಧಿ ಮುಗಿದಿದೆ';
+
+  @override
+  String get reason_no_consent => 'ಒಪ್ಪಿಗೆ ನೀಡಿಲ್ಲ';
+
+  @override
+  String get reason_ledger_unavailable =>
+      'ಒಪ್ಪಿಗೆ ಪರಿಶೀಲಿಸಲಾಗಲಿಲ್ಲ, ಆದ್ದರಿಂದ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ';
+
+  @override
+  String get reason_no_principal => 'ಇದು ಯಾರ ಡೇಟಾ ಎಂದು ತಿಳಿಯಲಿಲ್ಲ';
+
+  @override
+  String get time_now => 'ಈಗಷ್ಟೇ';
+
+  @override
+  String time_seconds(int n) {
+    return '$n ಸೆಕೆಂಡ್ ಹಿಂದೆ';
+  }
+
+  @override
+  String time_minutes(int n) {
+    return '$n ನಿಮಿಷ ಹಿಂದೆ';
+  }
+
+  @override
+  String time_hours(int n) {
+    return '$n ಗಂಟೆ ಹಿಂದೆ';
+  }
+
+  @override
+  String time_days(int n) {
+    return '$n ದಿನ ಹಿಂದೆ';
+  }
+
+  @override
+  String activity_row_label(
+    String purpose,
+    String company,
+    String decision,
+    String time,
+  ) {
+    return '$purpose, $company, $decision, $time';
+  }
+
+  @override
+  String get offline_activity_banner =>
+      'ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಚಟುವಟಿಕೆಯನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ.';
 }

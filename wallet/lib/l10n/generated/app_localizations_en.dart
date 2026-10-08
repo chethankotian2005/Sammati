@@ -255,4 +255,127 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get error_generic => 'Something went wrong. Try again.';
+
+  @override
+  String consents_summary(int companies, int active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      companies,
+      locale: localeName,
+      other: '$companies companies · $active active',
+      one: '1 company · $active active',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get status_active => 'Active';
+
+  @override
+  String get status_expired => 'Expired';
+
+  @override
+  String get status_withdrawn => 'Withdrawn';
+
+  @override
+  String expired_ago(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'Expired $days days ago, give consent again',
+      one: 'Expired 1 day ago, give consent again',
+      zero: 'Expired today, give consent again',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_days(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'Expires in $days days',
+      one: 'Expires in 1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String expires_in_months(int months) {
+    String _temp0 = intl.Intl.pluralLogic(
+      months,
+      locale: localeName,
+      other: 'Expires in $months months',
+      one: 'Expires in 1 month',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get offline_banner => 'No connection. Showing last known consents.';
+
+  @override
+  String withdraw_confirm(String company, String purpose) {
+    return 'Stop $company using your data for $purpose? They will be blocked right away.';
+  }
+
+  @override
+  String get keep => 'Keep';
+
+  @override
+  String get auth_reason_withdraw => 'Confirm to withdraw consent';
+
+  @override
+  String get filter_all => 'All';
+
+  @override
+  String get reason_consent_withdrawn => 'Consent withdrawn';
+
+  @override
+  String get reason_consent_expired => 'Consent expired';
+
+  @override
+  String get reason_no_consent => 'No consent given';
+
+  @override
+  String get reason_ledger_unavailable => 'Could not check consent, so blocked';
+
+  @override
+  String get reason_no_principal => 'Could not tell whose data this was';
+
+  @override
+  String get time_now => 'Just now';
+
+  @override
+  String time_seconds(int n) {
+    return '$n s ago';
+  }
+
+  @override
+  String time_minutes(int n) {
+    return '$n min ago';
+  }
+
+  @override
+  String time_hours(int n) {
+    return '$n h ago';
+  }
+
+  @override
+  String time_days(int n) {
+    return '$n d ago';
+  }
+
+  @override
+  String activity_row_label(
+    String purpose,
+    String company,
+    String decision,
+    String time,
+  ) {
+    return '$purpose, $company, $decision, $time';
+  }
+
+  @override
+  String get offline_activity_banner =>
+      'No connection. Showing last known activity.';
 }

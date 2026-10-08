@@ -14,6 +14,7 @@ import {
   type CreateRequestResponse,
   type GrantConsent,
   type GrantResponse,
+  type PrincipalConsentsResponse,
   type Hex,
   type NoticeInput,
   type RequestNotice,
@@ -205,7 +206,7 @@ export function consentRoutes(ctx: Ctx): Router {
   });
 
   r.get("/principals/:addr/consents", (req, res) => {
-    res.json(store.principalConsents(address(req.params.addr!, "addr")));
+    res.json({ ...store.principalConsents(address(req.params.addr!, "addr")), domain: domain() } satisfies PrincipalConsentsResponse);
   });
 
   r.get("/principals/:addr/activity", (req, res) => {

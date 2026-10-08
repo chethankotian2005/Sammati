@@ -17,8 +17,8 @@ enum ConsentExpiry {
   final Duration duration;
 }
 
-/// How long Core has to accept a signed grant. Short, so a leaked signature goes stale.
-const grantDeadline = Duration(hours: 1);
+/// How long Core has to accept a signed grant or withdrawal. Short, so a leaked signature goes stale.
+const signatureDeadline = Duration(hours: 1);
 
 class PurposeChoice {
   const PurposeChoice(this.purposeId, this.expiry);
@@ -128,7 +128,7 @@ class ConsentFlow {
           expiresAt: now + choice.expiry.duration.inSeconds,
           noticeHash: hash,
           nonce: (baseNonce + BigInt.from(i)).toString(),
-          deadline: now + grantDeadline.inSeconds,
+          deadline: now + signatureDeadline.inSeconds,
         ),
     ];
 

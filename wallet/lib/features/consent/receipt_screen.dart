@@ -6,6 +6,7 @@ import '../../app/router.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 import '../shell/hash_text.dart';
+import 'proof_sheet.dart';
 import 'receipt_data.dart';
 
 /// W4 confirmation: an animated stamp, then the receipt.
@@ -69,10 +70,24 @@ class ReceiptScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                  onPressed: () => context.go(Routes.consents),
-                  child: Text(t.done),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (receipt.items.isNotEmpty) ...[
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                        onPressed: () => showConsentProofSheet(context, receipt.items.first.txHash),
+                        child: Text(t.receipt_view_proof),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                      onPressed: () => context.go(Routes.consents),
+                      child: Text(t.done),
+                    ),
+                  ],
                 ),
               ),
             ),
