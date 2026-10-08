@@ -176,6 +176,19 @@ Everything that existed only to stage a demo is gone; the product works through 
 
 Not in scope: removing the two shortcuts themselves (company-held keys, a real TEE); `cleanup-audit.md` lists them as the honest limits.
 
+### 6.9 QuickLoan: a loan product that uses Sammati (Q)
+
+`companies/quickloan` is a separate lender app (own brand, own database, port 4101) that integrates Sammati only through the public SDK and APIs: a company API key, the consent request API, the WebSocket and the Processor's decision API. It is configured by `FIDUCIARY` and `SAMMATI_API_KEY` from its registration (R-01 to R-03); it has no access to Core internals. Its identity colour is `#2F5BEA`; only the QR and "Sammati" labels borrow Sammati's look. Design in `trd.md` §6.14.
+
+| ID | Feature | Pri | Acceptance criteria |
+|---|---|---|---|
+| Q-01 | Sign up with Sammati | P0 | Landing page (product copy, EMI calculator, FAQ, footer with grievance officer, responsive) leads to Sign up. The form asks for a username and an optional password and **nothing else**: no name, PAN, income, phone or email. Under it, an unticked checkbox "Use my Sammati details for loan processing"; ticking it creates a consent request through the real API and shows the QR on the same page with "Waiting for you in the Sammati app" and live status over the WebSocket. The registered purposes are listed in plain language, required ones marked |
+| Q-02 | Consent-gated login | P0 | When the required purposes are granted, QuickLoan creates the account as `username` bound to the pseudonymous principal and logs the user in. The dashboard greets by username, never a real name, and shows live consent status per purpose. Returning users log in with username and password. A "Confirm in Sammati" sign-in challenge is specified (`trd.md` §6.14) and **not built** |
+| Q-03 | Loan application | P0 | Amount, tenure and purpose of loan (application parameters, not protected data). Submitting calls the Processor with the handle only. The decision card shows approved or declined, limit, rate and reasons; no personal data is rendered. Withdrawal or expiry disables Apply within 2 seconds with "Consent withdrawn. We can no longer process your application"; stored decisions remain; the held data is erased (V-04) |
+| Q-04 | Back-office | P0 | Separate route `/staff`, staff login. Applications list (username, amount, tenure, decision, status, time); customer detail shows "Personal details: protected by Sammati" with ciphertext hash, handle and per-purpose consent status. No control reveals or exports plaintext. A rights inbox lists erasure acknowledgements; it stays empty until Core exposes company rights requests (R6) and says so |
+
+Acceptance: a new person can sign up, scan, consent, be logged in and apply with only the on-screen text; QuickLoan's database, API responses and back-office never contain name, PAN, income, mobile or email (automated test with known values); withdrawing in the wallet disables Apply within 2 s. The wallet side (per-purpose choice, required purposes, sending only the ticked purposes' fields, prompting for missing ones) is W-03, W-13, W-15 to W-17.
+
 ## 7. The four differentiators (what to emphasise)
 1. **Enforcement, not just a log.** Withdraw in the wallet and the company's very next request is blocked.
 2. **Proof of access.** Every data access is logged and anchored on chain, so a citizen can verify what a company did and the regulator can catch edited logs.

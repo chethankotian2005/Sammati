@@ -578,6 +578,18 @@ The wallet's notification calls are keyed by address like its other reads (a lim
 
 The Processor's erasure grace and `vault.erased` are specified in §6.7. Core turns `vault.erased` (cause `withdrawn` or `expired`) into a `data.erased` notification when the event arrives at `POST /v1/events/vault`.
 
+### 6.14 QuickLoan (`companies/quickloan`, Q-01 to Q-04)
+
+An Express app on port 4101 with its own SQLite file (`QUICKLOAN_DB`, default `./data/quickloan.sqlite`). Env: `CORE_URL`, `FIDUCIARY`, `SAMMATI_API_KEY`, `PROCESSOR_URL`, `LOAN_PURPOSE` (default `credit_check`), `STAFF_USER` and `STAFF_PASSWORD` (no default: staff routes are off without them), `PUBLIC_CORE_WS` (the browser's address for Core's WebSocket). Dependencies: `better-sqlite3`, `react`, `react-dom`, `qrcode.react` (server-side QR as SVG), all already used by the repo.
+
+**Tables.** `users(username, password_hash NULL, principal, created_at)`, `sessions(token, username, expires_at)`, `signups(token, username, password_hash NULL, request_id, created_at)`, `vault(principal, handle, ciphertext_hash, status)` (from the Processor webhook), `applications(id, username, amount, tenure_months, loan_purpose, decision, limit_amount, rate_bp, reasons, status, handle, created_at)`. No column can hold a name, PAN, income, phone or email.
+
+**Flow.** `POST /api/signup {username, password?}` checks the username, stores a `signups` row and creates a consent request with Core (`POST /v1/fiduciaries/:fid/requests`, all registered purposes, `customerAlias` = the signup token). The page shows the QR (`/qr.svg`) and listens on Core's `/ws` (`fiduciary:<address>`); on a `consent.updated` it asks `GET /api/signup/:token`, which reads the company's consents table from Core, and when the loan purpose and every required purpose are Active it creates the user bound to that principal and sets a session cookie. `POST /api/apply` needs a session, an Active loan purpose (checked on the company's table, fail closed) and a stored handle, then calls the Processor's evaluate with the handle; the rate is QuickLoan's own table by reason code. The dashboard re-reads consent status on every `consent.updated` for its principal, so Apply is disabled within 2 s of a withdrawal.
+
+**Sign-in challenge (specified, not built).** For strong auth QuickLoan would create a one-purpose request, the wallet would approve it, and QuickLoan would accept the login on the resulting Active consent; the existing request API already carries it.
+
+**Staff.** `/staff` with HTTP form login against `STAFF_USER`/`STAFF_PASSWORD` (a limit of this build: one shared staff credential). Lists applications; `/staff/customers/:username` shows the protected-details card, handle, hash and consent status. There is no route that returns anything from the vault but its hash.
+
 ## 7. Gateway SDK
 
 ```ts
