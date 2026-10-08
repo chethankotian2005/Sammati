@@ -1,64 +1,91 @@
+// Phone notifications (W-11, trd.md §6.12). Two ways one gets raised, and they are the same notification:
+//  - live: an alert arrived over the WebSocket while the app is running;
+//  - scheduled: the wallet already knows when a consent expires, so it asks the phone to raise the reminder at that
+//    moment, which works with the app closed.
+// What this is not: push to a closed app for things a company sends (renewal requests, erasure and acknowledgement
+// confirmations). That needs Firebase and is not built; those wait on the Alerts tab until the app is next open.
+// Neither path has been tested on a real phone yet.
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'consents.dart';
 
-class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
-  factory NotificationService() => _instance;
-  NotificationService._internal();
+abstract interface class LocalNotifier {
+  /// Raises a notification now. The same [id] again replaces the earlier one.
+  Future<void> show({required int id, required String title, required String body, required String channel});
 
+  /// Asks the phone to raise it at [at], even if the app is closed by then.
+  Future<void> schedule({required int id, required DateTime at, required String title, required String body, required String channel});
+
+  /// Forgets everything scheduled: the caller then schedules what is still true.
+  Future<void> cancelAll();
+}
+
+/// A stable 31-bit id for a notification key, so the live and the scheduled copy of one alert share an id.
+int notificationIdOf(String key) {
+  var h = 0x811c9dc5; // FNV-1a
+  for (final unit in key.codeUnits) {
+    h = ((h ^ unit) * 0x01000193) & 0x7fffffff;
+  }
+  return h;
+}
+
+/// Web, tests and anything without a notification plugin: nothing is raised, nothing fails.
+class NoopNotifier implements LocalNotifier {
+  const NoopNotifier();
+
+  @override
+  Future<void> show({required int id, required String title, required String body, required String channel}) async {}
+
+  @override
+  Future<void> schedule({required int id, required DateTime at, required String title, required String body, required String channel}) async {}
+
+  @override
+  Future<void> cancelAll() async {}
+}
+
+class PluginNotifier implements LocalNotifier {
   final _plugin = FlutterLocalNotificationsPlugin();
-  bool _initialized = false;
+  bool _ready = false;
 
-  Future<void> init() async {
-    if (_initialized) return;
+  Future<void> _init() async {
+    if (_ready) return;
     tz.initializeTimeZones();
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
-    await _plugin.initialize(initSettings);
-    _initialized = true;
+    await _plugin.initialize(const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
+    _ready = true;
   }
 
-  Future<void> scheduleExpiryReminders(ConsentsSnapshot snapshot) async {
-    await init();
-    // In a real app we'd use timezone-based scheduling (zonedSchedule).
-    // For the hackathon demo, we just simulate or set a standard timeout if needed,
-    // but the prompt asked for "expiry local notifications" W-11.
-    // We will clear existing and re-schedule.
-    await _plugin.cancelAll();
+  NotificationDetails _details(String channel) => NotificationDetails(
+        android: AndroidNotificationDetails('consent_alerts', channel, importance: Importance.high, priority: Priority.high),
+      );
 
-    int id = 0;
-    final now = DateTime.now();
-    for (final f in snapshot.companies) {
-      for (final c in f.consents) {
-        final expiresAt = c.expiresAt;
-        if (c.stateAt(now) == ConsentState.active && expiresAt != null && expiresAt > 0) {
-          final expiry = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
-          final reminderTime = expiry.subtract(const Duration(days: 3));
-          
-          if (reminderTime.isAfter(now)) {
-            final scheduledDate = tz.TZDateTime.from(reminderTime, tz.local);
-            _plugin.zonedSchedule(
-              id++,
-              'Consent expiring soon',
-              'Your consent for ${c.title.en} at ${f.fiduciary.name} expires in 3 days.',
-              scheduledDate,
-              const NotificationDetails(
-                android: AndroidNotificationDetails(
-                  'expiry_channel',
-                  'Expiry Reminders',
-                  channelDescription: 'Reminders for expiring consents',
-                  importance: Importance.high,
-                  priority: Priority.high,
-                ),
-              ),
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-            );
-          }
-        }
-      }
-    }
+  @override
+  Future<void> show({required int id, required String title, required String body, required String channel}) async {
+    await _init();
+    await _plugin.show(id, title, body, _details(channel));
+  }
+
+  @override
+  Future<void> schedule({required int id, required DateTime at, required String title, required String body, required String channel}) async {
+    await _init();
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(at, tz.local),
+      _details(channel),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  @override
+  Future<void> cancelAll() async {
+    await _init();
+    await _plugin.cancelAll();
   }
 }
+
+final localNotifierProvider = Provider<LocalNotifier>((ref) => kIsWeb ? const NoopNotifier() : PluginNotifier());

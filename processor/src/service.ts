@@ -234,8 +234,8 @@ export class ProcessorService {
       const entryId = log("BLOCKED", reason);
       decided("blocked", null, [reason], entryId);
       // Only the consent behind this very data decides erasure, and never an outage.
-      const cause = ERASE_CAUSE[reason];
-      if (cause && purposeCode === row.purposeCode && !verdict.valid) this.erase(row, cause);
+      const cause = !verdict.valid && purposeCode === row.purposeCode ? this.eraseCauseFor(verdict) : undefined;
+      if (cause) this.erase(row, cause);
       throw refusal(reason, entryId);
     }
 
@@ -270,11 +270,22 @@ export class ProcessorService {
     return true;
   }
 
+  /**
+   * Why a refused row should be erased now, if it should. Expiry is the one reason with a grace period: the data stays
+   * (unusable, every evaluate is refused) so a renewal inside the window needs no resend. An expiry whose date is not
+   * known erases at once, which is the safe direction.
+   */
+  private eraseCauseFor(verdict: Extract<ConsentVerdict, { valid: false }>): VaultEraseCause | undefined {
+    const cause = ERASE_CAUSE[verdict.reason];
+    if (cause === "expired" && verdict.expiresAt !== undefined && this.seconds() < verdict.expiresAt + this.config.expiryGraceSeconds) return undefined;
+    return cause;
+  }
+
   /** Re-reads consent from the chain for one live row; erases it if consent is gone. An unreadable chain erases nothing. */
   async recheck(row: VaultRow): Promise<void> {
     const verdict: ConsentVerdict = await this.consent.check(row.principal, row.fiduciary, row.purposeCode);
     if (verdict.valid) return;
-    const cause = ERASE_CAUSE[verdict.reason];
+    const cause = this.eraseCauseFor(verdict);
     if (cause) this.erase(row, cause);
   }
 

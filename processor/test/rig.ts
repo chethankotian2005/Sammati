@@ -25,8 +25,8 @@ export class FakeConsent implements ConsentReader {
   allow(p: string, f: string, c: string): void {
     this.verdicts.set(this.key(p, f, c), { valid: true });
   }
-  deny(p: string, f: string, c: string, reason: ReasonCode): void {
-    this.verdicts.set(this.key(p, f, c), { valid: false, reason });
+  deny(p: string, f: string, c: string, reason: ReasonCode, expiresAt?: number): void {
+    this.verdicts.set(this.key(p, f, c), { valid: false, reason, ...(expiresAt === undefined ? {} : { expiresAt }) });
   }
   async check(p: string, f: string, c: string): Promise<ConsentVerdict> {
     this.calls++;
@@ -44,7 +44,7 @@ export interface LogRecord {
   id: string;
 }
 
-export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8Array | null = null) {
+export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8Array | null = null, clock?: () => number) {
   const config: ProcessorConfig = { ...readConfig({}), dbPath: ":memory:", ...overrides };
   const vault = new Vault(":memory:");
   const enclave = new Enclave(privateKey);
@@ -61,7 +61,7 @@ export function rig(overrides: Partial<ProcessorConfig> = {}, privateKey: Uint8A
       return id;
     },
   };
-  const service = new ProcessorService(config, vault, enclave, consent, sink, notifier, logger);
+  const service = new ProcessorService(config, vault, enclave, consent, sink, notifier, logger, clock);
   const wallet = Wallet.createRandom();
   const principal = wallet.address.toLowerCase() as Hex;
 

@@ -116,6 +116,8 @@ export interface RequestNotice {
   purposes: NoticePurpose[];
   noticeHash: Hex;
   noticeVersion: number;
+  /** True when Core runs with DEMO_FAST_EXPIRY: the wallet then offers a 2-minute expiry (trd.md §6.12). */
+  fastExpiry?: boolean;
   domain: Eip712Domain;
   typedDataTemplate: TypedData<"GrantConsent", Omit<GrantConsent, "purposeId" | "expiresAt" | "deadline">>;
   nonce: string;
@@ -702,9 +704,76 @@ export interface BlocksResponse {
   blocked: Array<{ fiduciary: { address: Hex; name: string }; blockedAt: UnixSeconds }>;
 }
 
+// --- Expiry, renewal and notifications (trd.md §6.12) ---
+
+export type NotificationType = "consent.expiring" | "consent.expired" | "consent.renewal_requested" | "data.erased" | "cascade.acknowledged";
+export type NotificationAction = "renewed" | "let_expire" | "viewed_proof";
+
+/** A notification's body is data: the wallet writes the sentence. No personal data is ever in `payload`. */
+export interface NotificationItem {
+  id: string;
+  /** Dedupe key: the same notification raised live and scheduled on the phone shares it. */
+  key: string;
+  type: NotificationType;
+  fiduciary: { address: Hex; name: string; color: string };
+  purposeId: Hex | null;
+  purposeCode: string | null;
+  payload: {
+    expiresAt?: number;
+    thresholdSeconds?: number;
+    message?: string | null;
+    cause?: "withdrawn" | "expired";
+    processor?: Hex;
+    processorName?: string;
+  };
+  createdAt: UnixSeconds;
+  readAt: UnixSeconds | null;
+  actionTaken: NotificationAction | null;
+}
+/** To `principal:<addr>` only. The event name is the notification type. */
+export interface NotificationEvent {
+  event: NotificationType;
+  principal: Hex;
+  notification: NotificationItem;
+  at: UnixSeconds;
+}
+export interface NotificationsResponse {
+  notifications: NotificationItem[];
+  unread: number;
+  config: { thresholdsSeconds: number[]; fastExpiry: boolean };
+}
+export interface NotificationPatchBody {
+  read?: true;
+  action?: "let_expire" | "viewed_proof";
+}
+export interface RenewalOpenBody {
+  fiduciary: Hex;
+  purposeCode: string;
+}
+export interface RenewalOpenResponse {
+  requestId: string;
+}
+export interface RenewalRequestBody {
+  principal: Hex;
+  purposeCode: string;
+  message?: string;
+}
+export interface ExpiringRow {
+  principal: Hex;
+  customerAlias: string | null;
+  purposeCode: string;
+  expiresAt: UnixSeconds;
+  state: "expiring" | "expired";
+  renewal: { requestId: string; status: TargetedStatus; requestedAt: UnixSeconds } | null;
+}
+export interface ExpiringResponse {
+  rows: ExpiringRow[];
+}
+
 export type WsEvent =
   | ConsentRequestedEvent
   | RequestUpdatedEvent
+  | NotificationEvent
   | ConsentUpdatedEvent
   | AccessLoggedEvent
   | CascadeUpdatedEvent

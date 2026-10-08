@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
+import '../../core/alerts_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 
-/// Bottom navigation (ui.md W1): Consents · Activity · [Scan] · Rights · Me.
-/// Scan is not a tab; it opens the full-screen scanner, so the shell has four branches.
-class HomeShell extends StatelessWidget {
+/// Bottom navigation (ui.md W1, W13): Consents · Activity · [Scan] · Alerts · Rights · Me.
+/// Scan is not a tab; it opens the full-screen scanner, so the shell has five branches.
+class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final index = shell.currentIndex;
+    final unread = ref.watch(alertsProvider.select((s) => s.unread));
     return Scaffold(
       body: shell,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -33,8 +36,16 @@ class HomeShell extends StatelessWidget {
             _NavItem(icon: Icons.bolt_outlined, selectedIcon: Icons.bolt, label: t.nav_activity, selected: index == 1, onTap: () => _go(1)),
             // Gap under the docked scan button.
             const SizedBox(width: 80),
-            _NavItem(icon: Icons.balance_outlined, selectedIcon: Icons.balance, label: t.nav_rights, selected: index == 2, onTap: () => _go(2)),
-            _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: t.nav_me, selected: index == 3, onTap: () => _go(3)),
+            _NavItem(
+              icon: Icons.notifications_outlined,
+              selectedIcon: Icons.notifications,
+              label: t.nav_alerts,
+              selected: index == 2,
+              unreadLabel: unread > 0 ? t.alerts_unread : null,
+              onTap: () => _go(2),
+            ),
+            _NavItem(icon: Icons.balance_outlined, selectedIcon: Icons.balance, label: t.nav_rights, selected: index == 3, onTap: () => _go(3)),
+            _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: t.nav_me, selected: index == 4, onTap: () => _go(4)),
           ],
         ),
       ),
@@ -76,8 +87,11 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.unreadLabel,
   });
 
+  /// Set while something is unread: a dot on the icon, and these words for a screen reader.
+  final String? unreadLabel;
   final IconData icon;
   final IconData selectedIcon;
   final String label;
@@ -91,23 +105,46 @@ class _NavItem extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: selected,
-        label: label,
+        label: unreadLabel == null ? label : '$label, $unreadLabel',
         excludeSemantics: true,
         child: InkWell(
           onTap: onTap,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(selected ? selectedIcon : icon, color: color, size: 24),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: color,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(selected ? selectedIcon : icon, color: color, size: 24),
+                  if (unreadLabel != null)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        key: const ValueKey('alerts-unread-dot'),
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(color: SammatiColors.marigold, shape: BoxShape.circle, border: Border.all(color: SammatiColors.surface, width: 1.5)),
+                      ),
                     ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              // Five places and the scan button share 360 dp: a label that is wider than its place is scaled down to
+              // fit, never cut off or let over the next one.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: color,
+                          fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                        ),
+                  ),
+                ),
               ),
             ],
           ),

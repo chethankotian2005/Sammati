@@ -28,6 +28,7 @@ import { PurposesSection } from "./company/PurposesSection";
 import { NewRequestSection } from "./company/NewRequestSection";
 import { LiveRequestsSection } from "./company/LiveRequestsSection";
 import { ConsentsSection } from "./company/ConsentsSection";
+import { ExpiringConsents } from "./company/ExpiringConsents";
 import { ProcessorsSection } from "./company/ProcessorsSection";
 import { EvidenceSection } from "./company/EvidenceSection";
 
@@ -206,12 +207,15 @@ function CompanyConsole({ company }: { company: FiduciaryInfo }): ReactNode {
       )}
 
       {activeSection === "consents" && (
-        <ConsentsSection
-          company={company}
-          consents={consents}
-          purposes={purposes}
-          onRequestNew={() => setActiveSection("new-request")}
-        />
+        <div className="space-y-6">
+          <ExpiringConsents company={company} purposes={purposes} />
+          <ConsentsSection
+            company={company}
+            consents={consents}
+            purposes={purposes}
+            onRequestNew={() => setActiveSection("new-request")}
+          />
+        </div>
       )}
 
       {activeSection === "live-requests" && (

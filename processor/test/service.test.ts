@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { Wallet } from "ethers";
 import { submitMessage, handleOf } from "@sammati/shared/src/envelope";
+import { readConfig } from "../src/config";
 import { decideLoan } from "../src/rules";
 import { ApiFailure } from "../src/service";
 import { MC_KEY, MEDICARE, PAN, QL_KEY, QUICKLOAN, rig } from "./rig";
@@ -305,5 +306,73 @@ describe("companies registered after the Processor started (R-01)", () => {
     const r = rig({ coreUrl: "http://127.0.0.1:9" });
     const { handle } = await r.submitted("credit_check", NEWCO);
     expect((await fails(r.service.evaluate("sk_newco", r.evaluateBody(handle, "credit_check", NEWCO)))).status).toBe(401);
+  });
+});
+
+describe("expiry grace period (N-03, trd.md §6.7)", () => {
+  const T0 = 1_800_000_000; // seconds
+  const GRACE = 60;
+  const setup = () => {
+    let now = T0 * 1000;
+    const r = rig({ expiryGraceSeconds: GRACE }, null, () => now);
+    return { r, at: (seconds: number) => void (now = (T0 + seconds) * 1000) };
+  };
+
+  it("refuses at once on expiry but keeps the ciphertext until the grace period has passed, then erases it", async () => {
+    const { r, at } = setup();
+    const { handle } = await r.submitted();
+    r.consent.deny(r.principal, QUICKLOAN, "credit_check", "CONSENT_EXPIRED", T0); // expired right now
+
+    at(10);
+    const refused = await fails(r.service.evaluate(QL_KEY, r.evaluateBody(handle)));
+    expect([refused.status, refused.code]).toEqual([451, "CONSENT_EXPIRED"]);
+    expect(r.vault.get(handle)!.ciphertext).not.toBeNull(); // kept: nothing was decrypted, nothing erased
+    expect(r.events.filter((e) => e.event === "vault.erased")).toEqual([]);
+    expect(r.logs.at(-1)).toMatchObject({ decision: "BLOCKED", reason: "CONSENT_EXPIRED" });
+
+    await r.service.sweep();
+    expect(r.vault.get(handle)!.ciphertext).not.toBeNull(); // the sweep respects it too
+
+    at(GRACE + 1);
+    await r.service.sweep();
+    expect(r.vault.get(handle)).toMatchObject({ ciphertext: null, eraseCause: "expired" });
+    expect(r.events.filter((e) => e.event === "vault.erased")).toEqual([expect.objectContaining({ cause: "expired" })]);
+  });
+
+  it("a renewal inside the window makes the kept data usable again, with no resend", async () => {
+    const { r, at } = setup();
+    const { handle } = await r.submitted();
+    r.consent.deny(r.principal, QUICKLOAN, "credit_check", "CONSENT_EXPIRED", T0);
+    at(5);
+    expect((await fails(r.service.evaluate(QL_KEY, r.evaluateBody(handle)))).code).toBe("CONSENT_EXPIRED");
+    r.consent.allow(r.principal, QUICKLOAN, "credit_check"); // renewed
+    expect(await r.service.evaluate(QL_KEY, r.evaluateBody(handle))).toMatchObject({ decision: expect.any(String) });
+  });
+
+  it("withdrawal has no grace: it erases at once, even in the middle of one", async () => {
+    const { r, at } = setup();
+    const { handle } = await r.submitted();
+    r.consent.deny(r.principal, QUICKLOAN, "credit_check", "CONSENT_EXPIRED", T0);
+    at(5);
+    await r.service.recheckFor(r.principal, QUICKLOAN, "credit_check");
+    expect(r.vault.get(handle)!.ciphertext).not.toBeNull();
+    r.consent.deny(r.principal, QUICKLOAN, "credit_check", "CONSENT_WITHDRAWN");
+    await r.service.recheckFor(r.principal, QUICKLOAN, "credit_check");
+    expect(r.vault.get(handle)).toMatchObject({ ciphertext: null, eraseCause: "withdrawn" });
+  });
+
+  it("an unreadable chain still erases nothing during or after the grace period", async () => {
+    const { r, at } = setup();
+    const { handle } = await r.submitted();
+    r.consent.unavailable = true;
+    at(GRACE * 10);
+    await r.service.sweep();
+    expect(r.vault.get(handle)!.ciphertext).not.toBeNull();
+  });
+
+  it("reads the grace period from the environment: 7 days, or 60 seconds in fast mode", () => {
+    expect(readConfig({}).expiryGraceSeconds).toBe(604_800);
+    expect(readConfig({ DEMO_FAST_EXPIRY: "1" }).expiryGraceSeconds).toBe(60);
+    expect(readConfig({ DEMO_FAST_EXPIRY: "1", EXPIRY_ERASURE_GRACE_SECONDS: "5" }).expiryGraceSeconds).toBe(5);
   });
 });

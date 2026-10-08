@@ -25,6 +25,9 @@ export class Indexer {
   /** Called for every *new* ConsentWithdrawn event (not for replays), after the cache is up to date. */
   onWithdrawn: ((w: Withdrawal) => void) | null = null;
 
+  /** Called for every *new* WithdrawalAcknowledged event: a processor confirmed it stopped using the data. */
+  onAcknowledged: ((a: { principal: Hex; purposeId: Hex; processor: Hex; txHash: string; at: number }) => void) | null = null;
+
   /** Called when the chain turns out to be a different one from what the database describes. */
   onChainReplaced: (() => Promise<void>) | null = null;
 
@@ -218,6 +221,7 @@ export class Indexer {
           ackedAt: at,
           txHash: base.txHash,
         });
+        this.onAcknowledged?.({ principal, purposeId, processor, txHash: base.txHash, at });
         return;
       }
       case "FiduciaryRegistered": {

@@ -14,6 +14,7 @@ import '../../core/withdraw_flow.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 import '../../core/demo_profile.dart';
+import '../alerts/renew.dart';
 import '../consent/receipt_data.dart';
 import '../shell/empty_state.dart';
 import '../vault/vault_send_section.dart';
@@ -195,6 +196,13 @@ class _PurposeRow extends ConsumerWidget {
                                 const SizedBox(height: 8),
                                 Text(line, style: style.bodyMedium?.copyWith(color: SammatiColors.mute)),
                               ],
+                              // "Give consent again" (ui.md W13): the same Renew as the Alerts tab, from the expired consent itself.
+                              if (state == ConsentState.expired)
+                                TextButton(
+                                  style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: EdgeInsets.zero),
+                                  onPressed: () => startRenewal(context, ref, fiduciary: fiduciary, company: company, purposeCode: consent.code),
+                                  child: Text(t.alert_renew),
+                                ),
                             ],
                           ),
                         ),

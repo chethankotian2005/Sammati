@@ -11,6 +11,7 @@
 | Notice text | Plain-language purpose descriptions | **Hash only** | Core DB / console |
 | Personal data | Name, phone, income, health record | **Never** | Company's own system (fake data in demo) |
 | Sammati ID (handle) | `asha@sammati` mapped to a principal address | **Never** | Core DB (`identities`). Pseudonymous: it names no one, and no phone or email is stored |
+| Notification | "Your consent for credit check expires in 3 days" as a type, times and codes | **Never** | Core DB (`notifications`). The words are written on the phone from the type and payload; no personal data is in a row |
 | Request target | Which wallet a targeted request is addressed to | **Never** | Core DB (`request_targets`). Never returned to the company: it sees an opaque request id and a status |
 | Company application | Name, sector, purposes, processors a company asks to register | **Never** | Core DB (`fiduciary_applications`). Company data, not customer data; the purposes later go on chain as hashes only |
 | Contact email (demo) | The applicant's email address | **Never** | The application row only, until the regulator decides, then erased. Never in a log, event or response to anyone but the regulator |
@@ -150,9 +151,24 @@ CREATE TABLE request_targets (         -- who a request is addressed to (N-02); 
   principal TEXT,                      -- NULL when the handle was unknown or the request was dropped: the row looks the same to the company
   message TEXT,                        -- at most 140 characters
   status TEXT NOT NULL,                -- sent | seen | granted | declined (expired is computed from expires_at)
+  kind TEXT NOT NULL DEFAULT 'targeted',  -- targeted | renewal (a company asked to renew) | self_renewal (the customer pressed Renew; internal, never listed to a company)
   created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
   seen_at INTEGER, decided_at INTEGER
 );
+
+CREATE TABLE notifications (          -- the wallet's Alerts (N-03, N-05)
+  id TEXT PRIMARY KEY,                 -- ntf_<8 hex>
+  dedupe_key TEXT NOT NULL UNIQUE,     -- one row per (consent, threshold) or event: see trd.md §6.12
+  principal TEXT NOT NULL,             -- lower-case address
+  type TEXT NOT NULL,                  -- consent.expiring | consent.expired | consent.renewal_requested | data.erased | cascade.acknowledged
+  fiduciary TEXT NOT NULL,
+  purpose_id TEXT,
+  payload TEXT NOT NULL,               -- JSON: times, codes, a short company message. Never personal data
+  created_at INTEGER NOT NULL,
+  read_at INTEGER,
+  action_taken TEXT                    -- renewed | let_expire | viewed_proof
+);
+CREATE INDEX idx_notifications_principal ON notifications(principal, created_at);
 
 CREATE TABLE blocks (                  -- "Block this company" (N-02)
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL, blocked_at INTEGER NOT NULL,

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/activity_controller.dart';
 import 'package:sammati/core/consent_providers.dart';
 import 'package:sammati/core/consents_controller.dart';
+import 'package:sammati/core/notifications.dart';
 import 'package:sammati/core/processor_api.dart';
 import 'package:sammati/core/preferences.dart';
 import 'package:sammati/core/wallet_providers.dart';
@@ -37,6 +38,7 @@ Future<FakeCoreApi> pumpApp(
   FakeLiveEvents? live,
   Stream<DateTime>? ticks,
   ProcessorApi? processor,
+  LocalNotifier? notifier,
 }) async {
   SharedPreferences.setMockInitialValues(stored);
   final prefs = await SharedPreferences.getInstance();
@@ -61,6 +63,8 @@ Future<FakeCoreApi> pumpApp(
       liveEventsFactoryProvider.overrideWithValue((_, _) => fakeLive),
       processorApiFactoryProvider.overrideWithValue((_) => processor ?? FakeProcessorApi()),
       clockProvider.overrideWithValue(fixedNow),
+      // Nothing is raised on a phone from a test unless the test brings a recorder.
+      localNotifierProvider.overrideWithValue(notifier ?? const NoopNotifier()),
       // A real 1 s timer would keep pumpAndSettle from ever settling.
       clockTickProvider.overrideWith((ref) => ticks ?? const Stream<DateTime>.empty()),
     ],

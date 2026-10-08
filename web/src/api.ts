@@ -43,6 +43,8 @@ import type {
   TargetedRequestBody,
   TargetedRequestResponse,
   TargetedRequestRow,
+  ExpiringResponse,
+  ExpiringRow,
   TargetedRequestsResponse,
   VerifyResponse,
   WithdrawResponse,
@@ -155,6 +157,16 @@ export async function sendTargetedRequest(fiduciary: string, body: TargetedReque
 
 export async function fetchTargetedRequests(fiduciary: string): Promise<TargetedRequestRow[]> {
   return (await request<TargetedRequestsResponse>(`/v1/fiduciaries/${fiduciary}/requests/targeted`)).requests;
+}
+
+/** The company's consents that are about to expire, or just did, with the status of any renewal it asked for (trd.md §6.12). */
+export async function fetchExpiring(fiduciary: string): Promise<ExpiringRow[]> {
+  return (await request<ExpiringResponse>(`/v1/fiduciaries/${fiduciary}/expiring`)).rows;
+}
+
+/** Ask a customer the company already has consent from to renew it. Same answer whether or not it was delivered. */
+export async function requestRenewal(fiduciary: string, principal: string, purposeCode: string): Promise<TargetedRequestResponse> {
+  return request<TargetedRequestResponse>(`/v1/fiduciaries/${fiduciary}/renewals`, { method: "POST", body: JSON.stringify({ principal, purposeCode }) });
 }
 
 export async function demoFire(body: DemoFireBody): Promise<DemoFireResponse> {

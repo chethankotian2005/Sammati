@@ -5,6 +5,7 @@
 import 'package:dio/dio.dart';
 
 import 'activity.dart';
+import 'alerts.dart';
 import 'consents.dart';
 import 'notice.dart';
 import 'proof.dart';
@@ -113,6 +114,18 @@ abstract interface class CoreApi {
 
   /// `POST /v1/principals/:addr/blocks`; [action] is `block` or `unblock`.
   Future<void> setBlocked({required String principal, required String fiduciary, required String action, required int issuedAt, required String signature});
+
+  /// `GET /v1/principals/:addr/notifications`: the alerts, newest first, and when Core raises its reminders. Rows the wallet cannot read are skipped.
+  Future<AlertsSnapshot> getAlerts(String principal);
+
+  /// `POST /v1/principals/:addr/notifications/read`.
+  Future<void> markAllAlertsRead(String principal);
+
+  /// `POST /v1/principals/:addr/notifications/:id`: reading one, and/or the customer's choice (`let_expire`, `viewed_proof`).
+  Future<AlertItem> updateAlert(String principal, String id, {bool read = false, AlertAction? action});
+
+  /// `POST /v1/principals/:addr/renewals`: the open renewal request for one consent (made if there is none), whose notice the wallet then opens.
+  Future<String> openRenewal({required String principal, required String fiduciary, required String purposeCode});
 }
 
 class DioCoreApi implements CoreApi {
@@ -262,6 +275,47 @@ class DioCoreApi implements CoreApi {
           '/v1/requests/${Uri.encodeComponent(requestId)}/decline',
           data: {'principal': principal, 'issuedAt': issuedAt, 'signature': signature},
         ));
+  }
+
+  @override
+  Future<AlertsSnapshot> getAlerts(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/principals/${Uri.encodeComponent(principal)}/notifications'));
+    final rows = json['notifications'];
+    if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed notifications');
+    final config = json['config'];
+    final thresholds = config is Map<String, dynamic> && config['thresholdsSeconds'] is List ? [for (final n in config['thresholdsSeconds'] as List) if (n is int) n] : <int>[];
+    return AlertsSnapshot(
+      items: [for (final r in rows) ?AlertItem.tryParse(r)],
+      thresholdsSeconds: thresholds,
+      fastExpiry: config is Map<String, dynamic> && config['fastExpiry'] == true,
+    );
+  }
+
+  @override
+  Future<void> markAllAlertsRead(String principal) async {
+    await _send(() => _dio.post<Map<String, dynamic>>('/v1/principals/${Uri.encodeComponent(principal)}/notifications/read', data: <String, Object>{}));
+  }
+
+  @override
+  Future<AlertItem> updateAlert(String principal, String id, {bool read = false, AlertAction? action}) async {
+    final json = await _send(() => _dio.post<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/notifications/${Uri.encodeComponent(id)}',
+          data: {if (read) 'read': true, if (action != null) 'action': action.wire},
+        ));
+    final item = AlertItem.tryParse(json);
+    if (item == null) throw const CoreException(CoreFailure.server, message: 'Malformed notification');
+    return item;
+  }
+
+  @override
+  Future<String> openRenewal({required String principal, required String fiduciary, required String purposeCode}) async {
+    final json = await _send(() => _dio.post<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/renewals',
+          data: {'fiduciary': fiduciary, 'purposeCode': purposeCode},
+        ));
+    final id = json['requestId'];
+    if (id is! String) throw const CoreException(CoreFailure.server, message: 'Malformed renewal');
+    return id;
   }
 
   @override

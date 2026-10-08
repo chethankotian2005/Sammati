@@ -115,6 +115,7 @@ class ConsentNotice {
     required this.noticeVersion,
     required this.domain,
     required this.nonce,
+    this.fastExpiry = false,
   });
 
   factory ConsentNotice.fromJson(Map<String, dynamic> json) => ConsentNotice(
@@ -127,6 +128,7 @@ class ConsentNotice {
         noticeVersion: json['noticeVersion'] as int,
         domain: Eip712DomainInfo.fromJson(json['domain'] as Map<String, dynamic>),
         nonce: json['nonce'] as String,
+        fastExpiry: json['fastExpiry'] == true,
       );
 
   final String requestId;
@@ -138,6 +140,9 @@ class ConsentNotice {
 
   /// The principal's current on-chain nonce; purpose i of the selection signs nonce + i.
   final String nonce;
+
+  /// Core runs with DEMO_FAST_EXPIRY: the screen also offers a 2-minute expiry (trd.md §6.12).
+  final bool fastExpiry;
 
   /// drd.md §4.2, computed from the text the user will actually see.
   String computeNoticeHash() => keccakHex(canonicalJson({
