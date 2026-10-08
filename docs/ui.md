@@ -88,6 +88,20 @@ Three actions: "See what a company holds" (access), "Ask a company to erase data
 ### W9 Me
 Language, security (biometric), wallet address (copy), developer settings (Core URL, network), about.
 
+### V1 My demo details (V-01, V-06), opened from W9 Me
+- Read-only card with the fictional profile: PAN `ABCDE1234F` (IBM Plex Mono), income `6-9 LPA`, credit score `742`.
+- Note under it: "Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere."
+- A quiet footer line, `mute` colour, always shown: "Demo processor (simulated enclave, not real hardware protection)". The simulation is never presented as production security.
+- No edit, no copy, no share. It is the only place in the app where the plaintext appears.
+
+### V2 Send securely, on W5 pass detail (V-01, V-04, V-06)
+Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under that purpose row:
+- Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: device-credential prompt (`auth_reason_vault`), then a progress line "Encrypting and sending…".
+- Sent: `allow`-coloured line with a lock icon, "Sent encrypted. {company} holds only a reference.", then the handle shortened (`0x4f2a…9be1`, tap to copy) and the button reads "Send again" (a new envelope replaces the old one).
+- Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "Your encrypted details were erased." The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
+- Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern. Core or Processor unreachable uses `error_unreachable`.
+- The vault never changes the pass-cut animation or the cascade list.
+
 ### Edge states
 Offline banner "No connection. Showing last known consents."; expired consent chip "Expired 3 days ago, give consent again"; QR from a different network "Could not reach Sammati. Check Wi-Fi."; failed transaction "Could not record this. Try again" with retry.
 
@@ -99,6 +113,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **Purposes:** table plus "Add purpose" drawer (code, plain description in 3 languages, categories, retention, sharing flag).
 - **New consent request:** choose customer alias and purposes, large QR on right. "Waiting for scan…" then "Consent received" with tx.
 - **Live requests:** two-column. Left: **Simulator** with big buttons ("Run credit check", "Send marketing SMS", "Share with bureau") firing real requests. Right: feed with ALLOWED/BLOCKED, reason code, latency. Blocked rows use `block` left border and show "451 · Consent withdrawn".
+- **Live requests, QuickLoan only (V-05, V-06):** the simulator gains **Run loan decision**. The result row reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow`, or "Declined · …" in `block`, or the usual "451 · Consent withdrawn". Beside the feed, a **What QuickLoan holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "QuickLoan staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
 - **Consents:** table of customers by purpose with status, filterable.
 - **Processors:** per purpose list, ack state and time.
 - **Evidence:** "Generate compliance pack" button, preview, download.
@@ -111,7 +126,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **Report:** printable page: company, period, verification result, evidence list, anchor links.
 
 ## 5. Stage view (`/stage`, for the live demo)
-Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre three columns for QuickLoan, MediCare+, FoodRush showing live request feeds, right column a ledger ticker (tx, ledger head). A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
+Single screen for the projector: left column "Citizen" (live mirror of the phone via scrcpy window beside it, plus a feed of wallet events), centre three columns for QuickLoan, MediCare+, FoodRush showing live request feeds, right column a ledger ticker (tx, ledger head). The QuickLoan column also shows the confidential-processing timeline (the same chips as the console card, handle shortened) so the audience watches the data go in encrypted, a decision come out and the ciphertext vanish on withdrawal. A thin banner at top: current act of the demo script (optional presenter hint). Large type, high contrast, visible from the back of the room.
 
 ## 6. Copy and i18n
 
@@ -238,6 +253,25 @@ Activity feed (W6), same status as above. The decision chips reuse `allowed` and
 | time_days | {n} d ago | {n} दिन पहले | {n} ದಿನ ಹಿಂದೆ |
 | activity_row_label | {purpose}, {company}, {decision}, {time} | {purpose}, {company}, {decision}, {time} | {purpose}, {company}, {decision}, {time} |
 | offline_activity_banner | No connection. Showing last known activity. | कनेक्शन नहीं है। पिछली ज्ञात गतिविधि दिख रही है। | ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಚಟುವಟಿಕೆಯನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ. |
+
+Confidential processing (V1, V2), same status as above. `{company}` is a placeholder. `PAN` and `Processor` are kept as names in all three languages. The console strings are English only.
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| vault_profile_title | My demo details | मेरा डेमो विवरण | ನನ್ನ ಡೆಮೊ ವಿವರಗಳು |
+| vault_profile_note | Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere. | डेमो के लिए बनाए गए विवरण। ये इसी फ़ोन पर रहते हैं और कहीं भी भेजने से पहले एन्क्रिप्ट हो जाते हैं। | ಡೆಮೊಗಾಗಿ ಮಾಡಿದ ವಿವರಗಳು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಇರುತ್ತವೆ ಮತ್ತು ಎಲ್ಲಿಗಾದರೂ ಕಳುಹಿಸುವ ಮೊದಲು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. |
+| vault_pan | PAN | PAN | PAN |
+| vault_income | Income | आय | ಆದಾಯ |
+| vault_score | Credit score | क्रेडिट स्कोर | ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ |
+| vault_simulated | Demo processor (simulated enclave, not real hardware protection) | डेमो प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं) | ಡೆಮೊ ಪ್ರೊಸೆಸರ್ (ಸಿಮ್ಯುಲೇಟೆಡ್ ಎನ್‌ಕ್ಲೇವ್, ನಿಜವಾದ ಹಾರ್ಡ್‌ವೇರ್ ರಕ್ಷಣೆ ಅಲ್ಲ) |
+| vault_send | Send securely | सुरक्षित रूप से भेजें | ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಿ |
+| vault_send_again | Send again | दोबारा भेजें | ಮತ್ತೆ ಕಳುಹಿಸಿ |
+| vault_send_hint | {company} gets a decision, not your details. Only the Sammati Processor can open them. | {company} को फ़ैसला मिलता है, आपका विवरण नहीं। उन्हें सिर्फ़ Sammati Processor खोल सकता है। | {company} ಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಅವುಗಳನ್ನು Sammati Processor ಮಾತ್ರ ತೆರೆಯಬಹುದು. |
+| vault_sending | Encrypting and sending… | एन्क्रिप्ट करके भेज रहे हैं… | ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ… |
+| vault_sent | Sent encrypted. {company} holds only a reference. | एन्क्रिप्ट करके भेजा गया। {company} के पास सिर्फ़ एक संदर्भ है। | ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿ ಕಳುಹಿಸಲಾಗಿದೆ. {company} ಬಳಿ ಕೇವಲ ಒಂದು ಉಲ್ಲೇಖವಿದೆ. |
+| vault_erased | Your encrypted details were erased. | आपका एन्क्रिप्टेड विवरण मिटा दिया गया। | ನಿಮ್ಮ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿದ ವಿವರಗಳನ್ನು ಅಳಿಸಲಾಗಿದೆ. |
+| vault_failed | Could not send securely. Try again. | सुरक्षित रूप से नहीं भेज सके। दोबारा कोशिश करें। | ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| auth_reason_vault | Confirm to send your details securely | अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें | ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲು ದೃಢೀಕರಿಸಿ |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 

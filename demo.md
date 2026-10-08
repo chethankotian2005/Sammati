@@ -8,12 +8,13 @@
 | Time | Act | What judges see | What you say |
 |---|---|---|---|
 | 0:00 | **Hook** | Title slide: "You have said yes to 40 apps. Do you know what you said yes to?" | 15 seconds on the problem and DPDP. Name the three roles |
-| 0:20 | **Act 1: Connect** | Console shows QuickLoan QR. Phone scans, notice appears with three purposes | "Not one big 'I agree'. Each purpose is its own choice, in my language." Switch language to Kannada for a second |
-| 0:55 | **Act 2: Consent** | Asha turns on credit check and marketing, leaves bureau sharing off. Biometric, receipt with tx | "I signed this with my key. The company cannot forge it." |
-| 1:20 | **Act 3: Allowed** | Simulator: "Run credit check" returns data, green ALLOWED appears on console and in the wallet feed together | "The gateway checked the ledger before releasing a single byte." Click "Share with bureau": BLOCKED (never consented) |
-| 1:50 | **Act 4: The moment** | Phone: withdraw marketing. Console: "Send marketing SMS" turns **BLOCKED 451**. Cascade list on phone fills in: AdPartnerQ acknowledged | "Withdraw is two taps. The very next request is blocked. And the company's partner was told and confirmed." Pause. Let the red row land |
-| 2:30 | **Act 5: Three companies, one wallet** | Home screen shows QuickLoan, MediCare+, FoodRush. Withdraw `ad_targeting` at FoodRush only, others keep working | "One wallet, every company, per-purpose control." |
-| 2:50 | **Act 6: Proof** | Auditor: Verify QuickLoan, all green. Presenter clicks hidden **Tamper** control on one record, Verify again: **red mismatch in batch 4, record 63** | "A company edits its own log to hide an access. The regulator catches it without trusting the company." |
+| 0:15 | **Act 1: Connect** | Console shows QuickLoan QR. Phone scans, notice appears with three purposes | "Not one big 'I agree'. Each purpose is its own choice, in my language." Switch language to Kannada for a second |
+| 0:45 | **Act 2: Consent** | Asha turns on credit check and marketing, leaves bureau sharing off. Biometric, receipt with tx | "I signed this with my key. The company cannot forge it." |
+| 1:05 | **Act 3: Allowed** | Simulator: "Run credit check" is ALLOWED and returns only a reference (`status: none` until the phone sends something), never customer data; green ALLOWED appears on console and in the wallet feed together | "The gateway checked the ledger before releasing a single byte." Click "Share with bureau": BLOCKED (never consented) |
+| 1:30 | **Act 3b: Use without reading** | Phone: **Send securely** on the credit-check row (device lock). Console: the timeline fills (Encrypted, Stored), "What QuickLoan holds" shows a handle and a hash. Click **Run loan decision**: Approved, limit 3,00,000. Stage view shows the same chips | "My PAN and income were encrypted on my phone. QuickLoan never saw them. It got a decision, from a processor that opened the data for one second. Show me QuickLoan's admin screen: a reference number. That's all they hold." Say once: "This processor is a simulated enclave. See the honest limit in Q&A" |
+| 2:00 | **Act 4: The moment** | Phone: withdraw marketing. Console: "Send marketing SMS" turns **BLOCKED 451**. Cascade list on phone fills in: AdPartnerQ acknowledged. Then withdraw credit check: **Run loan decision** turns **BLOCKED 451**, the timeline ends with **Erased**, the phone says "Your encrypted details were erased." | "Withdraw is two taps. The very next request is blocked. The partner was told and confirmed. And the data we gave for the loan check? Not just blocked. Erased." Pause. Let the red row land |
+| 2:40 | **Act 5: Three companies, one wallet** (cut first if running late) | Home screen shows QuickLoan, MediCare+, FoodRush. Withdraw `ad_targeting` at FoodRush only, others keep working | "One wallet, every company, per-purpose control." |
+| 2:55 | **Act 6: Proof** | Auditor: Verify QuickLoan, all green (the loan decision is in the log too). Presenter clicks hidden **Tamper** control on one record, Verify again: **red mismatch in batch 4, record 63** | "A company edits its own log to hide an access. The regulator catches it without trusting the company." |
 | 3:30 | **Act 7: Close** | Explorer link on Amoy, QR to scan | "Same contracts are live on a public testnet. This is the consent layer India's data economy needs." State the production path in one breath |
 
 Total ≈ 3:50, leaving ~10 seconds slack. Judges' questions come after.
@@ -25,14 +26,16 @@ Total ≈ 3:50, leaving ~10 seconds slack. Judges' questions come after.
 - Memorise the two hero moments: **blocked after withdraw** and **tamper detected**.
 
 ## 4. Stage setup checklist
-- [ ] Laptop on charger, Hardhat node, Core, 3 companies, web all up (`pnpm demo:up`)
-- [ ] Phone on the same hotspot, wallet pointing to the laptop LAN IP, relayer funded
+- [ ] Laptop on charger, Hardhat node, Core, 3 companies, web all up (`pnpm demo:up`: real mode is the default; `pnpm e2e` must pass first)
+- [ ] Phone on the same hotspot, and the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (if the laptop is on two networks the banner lists both: set `CORE_PUBLIC_URL` to the right one), relayer funded
 - [ ] Phone mirrored with `scrcpy` on the projector, brightness and Do Not Disturb set
 - [ ] Browser tabs preloaded: Stage view, QuickLoan console, Auditor, Amoy explorer
 - [ ] Wallet language set to English, Kannada one tap away
 - [ ] Screen recording of the full demo saved locally (fallback)
 - [ ] Amoy deployment addresses and explorer links verified the same day
 - [ ] A second phone with the APK installed as a spare
+- [ ] The Processor is up on :4200 (`pnpm demo:up` starts it; `curl http://<lan-ip>:4200/health` says `simulated-enclave`) and the phone can reach it on the same hotspot as Core (the wallet gets the address from Core, set by `PROCESSOR_PUBLIC_URL` or detected like `CORE_PUBLIC_URL`)
+- [ ] Do not restart the Processor between rehearsal and stage without `pnpm demo:reset`: its key is in memory, so old ciphertext becomes unreadable (answers `CIPHERTEXT_INVALID`) until the phone sends again
 
 ## 5. Failure plan
 
@@ -41,6 +44,7 @@ Total ≈ 3:50, leaving ~10 seconds slack. Judges' questions come after.
 | Phone cannot reach the laptop | Switch hotspot, or use the spare phone; if still down, use the emulator on the laptop |
 | Chain stalls | `pnpm demo:reset`; if no time, play the recorded demo and narrate |
 | Biometric fails | Fall back to PIN (built in) |
+| "Send securely" fails or Run loan decision answers an error | Check the Processor's `/health`; if its key changed, tap **Send again** on the phone, then run the decision again. If it is still broken skip Act 3b: it is a differentiator, not the golden path |
 | Projector or mirroring fails | Show the phone to the judges directly and keep the console on the projector |
 | Anything unexplained | Say "let me show you the recording of this step", never debug live in front of judges |
 
@@ -79,7 +83,22 @@ Total ≈ 3:50, leaving ~10 seconds slack. Judges' questions come after.
 "No. All customer data is fictional. The consent flow, signatures, enforcement and anchoring are real and running."
 
 **Be honest about the demo shortcuts.**
-"Company and processor keys are held by our core service for the demo. In production each company holds its own keys."
+"Company and processor keys are held by our core service for the demo. In production each company holds its own keys. The Sammati Processor is a simulated enclave: a separate service with its key in memory, not real hardware protection. The wallet also takes its public key on trust over plain HTTP on the venue network."
+
+**Who can read the data?**
+"The customer, on their phone, and the Processor, for the second it takes to compute a decision. QuickLoan's staff, QuickLoan's database, our core service, the auditor and anyone holding a copy of any database see ciphertext or a reference number. Our core never receives the encrypted data at all and has no key. There is no endpoint that returns plaintext, and we test for that: our end-to-end run searches every log, event, response and database file for the demo PAN."
+
+**Is the Processor trusted?**
+"In this build, yes, and we say so: it is a separate service with an in-memory key, a simulated enclave. Someone who controls that machine could read its memory. The production design runs it in a hardware enclave, like AWS Nitro Enclaves or Intel SGX, with remote attestation: the enclave proves which code it runs, the phone encrypts only to a key the hardware vouches for, and then even the operator cannot read the data. What is real today is the flow: encrypted on the phone, stored as ciphertext, opened in one place, consent checked on chain every time, every use in the anchored log."
+
+**What stops the company from calling the Processor for another purpose?**
+"Three things. The envelope is bound to one customer, one company and one purpose, so it will not open for another. Every call is checked against the chain for the purpose it names: ask for marketing with a credit-check handle and the answer is 451 no consent. And every call, allowed or blocked, is an entry in the company's hash-chained log that is anchored on chain. Misuse leaves a record that the regulator can verify and the company cannot edit."
+
+**What happens on withdrawal?**
+"The company's next request gets a 451 with a reason. And the Processor erases the encrypted copy: it sees the withdrawal, and re-checks on every call and on a timer. So the data is gone, not just locked. The chain keeps the proof that consent existed and was withdrawn, not the data."
+
+**So the company can't even see my income. How does it lend?**
+"It gets the answer to the question it is allowed to ask: approved or declined, and a limit. The decision does reveal something, like a score band. That is the data minimisation: the company receives the output, not the inputs."
 
 ## 8. Lines worth repeating
 - "Withdraw is not a setting, it's a switch that cuts the pipe."

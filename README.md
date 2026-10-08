@@ -9,7 +9,7 @@ Needs Node 20+, pnpm 9 (`npm i -g pnpm@9`) and, for the wallet, Flutter 3.x.
 
 ```
 pnpm install
-pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
+pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, Processor :4200, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
 ```
 
 `demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Core runs in **real mode** (`docs/trd.md` §6.6): the same routes as the stub, backed by SQLite, the chain and a relayer wallet.
@@ -83,7 +83,7 @@ Useful for stub development:
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
 - Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
 
-Layout: `contracts/` `core/` `gateway/` `shared/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
+Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
 
 ## Problem statement (CB-04)
 Build a consent manager where users grant, view and withdraw purpose-specific consent across several companies, every action is recorded on a tamper-evident ledger, and companies' systems check consent before using data.
@@ -96,6 +96,7 @@ Build a consent manager where users grant, view and withdraw purpose-specific co
 | 2 | **Sammati Gateway + Company Console** (SDK + web) | Companies (Data Fiduciaries) | The enforcement. Every data request is ALLOWED or BLOCKED in real time |
 | 3 | **Sammati Auditor** (web) | Regulator (Data Protection Board) | The proof. Verify compliance and detect tampering without trusting the company |
 | 4 | **ConsentRegistry + AccessAnchor** (Solidity) | Everyone | The shared source of truth |
+| 5 | **Sammati Processor** (Node, port 4200) | Companies, via a decision API | Use without reading: the customer's data is encrypted on the phone, stored as ciphertext, opened only here, and a company gets a decision back. A simulated enclave in this build (`architecture.md` §5.5) |
 
 Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), **MediCare+** (health), **FoodRush** (delivery).
 
@@ -115,7 +116,7 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 
 | File | Purpose |
 |---|---|
-| `prd.md` | What and why: personas, features with IDs, priorities, acceptance criteria |
+| `prd.md` | What and why: personas, features with IDs (W, C, A, B, V), priorities, acceptance criteria |
 | `architecture.md` | System design, trust model, data flows, why blockchain |
 | `trd.md` | Stack, contract interface, EIP-712 types, APIs, events, deployment |
 | `drd.md` | Data requirements: on-chain and off-chain schemas, hashing, seed data, privacy rules |

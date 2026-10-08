@@ -11,8 +11,14 @@
 | Notice text | Plain-language purpose descriptions | **Hash only** | Core DB / console |
 | Personal data | Name, phone, income, health record | **Never** | Company's own system (fake data in demo) |
 | Company-side alias | "Customer #4821" mapped to a principal address | **Never** | Company's system only |
+| Vault ciphertext | An AES-GCM envelope of PAN, income band and score | **Never** | The Processor's own database only (§3, `vault`) |
+| Vault handle and ciphertext hash | `keccak256(envelope)`, `keccak256(ciphertext ‖ tag)` | No (they could be anchored, but are not) | Processor DB, the company's system, WebSocket events |
+| Processor key | The X25519 private key | **Never** | Processor memory (or `PROCESSOR_KEY` in its environment) only. Never in a database, a log, an event or Core |
+| Loan decision | `approved`, limit, decision codes | **Never** | Returned to the company, which holds it as its own data; not stored by the Processor |
 
 **Rule:** if a field could identify a real person on its own, it does not go on chain and does not go into Sammati's database.
+
+**Ciphertext is not personal data in Sammati's databases, and only because the key is held solely by the Processor.** Core, the company, the web apps, the auditor and anyone with a copy of a database see random-looking bytes they cannot open: Core never receives an envelope and has no key. That claim holds only while the key stays in the Processor; a deployment that gave the key to any other party would make the vault personal data again and move it out of this classification. The demo profile is fictional in any case.
 
 ## 2. On-chain data model
 See `trd.md` §3 for Solidity structs. Keys:
@@ -132,12 +138,34 @@ CREATE TABLE rights_requests (
 );
 ```
 
+The vault lives in the **Processor's own SQLite file** (`processor/data/processor.sqlite`), never in Core's:
+
+```sql
+CREATE TABLE vault (
+  handle TEXT PRIMARY KEY,             -- keccak256(canonical envelope), bytes32 hex
+  principal TEXT NOT NULL,             -- lowercase address
+  fiduciary TEXT NOT NULL,             -- lowercase address
+  purpose_code TEXT NOT NULL,          -- e.g. credit_check
+  ciphertext_hash TEXT NOT NULL,       -- keccak256(ciphertext || tag)
+  ciphertext BLOB,                     -- the canonical envelope bytes; NULL once erased
+  request_id TEXT NOT NULL,            -- from the signed submission (idempotency)
+  created_at INTEGER NOT NULL,
+  erased_at INTEGER,                   -- NULL while the ciphertext exists
+  erase_cause TEXT                     -- withdrawn | expired | no_consent | superseded
+);
+CREATE INDEX vault_live ON vault (principal, fiduciary, purpose_code) WHERE erased_at IS NULL;
+```
+
+Rules: no column ever holds plaintext, a key or a decrypted field. A live row has `ciphertext` and no `erased_at`; an erased row has the reverse and keeps its metadata so a later call can be answered ("erased because consent was withdrawn") without keeping data. At most one live row exists per `(principal, fiduciary, purpose_code)`.
+
 ## 4. Canonical formats
 
 ### 4.1 Access log entry (hashed form)
 ```json
 {"at":1760000000,"decision":"BLOCKED","endpoint":"GET /customers/:id/credit-profile","fiduciary":"0x..","id":"uuid","latencyMs":12,"principal":"0x..","purposeCode":"credit_check","reason":"CONSENT_WITHDRAWN","seq":42}
 ```
+Processor evaluations are logged the same way, as `fiduciary` = the company, `purposeCode` = the purpose, `endpoint` = `POST /v1/processor/evaluate`, `reason` one of `OK` or the five reason codes. Nothing from the vault, not even a handle, is in an entry.
+
 Sorted keys, no whitespace, UTF-8. `hash = keccak256(prevHash || bytes(canonical))`, where `prevHash` is the 32 raw bytes of the previous entry's hash (32 zero bytes for the first entry). `prevHash` and `hash` are stored on the row but are **not** part of the canonical bytes. Integers only (no floats); `reason` is `OK` for ALLOWED entries.
 
 ### 4.2 Notice hash
@@ -150,6 +178,9 @@ The wallet recomputes this locally and compares with the server value before sig
 
 ### 4.3 Merkle tree
 Leaves = `entry.hash`. Parent = `keccak256(min(a,b) || max(a,b))`. Odd node is promoted unchanged. Proof = list of sibling hashes.
+
+### 4.4 Vault envelope
+Format, key derivation, AAD, `handle` and `ciphertextHash` are defined in `trd.md` §4.4. The stored `ciphertext` blob is the canonical JSON bytes of the envelope, so `handle = keccak256(blob)` can be recomputed from a row at any time.
 
 ## 5. Seed data (demo)
 
@@ -164,7 +195,7 @@ Required (core) purposes such as `delivery` and `treatment` are marked `required
 Demo principal: one seeded wallet address is not used; the real phone generates its own key. A dedicated demo relayer key pays gas; the seed funds it from the admin account.
 
 Fake customer payloads (examples returned by guarded endpoints):
-- QuickLoan `credit-profile`: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 }` (fictional)
+- QuickLoan demo profile: `{ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 }` (fictional). **It no longer lives in QuickLoan's backend.** It exists in exactly two places: the wallet's demo profile screen (`wallet/lib/core/demo_profile.dart`, on the phone) and the Processor's memory while it evaluates (`drd.md` §3 vault holds only its ciphertext). QuickLoan's `credit-profile` endpoint returns `{ handle, ciphertextHash, status }`; its apply endpoint returns `{ decision, limit, reasonCodes }` (`trd.md` §6.8). For the demo profile the decision is `approved`, `limit: 300000`, `["SCORE_FAIR"]`.
 - MediCare+ `records`: `{ bloodGroup: "B+", lastVisit: "2026-08-14", note: "Routine checkup" }`
 - FoodRush `profile`: `{ homeArea: "Indiranagar", lastOrders: 14 }`
 
@@ -172,6 +203,8 @@ Fake customer payloads (examples returned by guarded endpoints):
 - Chain data is permanent by design and contains no personal data.
 - Core DB logs are demo data; `POST /v1/demo/reset` wipes everything.
 - Erasure rights requests are tracked as status records; they do not touch the chain.
+- Vault ciphertext is kept only while the consent behind it is Active and unexpired: it is erased on withdrawal, on expiry, when consent is found missing, and when a newer submission replaces it (`trd.md` §6.7). Erasure overwrites the `ciphertext` column with `NULL`; the metadata row stays (no personal data) so the audit trail of "stored, then erased because X" survives. The hash-chained access log is not erased: it holds no data from the vault, only that an evaluation happened.
+- The Processor's key is never persisted. Restarting the Processor without `PROCESSOR_KEY` generates a new key, which makes every stored ciphertext unreadable: it answers `CIPHERTEXT_INVALID`, and the wallet must submit again. `pnpm demo:up` sets no key on purpose, and `pnpm demo:reset` clears the vault.
 
 ## 7. Integrity rules
 - `access_logs.seq` strictly increasing per fiduciary with no gaps. A gap is a tamper signal.

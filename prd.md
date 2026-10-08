@@ -24,7 +24,8 @@ Make consent behave like payments in India: one wallet, instant, revocable, veri
 ## 5. Non-goals
 - Real Aadhaar/DigiLocker integration, real KYC, real company data.
 - Production-grade key recovery, mainnet deployment, legal certification.
-- Handling personal data itself: Sammati stores consent metadata only.
+- Handling personal data itself: Sammati stores consent metadata only. The Processor (§6.5) handles only a fictional demo profile, as ciphertext, and decrypts it in memory.
+- A real trusted execution environment. The Processor is a simulated enclave (`architecture.md` §5.5).
 
 ## 6. Features
 
@@ -81,10 +82,29 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | B-05 | Ledger head | P1 | Rolling hash over every action so a missing or reordered event is detectable |
 | B-06 | Testnet proof | P1 | Same contracts deployed to Polygon Amoy with a public explorer link |
 
-## 7. The three differentiators (what to emphasise)
+### 6.5 Confidential processing (Sammati Processor)
+
+Consent says who may use data; this makes "may use" mean "may get an answer from", not "may read". The customer's sensitive data is encrypted on the phone, stored only as ciphertext, and decrypted only inside the Sammati Processor, which returns a decision and nothing else. Design in `trd.md` §4.4 and §6.7, `architecture.md` §5.5.
+
+| ID | Feature | Pri | Acceptance criteria |
+|---|---|---|---|
+| V-01 | Envelope encryption in the wallet | P0 | The wallet encrypts the customer's demo profile (PAN, income band, score) on the device for the Processor's public key (X25519 + HKDF-SHA256 + AES-256-GCM), bound to one company and one purpose. The plaintext never leaves the phone. The TypeScript (`shared/src/envelope.ts`) and Dart (`wallet/lib/core/envelope.dart`) implementations pass the same test vectors in `shared/test-vectors/envelope.json` |
+| V-02 | Vault: ciphertext only | P0 | `POST /v1/vault/submit` stores an envelope only after the principal's signature and an Active consent for that purpose are verified on chain. Only ciphertext is stored, keyed by `handle = keccak256(envelope)`. `GET /v1/vault/:handle` returns metadata and ciphertext, never plaintext, for anyone, including an administrator. No endpoint of any service can return plaintext |
+| V-03 | Confidential evaluation | P0 | `POST /v1/processor/evaluate` (company API key) checks consent on chain (fail closed: `LEDGER_UNAVAILABLE`), decrypts in memory, runs deterministic loan rules and returns only `{ decision, limit, reasonCodes }`. Plaintext is discarded. Every call writes an access-log entry through the gateway log path, so it is hash-chained and anchored |
+| V-04 | Erasure on withdrawal or expiry | P0 | When consent is withdrawn or expires, the stored ciphertext for that principal and purpose is erased (the next evaluate answers 451 with the right reason code and erases; the Processor also erases as soon as it sees the withdrawal). A superseded submission is erased too. Each erasure emits `vault.erased` |
+| V-05 | The company never sees the data | P0 | The QuickLoan admin API and UI never return plaintext PAN or income at any point; the former credit-profile endpoint returns `{ handle, ciphertextHash, status }` only. The apply flow returns an approve or decline decision computed inside the Processor. Plaintext never appears in logs, WebSocket events, any database, error messages or stack traces |
+| V-06 | Live visibility | P1 | Events `vault.encrypted`, `vault.stored`, `processor.requested`, `processor.decrypting`, `processor.decided`, `vault.erased` (`trd.md` §6.5) reach the wallet, the console and the Stage view. The wallet has a demo profile screen and a "send securely" action on the QuickLoan pass; the console shows the loan decision and what QuickLoan holds (a handle). Every screen says the Processor is a simulated enclave |
+
+Acceptance, end to end (all of it is in `pnpm e2e`):
+- Submit encrypted → evaluate returns `approved` → the admin view shows ciphertext metadata only → withdraw → evaluate returns 451 `CONSENT_WITHDRAWN` → the vault entry is erased.
+- Tampering with a stored ciphertext makes decryption fail (GCM tag) and the answer is an error (`CIPHERTEXT_INVALID`), never a guessed decision.
+- A search of every log line, WebSocket event, HTTP response from the company and database file produced by the run for the known plaintext (`ABCDE1234F`) finds nothing.
+
+## 7. The four differentiators (what to emphasise)
 1. **Enforcement, not just a log.** Withdraw in the wallet and the company's very next request is blocked.
 2. **Proof of access.** Every data access is logged and anchored on chain, so a citizen can verify what a company did and the regulator can catch edited logs.
 3. **User-signed, shared truth.** The company cannot forge a "yes" or deny a "no". Neither side owns the record.
+4. **Use without reading.** The company gets a decision from data it never sees. Withdraw and the data is erased, not just blocked.
 
 ## 8. Non-functional requirements
 
@@ -95,7 +115,8 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | Reliability | Demo runs fully offline on a local chain; Amoy is proof, not a dependency |
 | Security | EIP-712 domain separation, per-principal nonces, signature deadlines, replay protection |
 | Accessibility | Large touch targets, readable contrast, multilingual |
-| Honesty | Clearly label demo shortcuts (relayer-held company keys, simulated data) |
+| Honesty | Clearly label demo shortcuts (relayer-held company keys, simulated data, the Processor as a simulated enclave with an in-memory key) |
+| Confidentiality | Sensitive customer data exists in plaintext only on the phone and in the Processor's memory for the duration of one evaluation |
 
 ## 9. Success criteria for the demo
 - All P0 features working end to end on a real phone.
@@ -111,3 +132,5 @@ Priority: **P0** = golden demo path, must work flawlessly. **P1** = strong diffe
 | "Why blockchain?" challenge | Prepared answer in `demo.md` §7 |
 | Too much scope | Golden path first; cut lines in `tasks.md` |
 | Legal claims overstated | Say "aligned with DPDP principles", never "certified compliant" |
+| Dart and Node envelopes disagree | Shared test vectors (`shared/test-vectors/envelope.json`) run on both sides before anything else; fixed ephemeral key and nonce in the vectors |
+| "Your Processor is just a server" | True in the build, and said so: simulated enclave, in-memory key; production path is a TEE with remote attestation (`architecture.md` §5.5, `demo.md` §7) |

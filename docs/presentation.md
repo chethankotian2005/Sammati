@@ -103,7 +103,19 @@
 "No. All customer data is fictional. The consent flow, signatures, enforcement and anchoring are real and running."
 
 **Be honest about the demo shortcuts.**
-"Company and processor keys are held by our core service for the demo. In production each company holds its own keys."
+"Company and processor keys are held by our core service for the demo. In production each company holds its own keys. The Sammati Processor is a simulated enclave: a separate service with an in-memory key, not real hardware protection."
+
+**Who can read the data?**
+"The customer, and the Processor for the second it takes to compute a decision. The company, our core service, the auditor and any database see ciphertext or a reference number. Core never receives the encrypted data and holds no key."
+
+**Is the Processor trusted?**
+"In this build yes, and we say so: a separate service with an in-memory key. Production runs it in a hardware enclave (AWS Nitro or Intel SGX) with remote attestation, so even its operator cannot read the data."
+
+**What stops the company from calling the Processor for another purpose?**
+"The envelope is bound to one purpose, every call is checked against the chain for the purpose it names, and every call is an anchored log entry."
+
+**What happens on withdrawal?**
+"The next request gets a 451, and the Processor erases the encrypted copy. The data is gone, not just locked."
 
 ---
 

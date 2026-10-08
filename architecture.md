@@ -32,6 +32,13 @@
                         └───▲─────▲─────▲─┘
                             │     │     │
                       QuickLoan MediCare+ FoodRush   (3 demo company backends)
+                          │ handle in, decision out
+                          ▼                      reads consent straight from the chain
+        ┌─────────────────────────────────────┐  writes access log through the gateway SDK
+ wallet │ SAMMATI PROCESSOR  (port 4200)      │◄── ciphertext only, from the wallet
+ ──────►│ vault (ciphertext) · private key    │    (Core never sees an envelope or holds a key)
+        │ simulated enclave, key in memory    │
+        └─────────────────────────────────────┘
 ```
 
 ## 3. Components
@@ -45,17 +52,22 @@
 | Company Console | React web | Purposes, QR requests, live feed, consent table, processors |
 | Auditor | React web | Scorecards, ledger explorer, tamper verification, report export |
 | Contracts | Solidity + Hardhat | ConsentRegistry, AccessAnchor |
+| Sammati Processor | Node + TypeScript + SQLite | The only place a vault envelope is opened. Stores ciphertext, checks consent on chain, runs the loan rules, returns a decision, erases on withdrawal or expiry, logs each use through the gateway SDK |
 
 ## 4. Trust model
 
 | Party | Can do | Cannot do |
 |---|---|---|
 | Citizen | Grant/withdraw by signing | Be impersonated; the contract verifies the signature |
-| Company | Register purposes, query data through the gateway, anchor logs | Forge or edit a consent, delete a withdrawal, hide a log without breaking the anchor |
+| Company | Register purposes, query data through the gateway, anchor logs | Forge or edit a consent, delete a withdrawal, hide a log without breaking the anchor. Read the customer's vault data: it gets handles and decisions only |
 | Relayer | Submit signed messages, pay gas | Create consent on a user's behalf (no signature, no effect) |
 | Regulator | Read everything, verify independently | Alter state |
+| Sammati Core | Relay, index, cache, anchor, fan out events | Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
+| Sammati Processor | Open an envelope in memory when the chain shows valid consent for that purpose, return a decision | Return plaintext to anyone, use data for another purpose (the envelope is bound to one purpose and the check is per purpose), keep data after consent ends, or hide a use (every evaluation is a hash-chained, anchored log entry). **In this build it is also the one component you must trust** (see the limitation below) |
 
 **Honest limitation:** the gateway is run by the company, so a malicious company could bypass it. Sammati detects this: any data access not present in the anchored log, or any anchored access without valid consent at that time, is flagged by the Auditor. We provide *prevention for honest implementers and detection for dishonest ones*.
+
+**Honest limitation, Processor:** in the hackathon build the Processor is a separate service with an in-memory key, a **simulated enclave**. Nothing stops whoever administers the machine it runs on from reading its memory, and the wallet takes its public key on trust from the address Core names. What the build does prove is the data flow: sensitive data leaves the phone encrypted, is stored only as ciphertext, is opened in one place, and the company still gets its answer. The production path is to run the Processor inside a TEE with remote attestation (for example AWS Nitro Enclaves or Intel SGX): the enclave proves what code it runs and holds the key sealed to that code, the wallet encrypts only to a key that attestation vouches for, and then even the operator cannot read the data. Sammati Core never holds a decryption key in either case.
 
 ## 5. Key flows
 
@@ -85,6 +97,25 @@
 2. Core recomputes the access-log hash chain from the company's stored logs, rebuilds the Merkle roots per batch, compares to `AccessAnchor` roots.
 3. Any mismatch points to the exact batch and record. Demo control `Tamper` edits one stored row beforehand to show the alarm.
 
+### 5.5 Confidential processing
+Use without reading: QuickLoan gets a loan decision from data it never sees.
+1. **Fetch the key.** The wallet asks Core where the Processor is (`GET /v1/processor`), then fetches its public key (`GET /v1/processor/pubkey`, labelled `simulated-enclave`).
+2. **Encrypt on the phone.** After the user has given consent for `credit_check`, the wallet seals the demo profile (PAN, income band, score) into an envelope for that key, bound to this customer, company and purpose (`trd.md` §4.4). Plaintext never leaves the phone. The user confirms with the device lock and the wallet signs the submission.
+3. **Store ciphertext.** `POST /v1/vault/submit` to the Processor. It checks the signature and `hasValidConsent` on chain, stores only the ciphertext under `handle = keccak256(envelope)`, and tells QuickLoan's webhook the handle. QuickLoan stores the handle and nothing else. Events `vault.encrypted` and `vault.stored` reach the wallet and the console.
+4. **Ask for a decision.** QuickLoan's apply endpoint calls `POST /v1/processor/evaluate` with its API key and the handle. The Processor checks consent on chain again (fail closed), opens the envelope in memory, applies the rules, and returns `{ decision, limit, reasonCodes }`. The plaintext goes out of scope with the function. The use is written to QuickLoan's hash-chained access log through the gateway SDK, so it is anchored and visible in the wallet's activity feed and to the Auditor.
+5. **Withdraw.** The user withdraws `credit_check`. The Processor sees the consent change (and re-checks on every call and every sweep), erases the ciphertext (`vault.erased`), and the next evaluate answers `451 CONSENT_WITHDRAWN`. The data is gone, not just blocked. Cascade (5.3) is separate: it tells downstream processors, while this erases at the Processor itself.
+
+```
+wallet ──ciphertext──► Processor ──handle──► QuickLoan (webhook, stores handle only)
+QuickLoan ──handle + API key──► Processor ──decision only──► QuickLoan
+Processor ──consent read──► chain        Processor ──access-log entry──► Core (via SDK) ──► anchor
+Processor ──events (hashes, no data)──► Core ──► wallet · console · stage
+```
+
+**What each party can see.** Wallet: everything, it is the owner. Processor: plaintext for the duration of one evaluation. QuickLoan, Core, the web apps, the Auditor, a database dump: handles, hashes, ciphertext, decisions, never the data.
+
+**What stops a company asking for another purpose.** The envelope is authenticated with the purpose in its AAD, the evaluate call is checked against consent for the purpose it names, and the attempt, allowed or blocked, is an anchored log entry. A company that asks for `marketing` with a `credit_check` handle is refused (`NO_CONSENT`) and the refusal is on the record.
+
 ## 6. Why blockchain here (the answer to "why not a database?")
 - **Consent is a dispute between a user and a company.** The company cannot be the one holding the evidence.
 - **User-signed state** gives non-repudiation both ways.
@@ -97,6 +128,7 @@
 - Hardware-backed keys with social or Aadhaar-linked recovery.
 - Gateway delivered as a sidecar or API-gateway plugin.
 - Zero-knowledge proofs for "consent exists" checks without revealing purpose details.
+- The Processor in a TEE (AWS Nitro Enclaves or Intel SGX) with remote attestation, so even its operator cannot read the data (`§4`, honest limitation).
 
 ## 8. Failure modes
 
@@ -106,3 +138,7 @@
 | Core down | Wallet shows offline banner; no signing without a notice fetched |
 | Relayer out of funds | Alert in console; demo wallet topped up at start |
 | Clock skew | Expiry uses block timestamp on chain; cache re-validates |
+| Processor cannot read the chain | Submit and evaluate answer `451 LEDGER_UNAVAILABLE`, nothing is decrypted, **nothing is erased** (an outage must not destroy data) |
+| Processor down | The wallet's secure-send fails with a retry; QuickLoan's apply answers an error (502), never a decision from anywhere else. Vault rows survive a restart; the key does not unless `PROCESSOR_KEY` is set, so after a restart without it old ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again |
+| Ciphertext edited in storage | AES-GCM authentication fails; evaluate answers 422 `CIPHERTEXT_INVALID`, never a guess |
+| Core down | The Processor keeps working (it reads the chain itself); its log entries queue in the SDK and events are dropped with a warning, never blocking a response |

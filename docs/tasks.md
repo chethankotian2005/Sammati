@@ -4,9 +4,9 @@
 
 | Person | Owns | Primary deliverables |
 |---|---|---|
-| **A: Chain and Core** | `contracts/`, `core/`, `gateway/`, `shared/` | ConsentRegistry, AccessAnchor, relayer, indexer, cache, anchoring, cascade, audit APIs, SDK, e2e script |
-| **B: Wallet** | `wallet/` | Flutter app: W-01 to W-10, signing, live feed, proofs, i18n, APK |
-| **C: Web and Story** | `web/`, `companies/`, deck, demo | Company console, simulator, 3 demo companies, Auditor, Stage view, deck, rehearsals |
+| **A: Chain and Core** | `contracts/`, `core/`, `gateway/`, `shared/`, `processor/` | ConsentRegistry, AccessAnchor, relayer, indexer, cache, anchoring, cascade, audit APIs, SDK, e2e script. Confidential processing: `processor/`, `shared/src/envelope.ts` and its vectors, the Core event intake, the SDK's `logAccess` (V-01 to V-04) |
+| **B: Wallet** | `wallet/` | Flutter app: W-01 to W-10, signing, live feed, proofs, i18n, APK. Confidential processing: `envelope.dart` against the shared vectors, demo profile screen, "Send securely" on the QuickLoan pass (V-01, V-06) |
+| **C: Web and Story** | `web/`, `companies/`, deck, demo | Company console, simulator, 3 demo companies, Auditor, Stage view, deck, rehearsals. Confidential processing: QuickLoan without plaintext (handle store, apply endpoint), "What QuickLoan holds" card and timeline, Act 3b (V-05, V-06) |
 
 Whoever finishes first helps whoever is behind, in this order: B (wallet is the hero), then A, then C polish.
 
@@ -42,6 +42,9 @@ Everything below P0 waits until this path runs end to end on the real phone.
 - **C:** Stage view, evidence/report export, deck (6 slides), copy pass with native-speaker check on Hindi and Kannada.
 - **Gate H18:** feature freeze. Only fixes after this.
 
+### Confidential processing (V-01 to V-06): after the hero moments
+Built once the golden path, tamper detection and cascade work (it is a differentiator, not the golden path). Order: (1) spec commit; (2) `shared/src/envelope.ts` + vectors, Dart `envelope.dart` passing the same vectors (hour 1, blocking: if the Dart side cannot match, V-01 stops there); (3) `processor/` with submit, evaluate, erasure; (4) QuickLoan and Core intake; (5) wallet and console screens; (6) extend `pnpm e2e`. Gate: the extended `pnpm e2e` passes, including the plaintext search. Cut it before cutting any hero moment.
+
 ### H18–H22: Rehearse
 - Run the demo script (`demo.md`) end to end at least 5 times, timed.
 - Record the fallback video on a clean run.
@@ -57,7 +60,7 @@ If time runs short, cut from the bottom, never from the top:
 1. Golden path (non-negotiable)
 2. Tamper detection (A-03) and cascade (W-08, C-06): the two hero moments
 3. Proof sheet (W-07), Auditor scorecard (A-01), languages (W-09)
-4. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06)
+4. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06), confidential processing (V-01 to V-06; if it is cut, remove Act 3b from `demo.md` and keep the rest)
 5. P2 items (reminders, nominee, grievance overview)
 
 ## 5. Checklists
@@ -73,6 +76,7 @@ If time runs short, cut from the bottom, never from the top:
 - REST paths and WebSocket event names: `trd.md` §6
 - Reason codes: `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`
 - Colours and copy keys: `ui.md`
+- Vault envelope format and test vectors: `shared/src/envelope.ts`, `shared/test-vectors/envelope.json` (and the Dart copy `wallet/lib/core/envelope.dart`); Processor endpoints and `vault.*` / `processor.*` events: `trd.md` §6.5, §6.7
 
 ### Git workflow
 - Trunk-based, short branches per feature ID (`feat/W-05-withdraw`), merge to `main` at least hourly.
