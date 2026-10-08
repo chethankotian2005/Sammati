@@ -482,4 +482,57 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get auth_reason_vault =>
       'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get share_title => 'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ';
+
+  @override
+  String share_intro(String company) {
+    return '$company ಗೆ ನಿಮ್ಮ ಸಾಲ ನಿರ್ಧರಿಸಲು ಇವು ಬೇಕು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ, ಆದ್ದರಿಂದ $company ಅವನ್ನು ಎಂದಿಗೂ ನೋಡುವುದಿಲ್ಲ.';
+  }
+
+  @override
+  String get share_use_demo => 'ಡೆಮೊ ವಿವರಗಳನ್ನು ಬಳಸಿ';
+
+  @override
+  String get share_pan => 'PAN';
+
+  @override
+  String get share_pan_hint => 'ಉದಾಹರಣೆ ABCDE1234F';
+
+  @override
+  String get share_pan_invalid => 'ABCDE1234F ಮಾದರಿಯ PAN ನಮೂದಿಸಿ';
+
+  @override
+  String get share_income => 'ಆದಾಯ ವರ್ಗ';
+
+  @override
+  String get income_0_3 => '3 LPA ವರೆಗೆ';
+
+  @override
+  String get income_3_6 => '3 ರಿಂದ 6 LPA';
+
+  @override
+  String get income_6_9 => '6 ರಿಂದ 9 LPA';
+
+  @override
+  String get income_9_plus => '9 LPA ಮತ್ತು ಹೆಚ್ಚು';
+
+  @override
+  String get share_employment => 'ಉದ್ಯೋಗ';
+
+  @override
+  String get emp_salaried => 'ವೇತನದಾರ';
+
+  @override
+  String get emp_self_employed => 'ಸ್ವಯಂ ಉದ್ಯೋಗಿ';
+
+  @override
+  String get emp_student => 'ವಿದ್ಯಾರ್ಥಿ';
+
+  @override
+  String get emp_unemployed => 'ಉದ್ಯೋಗವಿಲ್ಲ';
+
+  @override
+  String get share_cta => 'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಹಂಚಿಕೊಳ್ಳಿ';
 }

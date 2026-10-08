@@ -35,6 +35,20 @@ Future<void> openPass(WidgetTester tester) async {
 
 Finder sendButton() => find.widgetWithText(TextButton, 'Send securely');
 
+/// The pass's button opens W10; there the customer fills the demo details and sends. Comes back to the pass when it worked.
+Future<void> shareDemo(WidgetTester tester) async {
+  await tester.tap(sendButton());
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Use demo details'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, 'Send securely'));
+  await tester.pumpAndSettle();
+  if (find.text('Done').evaluate().isNotEmpty) {
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   group('V1 my demo details', () {
     testWidgets('shows the fictional profile, says it stays on the phone and that the Processor is simulated', (tester) async {
@@ -79,8 +93,7 @@ void main() {
       await pumpApp(tester, core: seeded(), processor: processor);
       await openPass(tester);
 
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
 
       expect(processor.submissions, hasLength(1));
       expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
@@ -96,8 +109,7 @@ void main() {
       final processor = FakeProcessorApi();
       await pumpApp(tester, core: seeded(), live: live, processor: processor);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
       final handle = _handleOf(processor);
 
       live.emitVault(notice(VaultNoticeKind.erased, handle));
@@ -110,8 +122,7 @@ void main() {
       final live = FakeLiveEvents();
       await pumpApp(tester, core: seeded(), live: live);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
 
       live.emitVault(notice(VaultNoticeKind.erased, '0x${'11' * 32}'));
       await tester.pumpAndSettle();
@@ -132,8 +143,7 @@ void main() {
       final core = seeded();
       await pumpApp(tester, core: core, live: live);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
 
       live.emit(ConsentUpdated(
         principal: _principal,
@@ -161,12 +171,12 @@ void main() {
       final processor = FakeProcessorApi()..submitError = const CoreException(CoreFailure.server);
       await pumpApp(tester, core: seeded(), processor: processor);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
       expect(find.text('Could not send securely. Try again.'), findsOneWidget);
 
+      // the screen keeps what was typed, so trying again is one tap
       processor.submitError = null;
-      await tester.tap(sendButton());
+      await tester.tap(find.widgetWithText(FilledButton, 'Send securely'));
       await tester.pumpAndSettle();
       expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsOneWidget);
     });
@@ -175,8 +185,7 @@ void main() {
       final core = seeded()..processorUrlError = const CoreException(CoreFailure.unreachable);
       await pumpApp(tester, core: core);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
       expect(find.text('Could not reach Sammati. Check Wi-Fi.'), findsOneWidget);
     });
 
@@ -184,8 +193,7 @@ void main() {
       final processor = FakeProcessorApi()..submitError = const VaultRefusedException('CONSENT_WITHDRAWN');
       await pumpApp(tester, core: seeded(), processor: processor);
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
       expect(find.text('Could not send securely. Try again.'), findsOneWidget);
       expect(find.text('Sent encrypted. QuickLoan holds only a reference.'), findsNothing);
     });
@@ -194,8 +202,7 @@ void main() {
       final processor = FakeProcessorApi();
       await pumpApp(tester, core: seeded(), processor: processor, presence: FakePresence(approve: false));
       await openPass(tester);
-      await tester.tap(sendButton());
-      await tester.pumpAndSettle();
+      await shareDemo(tester);
       expect(processor.submissions, isEmpty);
       expect(find.text('Could not confirm it is you. Try again.'), findsOneWidget);
     });

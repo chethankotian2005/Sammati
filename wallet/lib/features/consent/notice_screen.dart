@@ -98,10 +98,11 @@ class _NoticeScreenState extends ConsumerState<NoticeScreen> {
       Routes.receipt,
       extra: ReceiptData(
         companyName: notice.fiduciary.name,
+        fiduciary: notice.fiduciary.address,
         companyColor: parseCompanyColor(notice.fiduciary.color, SammatiColors.ink),
         items: [
           for (final g in _recorded.values)
-            ReceiptItem(title: byId[g.purposeId]!.title, txHash: g.txHash, expiresAt: g.expiresAt),
+            ReceiptItem(title: byId[g.purposeId]!.title, code: byId[g.purposeId]!.code, txHash: g.txHash, expiresAt: g.expiresAt),
         ],
       ),
     );

@@ -480,4 +480,57 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get auth_reason_vault =>
       'अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें';
+
+  @override
+  String get share_title => 'अपना विवरण सुरक्षित रूप से साझा करें';
+
+  @override
+  String share_intro(String company) {
+    return '$company को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए $company इन्हें कभी नहीं देखती।';
+  }
+
+  @override
+  String get share_use_demo => 'डेमो विवरण भरें';
+
+  @override
+  String get share_pan => 'PAN';
+
+  @override
+  String get share_pan_hint => 'जैसे ABCDE1234F';
+
+  @override
+  String get share_pan_invalid => 'ABCDE1234F जैसा PAN दर्ज करें';
+
+  @override
+  String get share_income => 'आय वर्ग';
+
+  @override
+  String get income_0_3 => '3 LPA तक';
+
+  @override
+  String get income_3_6 => '3 से 6 LPA';
+
+  @override
+  String get income_6_9 => '6 से 9 LPA';
+
+  @override
+  String get income_9_plus => '9 LPA और अधिक';
+
+  @override
+  String get share_employment => 'रोज़गार';
+
+  @override
+  String get emp_salaried => 'वेतनभोगी';
+
+  @override
+  String get emp_self_employed => 'स्वरोज़गार';
+
+  @override
+  String get emp_student => 'विद्यार्थी';
+
+  @override
+  String get emp_unemployed => 'बेरोज़गार';
+
+  @override
+  String get share_cta => 'अपना विवरण सुरक्षित रूप से साझा करें';
 }

@@ -96,7 +96,7 @@ Language, security (biometric), wallet address (copy), developer settings (Core 
 
 ### V2 Send securely, on W5 pass detail (V-01, V-04, V-06)
 Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under that purpose row:
-- Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: device-credential prompt (`auth_reason_vault`), then a progress line "Encrypting and sending…".
+- Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: opens W10, where the customer chooses what is sent (the demo details or their own), confirms with the device credential (`auth_reason_vault`), and sees the progress line "Encrypting and sending…". The sent, erased and failed lines below are shown on both screens.
 - Sent: `allow`-coloured line with a lock icon, "Sent encrypted. {company} holds only a reference.", then the handle shortened (`0x4f2a…9be1`, tap to copy) and the button reads "Send again" (a new envelope replaces the old one).
 - Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "Your encrypted details were erased." The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
 - Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern (the button stays). Core or Processor unreachable uses `error_unreachable`; the user declining the device prompt uses `wallet_auth_failed`. A refusal for lack of consent is a failure like any other, never shown as sent.

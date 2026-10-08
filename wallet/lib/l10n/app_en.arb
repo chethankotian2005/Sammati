@@ -288,5 +288,30 @@
   },
   "vault_erased": "Your encrypted details were erased.",
   "vault_failed": "Could not send securely. Try again.",
-  "auth_reason_vault": "Confirm to send your details securely"
+  "auth_reason_vault": "Confirm to send your details securely",
+
+  "share_title": "Share your details securely",
+  "share_intro": "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.",
+  "@share_intro": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "share_use_demo": "Use demo details",
+  "share_pan": "PAN",
+  "share_pan_hint": "Like ABCDE1234F",
+  "share_pan_invalid": "Enter a PAN like ABCDE1234F",
+  "share_income": "Income band",
+  "income_0_3": "Up to 3 LPA",
+  "income_3_6": "3 to 6 LPA",
+  "income_6_9": "6 to 9 LPA",
+  "income_9_plus": "9 LPA and above",
+  "share_employment": "Employment",
+  "emp_salaried": "Salaried",
+  "emp_self_employed": "Self-employed",
+  "emp_student": "Student",
+  "emp_unemployed": "Not employed",
+  "share_cta": "Share your details securely"
 }

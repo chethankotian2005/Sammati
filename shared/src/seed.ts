@@ -145,7 +145,10 @@ export const VAULT_PURPOSES: readonly string[] = ["credit_check"];
 export const demoApiKey = (slug: string): string => `sk_demo_${slug}`;
 export const PROCESSOR_PORT = 4200;
 /** The fictional profile the wallet encrypts (drd.md §5). It exists nowhere else but the Processor's memory. */
-export const DEMO_PROFILE = { incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
+export const DEMO_PROFILE = { employment: "salaried", incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 } as const;
+/** The income bands and employment statuses the loan rules know (trd.md §6.7, §6.10). */
+export const INCOME_BANDS = ["0-3 LPA", "3-6 LPA", "6-9 LPA", "9+ LPA"] as const;
+export const EMPLOYMENT_STATUSES = ["salaried", "self-employed", "student", "unemployed"] as const;
 
 /** Company-side customer id used by the simulator; the real id never leaves the company (drd.md §1). */
 export const SIMULATOR_CUSTOMER_ID = "1";

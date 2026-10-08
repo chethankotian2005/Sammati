@@ -3,9 +3,12 @@ import 'package:flutter/painting.dart';
 import '../../core/notice.dart';
 
 class ReceiptItem {
-  const ReceiptItem({required this.title, required this.txHash, required this.expiresAt});
+  const ReceiptItem({required this.title, required this.code, required this.txHash, required this.expiresAt});
 
   final LocalizedText title;
+
+  /// The purpose code, e.g. `credit_check`: tells W4 whether there is data to share for it.
+  final String code;
   final String txHash;
 
   /// Unix seconds.
@@ -14,9 +17,12 @@ class ReceiptItem {
 
 /// What W4 shows; passed through the router so the receipt needs no network call.
 class ReceiptData {
-  const ReceiptData({required this.companyName, required this.companyColor, required this.items});
+  const ReceiptData({required this.companyName, required this.fiduciary, required this.companyColor, required this.items});
 
   final String companyName;
+
+  /// The company's address, for the "share your details" button.
+  final String fiduciary;
   final Color companyColor;
   final List<ReceiptItem> items;
 }

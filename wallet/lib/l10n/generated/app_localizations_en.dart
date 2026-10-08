@@ -483,4 +483,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auth_reason_vault => 'Confirm to send your details securely';
+
+  @override
+  String get share_title => 'Share your details securely';
+
+  @override
+  String share_intro(String company) {
+    return '$company needs these to decide your loan. They are encrypted on this phone, so $company never sees them.';
+  }
+
+  @override
+  String get share_use_demo => 'Use demo details';
+
+  @override
+  String get share_pan => 'PAN';
+
+  @override
+  String get share_pan_hint => 'Like ABCDE1234F';
+
+  @override
+  String get share_pan_invalid => 'Enter a PAN like ABCDE1234F';
+
+  @override
+  String get share_income => 'Income band';
+
+  @override
+  String get income_0_3 => 'Up to 3 LPA';
+
+  @override
+  String get income_3_6 => '3 to 6 LPA';
+
+  @override
+  String get income_6_9 => '6 to 9 LPA';
+
+  @override
+  String get income_9_plus => '9 LPA and above';
+
+  @override
+  String get share_employment => 'Employment';
+
+  @override
+  String get emp_salaried => 'Salaried';
+
+  @override
+  String get emp_self_employed => 'Self-employed';
+
+  @override
+  String get emp_student => 'Student';
+
+  @override
+  String get emp_unemployed => 'Not employed';
+
+  @override
+  String get share_cta => 'Share your details securely';
 }

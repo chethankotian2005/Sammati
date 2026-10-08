@@ -15,7 +15,7 @@ import { DEMO_PROFILE, REASON_CODES } from "@sammati/shared";
 export const PLAINTEXT_VALUES: readonly string[] = [DEMO_PROFILE.pan, DEMO_PROFILE.incomeBand];
 
 /** Field names only a customer profile has: their mere presence in an event is a leak, whatever the value. */
-export const PROFILE_FIELD_NAMES: readonly string[] = ["pan", "incomeBand", "score", "plaintext"];
+export const PROFILE_FIELD_NAMES: readonly string[] = ["pan", "incomeBand", "employment", "score", "plaintext"];
 
 export const BLOCKED_MARKER = "Blocked: looks like plaintext";
 

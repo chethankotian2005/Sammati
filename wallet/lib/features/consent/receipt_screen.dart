@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
+import '../../core/demo_profile.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
 import '../shell/hash_text.dart';
@@ -74,6 +75,18 @@ class ReceiptScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // W10: a purpose that uses data can be given its data right here, while the customer is looking.
+                    if (receipt.items.any((i) => vaultPurposes.contains(i.code))) ...[
+                      FilledButton.tonal(
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                        onPressed: () => context.push(
+                          Routes.shareFor(receipt.fiduciary, receipt.items.firstWhere((i) => vaultPurposes.contains(i.code)).code),
+                          extra: receipt.companyName,
+                        ),
+                        child: Text(t.share_cta),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     if (receipt.items.isNotEmpty) ...[
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'consent_providers.dart';
 import 'consents_controller.dart';
+import 'demo_profile.dart';
 import 'core_api.dart';
 import 'live_events.dart';
 import 'preferences.dart';
@@ -58,7 +59,8 @@ class VaultController extends Notifier<VaultState> {
     return const VaultState();
   }
 
-  Future<void> send({required String reason}) async {
+  /// [profile] is what is encrypted (W10's fields); without one the demo profile goes, as "Send again" always did.
+  Future<void> send({required String reason, Object? profile}) async {
     if (state.stage == VaultStage.sending) return;
     state = const VaultState(stage: VaultStage.sending);
     try {
@@ -67,6 +69,7 @@ class VaultController extends Notifier<VaultState> {
             fiduciary: _key.fiduciary,
             purposeCode: _key.purposeCode,
             reason: reason,
+            profile: profile ?? DemoProfile.payload,
           );
       // The live frame may already have set the same state; this keeps it correct without a socket.
       state = VaultState(stage: VaultStage.sent, handle: sent.handle);

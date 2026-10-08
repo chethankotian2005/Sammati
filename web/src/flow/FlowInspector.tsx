@@ -76,6 +76,7 @@ function WalletLane({ flow }: { flow: FlowState }): ReactNode {
           <span className="font-mono text-2xl">{DEMO_PROFILE.pan}</span>
         </Field>
         <Field label="Income">{DEMO_PROFILE.incomeBand}</Field>
+        <Field label="Employment">{DEMO_PROFILE.employment}</Field>
         <Field label="Credit score">{DEMO_PROFILE.score}</Field>
       </div>
       <p className="text-base text-mute">Their own data, on their own device. It never leaves the phone like this.</p>

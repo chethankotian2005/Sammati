@@ -7,7 +7,6 @@ import 'dart:math';
 import 'package:convert/convert.dart';
 
 import 'core_api.dart';
-import 'demo_profile.dart';
 import 'envelope.dart';
 import 'processor_api.dart';
 import 'wallet_service.dart';
@@ -46,7 +45,7 @@ class VaultFlow {
     required String fiduciary,
     required String purposeCode,
     required String reason,
-    Object? profile = DemoProfile.payload,
+    required Object? profile,
   }) async {
     final principal = await _wallet.address();
     if (principal == null) throw const WalletException(WalletFailure.notCreated);

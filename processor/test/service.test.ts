@@ -27,6 +27,16 @@ describe("loan rules", () => {
     [{ pan: PAN, incomeBand: "6-9 LPA", score: 700.5 }, { decision: "declined", limit: null, reasonCodes: ["SCORE_LOW"] }],
     [{ pan: PAN, incomeBand: "__proto__", score: 800 }, { decision: "declined", limit: null, reasonCodes: ["INCOME_UNKNOWN"] }],
     ["not an object", { decision: "declined", limit: null, reasonCodes: ["PAN_INVALID"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "salaried", score: 742 }, { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "self-employed", score: 800 }, { decision: "approved", limit: 500000, reasonCodes: ["SCORE_GOOD"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "student", score: 800 }, { decision: "declined", limit: null, reasonCodes: ["EMPLOYMENT_INELIGIBLE"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "unemployed" }, { decision: "declined", limit: null, reasonCodes: ["EMPLOYMENT_INELIGIBLE"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "astronaut", score: 800 }, { decision: "declined", limit: null, reasonCodes: ["EMPLOYMENT_UNKNOWN"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: 7, score: 800 }, { decision: "declined", limit: null, reasonCodes: ["EMPLOYMENT_UNKNOWN"] }],
+    // manual entry has no credit score: the Processor assumes one, and says so in the answer
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "salaried" }, { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR", "SCORE_ASSUMED"] }],
+    [{ pan: PAN, incomeBand: "9+ LPA", employment: "salaried" }, { decision: "approved", limit: 600000, reasonCodes: ["SCORE_FAIR", "SCORE_ASSUMED"] }],
+    [{ pan: PAN, incomeBand: "6-9 LPA", employment: "salaried", score: "high" }, { decision: "declined", limit: null, reasonCodes: ["SCORE_LOW"] }],
   ])("%j", (profile, expected) => {
     expect(decideLoan(profile)).toEqual(expected);
   });

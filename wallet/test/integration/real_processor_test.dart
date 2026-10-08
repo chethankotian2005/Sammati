@@ -93,7 +93,7 @@ void main() {
     await live.connection.firstWhere((up) => up).timeout(const Duration(seconds: 5));
 
     // 1. send securely: Dart seals, signs (EIP-191), the Processor verifies and stores
-    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm');
+    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload);
     expect(sent.handle, matches(RegExp(r'^0x[0-9a-f]{64}$')));
 
     // 2. the vault holds ciphertext and metadata, whoever asks
@@ -139,15 +139,36 @@ void main() {
     await wallet.create(reason: 'setup');
     flow = VaultFlow(wallet: wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
     await expectLater(
-      flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm'),
+      flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload),
       throwsA(isA<VaultRefusedException>().having((e) => e.code, 'code', 'NO_CONSENT')),
     );
+  }, skip: skip);
+
+  test('details typed by hand (W10) are decided without a score, and the answer says the score was assumed', () async {
+    final who = await _consented();
+    flow = VaultFlow(wallet: who.wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
+
+    final manual = const SensitiveDetails(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'self-employed').toPayload();
+    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: manual);
+    final approved = await evaluate(sent.handle);
+    expect(approved.status, 200, reason: '${approved.json}');
+    expect(approved.json['decision'], 'approved');
+    expect(approved.json['limit'], 600000);
+    expect(approved.json['reasonCodes'], ['SCORE_FAIR', 'SCORE_ASSUMED']);
+    expect(jsonEncode(approved.json), isNot(contains('PQRST5678U')));
+
+    // a student is not lent to: the Processor declines, and says why, from data QuickLoan never sees
+    final student = const SensitiveDetails(pan: 'PQRST5678U', incomeBand: '9+ LPA', employment: 'student', score: 800).toPayload();
+    final again = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: student);
+    final declined = await evaluate(again.handle);
+    expect(declined.json['decision'], 'declined');
+    expect(declined.json['reasonCodes'], ['EMPLOYMENT_INELIGIBLE']);
   }, skip: skip);
 
   test('a tampered ciphertext is an error, never a guessed decision', () async {
     final who = await _consented();
     flow = VaultFlow(wallet: who.wallet, coreFor: DioCoreApi.new, processorFor: DioProcessorApi.new);
-    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm');
+    final sent = await flow.send(coreUrl: _coreUrl, fiduciary: fiduciaryAddress, purposeCode: 'credit_check', reason: 'confirm', profile: DemoProfile.payload);
 
     expect((await _http('POST', '$processorUrl/v1/demo/tamper/${sent.handle}')).status, 200);
     final result = await evaluate(sent.handle);

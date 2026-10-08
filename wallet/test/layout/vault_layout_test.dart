@@ -13,6 +13,7 @@ import 'package:sammati/core/live_events.dart';
 import 'package:sammati/core/core_api.dart';
 import 'package:sammati/features/consents/pass_detail_screen.dart';
 import 'package:sammati/features/vault/demo_profile_screen.dart';
+import 'package:sammati/features/vault/share_details_screen.dart';
 
 import '../support/fake_core.dart';
 import '../support/pump_app.dart';
@@ -86,19 +87,34 @@ void main() {
         await tester.pumpAndSettle();
         _expectFits(tester, PassDetailScreen, size.width); // idle: button and hint
 
+        // the pass's button opens W10: empty, then filled, then sent
         await tester.tap(find.byIcon(Icons.lock_outline));
         await tester.pumpAndSettle();
-        _expectFits(tester, PassDetailScreen, size.width); // sent: line, handle, send again
-
+        _expectFits(tester, ShareDetailsScreen, size.width); // empty form
+        await tester.tap(find.byIcon(Icons.badge_outlined)); // use demo details
+        await tester.pumpAndSettle();
+        _expectFits(tester, ShareDetailsScreen, size.width); // filled form
+        await tester.tap(find.byType(FilledButton).first);
+        await tester.pumpAndSettle();
         expect(processor.submissions, hasLength(1));
+        _expectFits(tester, ShareDetailsScreen, size.width); // sent: line, handle, Done
+        await tester.tap(find.byType(FilledButton).first); // Done
+        await tester.pumpAndSettle();
+        _expectFits(tester, PassDetailScreen, size.width); // back on the pass: sent, send again
+
         live.emitVault(VaultNotice(kind: VaultNoticeKind.erased, principal: '0x0', fiduciary: fiduciaryAddress, purposeCode: 'credit_check', handle: '0x${'0' * 64}'));
         await tester.pumpAndSettle();
         _expectFits(tester, PassDetailScreen, size.width); // an erase of another copy: still "sent"
 
+        // a failed send on W10 shows its line and keeps the form
         processor.submitError = const CoreException(CoreFailure.server);
         await tester.tap(find.byIcon(Icons.lock_outline));
         await tester.pumpAndSettle();
-        _expectFits(tester, PassDetailScreen, size.width); // failed: line and retry
+        await tester.tap(find.byIcon(Icons.badge_outlined));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(FilledButton).first);
+        await tester.pumpAndSettle();
+        _expectFits(tester, ShareDetailsScreen, size.width);
       });
 
       testWidgets('my demo details, $locale, text x$scale: fits', (tester) async {

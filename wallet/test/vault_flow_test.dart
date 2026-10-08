@@ -52,7 +52,7 @@ void main() {
   });
 
   Future<VaultSent> send({String purposeCode = 'credit_check'}) =>
-      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason);
+      flow.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: purposeCode, reason: _reason, profile: DemoProfile.payload);
 
   test('sends only ciphertext, bound to this customer, company and purpose, and the Processor can open it', () async {
     final sent = await send();
@@ -134,7 +134,7 @@ void main() {
       processorFor: (_) => processor,
     );
     await expectLater(
-      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason),
+      empty.send(coreUrl: 'http://core.test:4000', fiduciary: _fiduciary, purposeCode: 'credit_check', reason: _reason, profile: DemoProfile.payload),
       throwsA(isA<WalletException>().having((e) => e.failure, 'failure', WalletFailure.notCreated)),
     );
   });

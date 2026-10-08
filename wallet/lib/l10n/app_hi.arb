@@ -127,5 +127,23 @@
   "vault_sent": "एन्क्रिप्ट करके भेजा गया। {company} के पास सिर्फ़ एक संदर्भ है।",
   "vault_erased": "आपका एन्क्रिप्टेड विवरण मिटा दिया गया।",
   "vault_failed": "सुरक्षित रूप से नहीं भेज सके। दोबारा कोशिश करें।",
-  "auth_reason_vault": "अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें"
+  "auth_reason_vault": "अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें",
+
+  "share_title": "अपना विवरण सुरक्षित रूप से साझा करें",
+  "share_intro": "{company} को आपका लोन तय करने के लिए ये चाहिए। ये इसी फ़ोन पर एन्क्रिप्ट होते हैं, इसलिए {company} इन्हें कभी नहीं देखती।",
+  "share_use_demo": "डेमो विवरण भरें",
+  "share_pan": "PAN",
+  "share_pan_hint": "जैसे ABCDE1234F",
+  "share_pan_invalid": "ABCDE1234F जैसा PAN दर्ज करें",
+  "share_income": "आय वर्ग",
+  "income_0_3": "3 LPA तक",
+  "income_3_6": "3 से 6 LPA",
+  "income_6_9": "6 से 9 LPA",
+  "income_9_plus": "9 LPA और अधिक",
+  "share_employment": "रोज़गार",
+  "emp_salaried": "वेतनभोगी",
+  "emp_self_employed": "स्वरोज़गार",
+  "emp_student": "विद्यार्थी",
+  "emp_unemployed": "बेरोज़गार",
+  "share_cta": "अपना विवरण सुरक्षित रूप से साझा करें"
 }

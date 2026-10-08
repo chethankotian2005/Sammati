@@ -854,6 +854,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm to send your details securely'**
   String get auth_reason_vault;
+
+  /// No description provided for @share_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your details securely'**
+  String get share_title;
+
+  /// No description provided for @share_intro.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.'**
+  String share_intro(String company);
+
+  /// No description provided for @share_use_demo.
+  ///
+  /// In en, this message translates to:
+  /// **'Use demo details'**
+  String get share_use_demo;
+
+  /// No description provided for @share_pan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN'**
+  String get share_pan;
+
+  /// No description provided for @share_pan_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Like ABCDE1234F'**
+  String get share_pan_hint;
+
+  /// No description provided for @share_pan_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a PAN like ABCDE1234F'**
+  String get share_pan_invalid;
+
+  /// No description provided for @share_income.
+  ///
+  /// In en, this message translates to:
+  /// **'Income band'**
+  String get share_income;
+
+  /// No description provided for @income_0_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 3 LPA'**
+  String get income_0_3;
+
+  /// No description provided for @income_3_6.
+  ///
+  /// In en, this message translates to:
+  /// **'3 to 6 LPA'**
+  String get income_3_6;
+
+  /// No description provided for @income_6_9.
+  ///
+  /// In en, this message translates to:
+  /// **'6 to 9 LPA'**
+  String get income_6_9;
+
+  /// No description provided for @income_9_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'9 LPA and above'**
+  String get income_9_plus;
+
+  /// No description provided for @share_employment.
+  ///
+  /// In en, this message translates to:
+  /// **'Employment'**
+  String get share_employment;
+
+  /// No description provided for @emp_salaried.
+  ///
+  /// In en, this message translates to:
+  /// **'Salaried'**
+  String get emp_salaried;
+
+  /// No description provided for @emp_self_employed.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-employed'**
+  String get emp_self_employed;
+
+  /// No description provided for @emp_student.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get emp_student;
+
+  /// No description provided for @emp_unemployed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not employed'**
+  String get emp_unemployed;
+
+  /// No description provided for @share_cta.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your details securely'**
+  String get share_cta;
 }
 
 class _AppLocalizationsDelegate

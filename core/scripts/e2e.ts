@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { Wallet } from "ethers";
 import { ciphertextHashOf, handleOf, seal, submitMessage } from "@sammati/shared/src/envelope";
 import { clockSkew, rpc } from "../../scripts/chain.mjs";
+import { Journey, type JourneyDeps, type Stage } from "../../web/src/portal/journey";
 import { describeQrUrl } from "../../scripts/lan.mjs";
 import { WebSocket } from "ws";
 import {
@@ -61,7 +62,8 @@ const FID = QUICKLOAN.address;
 const GRANTED = "marketing"; // has a downstream processor, so the cascade has someone to tell
 const UNCONSENTED = "bureau_share";
 const MARKETING_ID = purposeIdOf(FID, GRANTED);
-const CREDIT_ID = purposeIdOf(FID, "credit_check"); // the purpose behind the confidential-processing acts
+const GRANTED_LOAN = "credit_check";
+const CREDIT_ID = purposeIdOf(FID, GRANTED_LOAN); // the purpose behind the confidential-processing acts
 const PLAINTEXT = DEMO_PROFILE.pan; // what must appear nowhere but the wallet and the Processor's memory (prd.md V-05)
 
 class E2eError extends Error {}
@@ -372,6 +374,7 @@ async function main(): Promise<void> {
       status?: string;
       purposeCode?: string;
       envelope?: { ciphertext?: string } | null;
+      code?: string;
     }
 
     /** A request to the Processor or to QuickLoan directly; recorded in `traffic` for the plaintext search. */
@@ -383,6 +386,9 @@ async function main(): Promise<void> {
     };
 
     const profile = { handle: "" as `0x${string}`, ciphertextHash: "" as `0x${string}` };
+    /** The customer of the portal section, and the portal's own state machine and feed. */
+    const portalUser: { wallet?: ReturnType<typeof Wallet.createRandom>; journey?: Journey; feed?: WebSocket; requestId?: string; purposes?: string[]; nonce?: number } = {};
+    const portalFrames: unknown[] = [];
     /** What the Data Flow Inspector's replay answers its staff buttons with (trd.md §6.9): the two real reads. */
     const recorded: { vaultRow: unknown; staffView: { status: number; body: unknown } | null } = { vaultRow: null, staffView: null };
 
@@ -477,6 +483,132 @@ async function main(): Promise<void> {
       expectEqual(events.filter((e) => e.event === "vault.erased").map((e) => (e as Extract<WsEvent, { event: "vault.erased" }>).cause), ["withdrawn"], "vault.erased cause (once)");
     });
 
+    // --- the customer portal and the wallet's data entry (prd.md C-09, W-13) ---
+    // The portal's own state machine, with real answers and a real socket, and a headless wallet in place of the phone.
+
+    await step("portal: a customer signs in, ticks the box, and the QR is on the page", async () => {
+      const shopper = Wallet.createRandom();
+      const portalName = `E2E portal ${shopper.address.slice(2, 8)}`;
+      portalUser.wallet = shopper;
+
+      const deps: JourneyDeps = {
+        createRequest: async (alias, purposes) => {
+          const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes, customerAlias: alias });
+          portalUser.purposes = purposes;
+          return { requestId: created.requestId, qrPayload: created.qrPayload };
+        },
+        consentRows: async () => (await call<{ rows: Array<{ principal: string; customerAlias: string | null }> }>("GET", `/v1/fiduciaries/${FID}/consents`)).rows,
+        apply: async (alias, principal) => {
+          const answered = await raw("POST", `http://localhost:${QUICKLOAN.port}/customers/${encodeURIComponent(alias)}/apply`, undefined, { "x-sammati-principal": principal });
+          const entryId = answered.headers.get("x-sammati-entry-id");
+          if (entryId) entries.push({ label: "portal apply", id: entryId, expected: answered.status === 451 ? "BLOCKED" : "ALLOWED" });
+          return { status: answered.status, body: answered.json };
+        },
+        now: () => Date.now(),
+      };
+      const journey = new Journey(deps);
+      portalUser.journey = journey;
+
+      // The page listens like a browser does: the company's topic, whatever happens to it.
+      const feed = new WebSocket(CORE.replace(/^http/, "ws") + "/ws");
+      portalUser.feed = feed;
+      feed.on("message", (data) => {
+        const frame = JSON.parse(data.toString()) as unknown;
+        portalFrames.push(frame);
+        void journey.onFrame(frame);
+      });
+      await new Promise<void>((resolveOpen, rejectOpen) => {
+        feed.once("open", () => resolveOpen());
+        feed.once("error", rejectOpen);
+      });
+      feed.send(JSON.stringify({ sub: [`fiduciary:${FID}`, "auditor"] }));
+      await sleep(100);
+
+      check(!journey.login(PLAINTEXT), "the login accepted a PAN as a name");
+      check(journey.login(portalName), "the login refused an ordinary name");
+      expectEqual(journey.state.stage, "form", "stage after sign-in");
+      expectEqual(journey.state.optional, [], "nothing is pre-ticked");
+
+      await journey.tick();
+      expectEqual(journey.state.stage, "awaiting-scan", "stage after ticking");
+      expectEqual(portalUser.purposes, [GRANTED_LOAN], "the request asks only for the loan purpose");
+      const qr = JSON.parse(journey.state.request!.qrPayload) as { requestId: string; fiduciary: string };
+      expectEqual(qr.fiduciary, FID, "the QR names the company");
+      portalUser.requestId = qr.requestId;
+    });
+
+    const portalStage = async (want: Stage, what: string, ms = 6000) => {
+      await until(what, async () => (portalUser.journey!.state.stage === want ? true : undefined), ms);
+    };
+
+    await step("portal: the customer approves in the wallet, and the page says consent was received", async () => {
+      const shopper = portalUser.wallet!;
+      const n = await call<RequestNotice>("GET", `/v1/requests/${portalUser.requestId}?principal=${shopper.address}`);
+      const message = {
+        principal: shopper.address,
+        fiduciary: FID,
+        purposeId: CREDIT_ID,
+        expiresAt: inAnHour() + 86_400,
+        noticeHash: n.noticeHash,
+        nonce: n.nonce,
+        deadline: inAnHour(),
+      };
+      const signature = await shopper.signTypedData(n.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
+      const granted = await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature });
+      portalUser.nonce = Number(n.nonce) + 1;
+      await portalStage("consent-received", "the portal to show \"Consent received\"");
+      expectEqual(portalUser.journey!.state.principal?.toLowerCase(), shopper.address.toLowerCase(), "the customer the portal recognised");
+      expectEqual(portalUser.journey!.state.txHash, granted.txHash, "the transaction the portal shows");
+    });
+
+    await step("portal: the wallet shares the details (typed by hand) and the page says data was submitted securely", async () => {
+      const shopper = portalUser.wallet!;
+      const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
+      // W10, manual entry: PAN, income band and employment; no credit score to give.
+      const typed = { employment: "salaried", incomeBand: DEMO_PROFILE.incomeBand, pan: DEMO_PROFILE.pan };
+      const envelope = seal(typed, key.publicKey!, { fiduciary: FID, principal: shopper.address, purposeCode: "credit_check" });
+      const requestId = `e2e-portal-${Date.now()}`;
+      const signature = await shopper.signMessage(submitMessage(handleOf(envelope), requestId));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: shopper.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature });
+      expectEqual(submit.status, 201, "submit status");
+      await portalStage("data-submitted", "the portal to show \"Data submitted securely\"");
+      expectEqual(portalUser.journey!.state.vault, { handle: handleOf(envelope), ciphertextHash: ciphertextHashOf(envelope) }, "what the portal holds");
+      // the portal's whole state, serialised, has nothing of the details in it
+      const stateText = JSON.stringify(portalUser.journey!.state);
+      for (const secret of [DEMO_PROFILE.pan, DEMO_PROFILE.incomeBand, "salaried"]) check(!stateText.includes(secret), `the portal's state contains "${secret}"`);
+    });
+
+    await step("portal: Apply returns a decision card, from data the page never saw", async () => {
+      await portalUser.journey!.apply();
+      const j = portalUser.journey!.state;
+      expectEqual(j.stage, "decided", "stage after Apply");
+      expectEqual(j.decision, { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR", "SCORE_ASSUMED"] }, "the decision card");
+    });
+
+    await step("portal: the customer withdraws, the page says so at once and Apply is blocked", async () => {
+      const shopper = portalUser.wallet!;
+      const n = await call<RequestNotice>("GET", `/v1/requests/${portalUser.requestId}?principal=${shopper.address}`);
+      const message = { principal: shopper.address, fiduciary: FID, purposeId: CREDIT_ID, nonce: n.nonce, deadline: inAnHour() };
+      const signature = await shopper.signTypedData(n.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, message);
+      expectEqual((await call<WithdrawResponse>("POST", "/v1/consents/withdraw", { request: message, signature })).status, "confirmed", "withdraw status");
+      await portalStage("withdrawn", "the portal to show \"Consent withdrawn\"");
+      expectEqual(portalUser.journey!.state.decision, null, "the old decision is gone");
+
+      // the page will not even try; and QuickLoan's backend refuses if asked anyway
+      const before = entries.length;
+      await portalUser.journey!.apply();
+      expectEqual(entries.length, before, "a withdrawn page must not call the company");
+      const direct = await raw("POST", `http://localhost:${QUICKLOAN.port}/customers/portal/apply`, undefined, { "x-sammati-principal": shopper.address });
+      expectEqual([direct.status, direct.json.code], [451, "CONSENT_WITHDRAWN"], "QuickLoan's own answer to an Apply after withdrawal");
+      const entryId = direct.headers.get("x-sammati-entry-id");
+      check(entryId, "the refusal carried no log entry id");
+      entries.push({ label: "portal apply after withdrawal", id: entryId!, expected: "BLOCKED" });
+
+      await until("the portal to learn the details were erased", async () => (portalUser.journey!.state.dataErased ? true : undefined), 4000);
+      expectEqual(portalUser.journey!.state.stage, "withdrawn", "the page stays on withdrawn");
+      portalUser.feed!.close();
+    });
+
     const stored = await step("the gateway's log entries reached Core, in order", async () => {
       const wanted = new Set(entries.map((e) => e.id));
       const rows = await until(
@@ -540,7 +672,7 @@ async function main(): Promise<void> {
         3000,
       );
       const count = (name: WsEvent["event"]) => events.filter((e) => e.event === name).length;
-      const consentEvents = events.filter((e): e is Extract<WsEvent, { event: "consent.updated" }> => e.event === "consent.updated");
+      const consentEvents = events.filter((e): e is Extract<WsEvent, { event: "consent.updated" }> => e.event === "consent.updated" && e.principal === user.address);
       for (const code of [GRANTED, "credit_check"]) {
         expectEqual(consentEvents.filter((e) => e.purposeCode === code).map((e) => e.status), ["Active", "Withdrawn"], `consent.updated for ${code} on the wallet's feed`);
       }
@@ -562,6 +694,7 @@ async function main(): Promise<void> {
       const haystacks: Array<[string, string]> = [
         ["HTTP responses", traffic.join("\n")],
         ["WebSocket events", events.map((e) => JSON.stringify(e)).join("\n")],
+        ["the portal's live feed", portalFrames.map((f) => JSON.stringify(f)).join("\n")],
         ...(existsSync(stack.logFile) && how === "started" ? ([["the stack's output", readFileSync(stack.logFile, "latin1")]] as Array<[string, string]>) : []),
         ...files.map((f): [string, string] => [`database file ${f}`, readFileSync(f, "latin1")]),
       ];
@@ -581,7 +714,7 @@ async function main(): Promise<void> {
       await step(`record the flow for the Data Flow Inspector's replay (${recordTo})`, async () => {
         const kept = events
           .map((event, i) => ({ event, at: eventTimes[i]! }))
-          .filter(({ event }) => /^(vault|processor)\./.test(event.event));
+          .filter(({ event }) => /^(vault|processor)\./.test(event.event) && (event as { principal?: string }).principal === user.address);
         check(kept.length >= 8 && recorded.staffView && recorded.vaultRow, "the run did not produce a complete flow to record");
         const first = kept[0]!.at;
         const file = {
