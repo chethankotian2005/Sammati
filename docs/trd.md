@@ -167,6 +167,7 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 ### 6.2 Company and gateway
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/v1/fiduciaries/:fid/purposes` | List registered purposes |
 | POST | `/v1/fiduciaries/:fid/purposes` | Register purpose (writes chain) |
 | POST | `/v1/fiduciaries/:fid/processors` | Register downstream processor |
 | GET | `/v1/fiduciaries/:fid/consents` | Console table |

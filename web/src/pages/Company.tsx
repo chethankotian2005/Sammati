@@ -1,55 +1,234 @@
-import { Link, Navigate, useParams } from "react-router-dom";
-import { SEED_FIDUCIARIES } from "@sammati/shared";
-import { CoreChip, Placeholder } from "../components";
+/**
+ * Company Console Page — /company/:id
+ * Implements features:
+ *   - C-01: Purpose registry (table + Add purpose drawer in 3 languages)
+ *   - C-02: Consent request QR (alias, purposes, large QR, "Waiting for scan…", "Consent received")
+ *   - C-04: Live request feed (ALLOWED/BLOCKED, reason code, latency, 451 border-l)
+ *   - C-05: Demo data simulator (big buttons calling /v1/demo/fire)
+ *   - C-07: Consent table (live table of customers by purpose with status, filterable)
+ *   - C-06 / C-08: Processors view and Compliance Evidence pack
+ */
 
-const RAIL = ["Overview", "Purposes", "Consents", "Live requests", "Processors", "Evidence"];
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Navigate, useParams } from "react-router-dom";
+import {
+  SEED_FIDUCIARIES,
+  purposeIdOf,
+  type ConsentRow,
+  type NoticePurpose,
+  type SeedFiduciary,
+  type StoredAccessLogEntry,
+} from "@sammati/shared";
+import { ConsoleLayout, HashLabel } from "../ui";
+import type { RailSection } from "../ui";
+import { fetchAccessLogs, fetchConsents, fetchPurposes } from "../api";
+import { useAccessLogged, useConsentUpdated } from "../ws";
 
-export function Company() {
-  const { id } = useParams();
+import { OverviewSection } from "./company/OverviewSection";
+import { PurposesSection } from "./company/PurposesSection";
+import { NewRequestSection } from "./company/NewRequestSection";
+import { LiveRequestsSection } from "./company/LiveRequestsSection";
+import { ConsentsSection } from "./company/ConsentsSection";
+import { ProcessorsSection } from "./company/ProcessorsSection";
+import { EvidenceSection } from "./company/EvidenceSection";
+
+export function Company(): ReactNode {
+  const { id } = useParams<{ id: string }>();
   const company = SEED_FIDUCIARIES.find((f) => f.slug === id);
   if (!company) return <Navigate to="/company/quickloan" replace />;
 
+  return <CompanyConsole company={company} />;
+}
+
+function CompanyConsole({ company }: { company: SeedFiduciary }): ReactNode {
+  const [activeSection, setActiveSection] = useState<RailSection>("overview");
+
+  // State: purposes, consents, access logs
+  const [purposes, setPurposes] = useState<NoticePurpose[]>(() =>
+    company.purposes.map((p) => ({
+      id: purposeIdOf(company.address, p.code),
+      code: p.code,
+      title: p.title,
+      description: p.description,
+      dataCategories: p.dataCategories,
+      retentionDays: p.retentionDays,
+      sharesThirdParty: p.sharesThirdParty,
+      required: p.required,
+    })),
+  );
+
+  const [consents, setConsents] = useState<ConsentRow[]>([]);
+  const [accessLogs, setAccessLogs] = useState<StoredAccessLogEntry[]>([]);
+  const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set());
+
+  // Initial fetch for the fiduciary
+  const reloadData = useCallback(async () => {
+    try {
+      const [pData, cData, aData] = await Promise.all([
+        fetchPurposes(company.address),
+        fetchConsents(company.address),
+        fetchAccessLogs(company.address, 50),
+      ]);
+
+      if (pData.length > 0) {
+        setPurposes(pData);
+      }
+      setConsents(cData);
+      setAccessLogs(aData);
+    } catch (err) {
+      console.warn("Failed to load company data:", err);
+    }
+  }, [company.address]);
+
+  useEffect(() => {
+    void reloadData();
+  }, [reloadData]);
+
+  // Live WebSocket subscriptions
+  useAccessLogged((event) => {
+    if (event.fiduciary.toLowerCase() === company.address.toLowerCase()) {
+      const newEntry: StoredAccessLogEntry = {
+        id: event.entryId,
+        seq: event.seq,
+        fiduciary: event.fiduciary,
+        principal: event.principal,
+        purposeCode: event.purposeCode,
+        decision: event.decision,
+        reason: event.reason,
+        endpoint: event.endpoint,
+        latencyMs: 14,
+        at: event.at,
+        prevHash: "0x0",
+        hash: "0x0",
+        batchIndex: null,
+      };
+
+      setAccessLogs((prev) => [newEntry, ...prev]);
+      setNewLogIds((prev) => new Set(prev).add(event.entryId));
+    }
+  });
+
+  useConsentUpdated((event) => {
+    if (event.fiduciary.toLowerCase() === company.address.toLowerCase()) {
+      // Refresh consents list when consent state changes
+      void fetchConsents(company.address).then((c) => setConsents(c));
+    }
+  });
+
   return (
-    <div className="flex min-h-screen">
-      <nav aria-label="Console sections" className="w-56 shrink-0 bg-ink p-5 text-paper">
-        <div className="mb-6 text-xl font-extrabold">Sammati</div>
-        <ul className="space-y-1 text-sm">
-          {RAIL.map((item) => (
-            <li key={item} className="rounded-row px-3 py-2 hover:bg-white/10">
-              {item}
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <main className="flex-1 p-8">
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="h-3 w-3 rounded-pill" style={{ backgroundColor: company.color }} />
-            <h1 className="text-[28px] font-extrabold">{company.name}</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1 rounded-pill border border-line bg-surface p-1 text-sm">
-              {SEED_FIDUCIARIES.map((f) => (
-                <Link
-                  key={f.slug}
-                  to={`/company/${f.slug}`}
-                  aria-current={f.slug === id ? "page" : undefined}
-                  className={`rounded-pill px-3 py-1 ${f.slug === id ? "bg-ink text-paper" : "text-mute"}`}
-                >
-                  {f.name}
-                </Link>
-              ))}
+    <ConsoleLayout
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+    >
+      {/* Company Header */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="h-4 w-4 rounded-full shadow-sm"
+            style={{ backgroundColor: company.color }}
+            aria-hidden="true"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-ink">{company.name}</h1>
+              <span className="rounded-pill bg-paper px-2 py-0.5 text-xs font-bold text-mute border border-line">
+                {company.sector}
+              </span>
             </div>
-            <CoreChip />
+            <div className="flex items-center gap-2 text-xs text-mute mt-0.5">
+              <span>Fiduciary:</span>
+              <HashLabel value={company.address} />
+            </div>
           </div>
-        </header>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Placeholder title="Live requests">ALLOWED and BLOCKED decisions will stream here.</Placeholder>
-          <Placeholder title="Purposes">
-            {company.purposes.map((p) => p.title.en).join(" · ")}
-          </Placeholder>
         </div>
-      </main>
-    </div>
+
+        {/* Action shortcut pills */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveSection("new-request")}
+            className={`flex items-center gap-1.5 rounded-row px-3 py-1.5 text-xs font-bold transition-all ${
+              activeSection === "new-request"
+                ? "bg-marigold text-ink shadow-sm"
+                : "border border-line bg-surface text-ink hover:bg-paper"
+            }`}
+          >
+            <span>⌖</span>
+            New request
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection("live-requests")}
+            className={`flex items-center gap-1.5 rounded-row px-3 py-1.5 text-xs font-bold transition-all ${
+              activeSection === "live-requests"
+                ? "bg-marigold text-ink shadow-sm"
+                : "border border-line bg-surface text-ink hover:bg-paper"
+            }`}
+          >
+            <span>⚡</span>
+            Simulator
+          </button>
+        </div>
+      </div>
+
+      {/* Main Section Content */}
+      {activeSection === "overview" && (
+        <OverviewSection
+          company={company}
+          consents={consents}
+          accessLogs={accessLogs}
+          newLogIds={newLogIds}
+          onRequestNew={() => setActiveSection("new-request")}
+          onNavigateToLive={() => setActiveSection("live-requests")}
+        />
+      )}
+
+      {activeSection === "new-request" && (
+        <NewRequestSection
+          company={company}
+          purposes={purposes}
+          onConsentReceived={() => {
+            void fetchConsents(company.address).then((c) => setConsents(c));
+          }}
+        />
+      )}
+
+      {activeSection === "purposes" && (
+        <PurposesSection
+          company={company}
+          purposes={purposes}
+          onRefreshPurposes={() => {
+            void fetchPurposes(company.address).then((p) => {
+              if (p.length > 0) setPurposes(p);
+            });
+          }}
+        />
+      )}
+
+      {activeSection === "consents" && (
+        <ConsentsSection
+          company={company}
+          consents={consents}
+          purposes={purposes}
+          onRequestNew={() => setActiveSection("new-request")}
+        />
+      )}
+
+      {activeSection === "live-requests" && (
+        <LiveRequestsSection
+          company={company}
+          accessLogs={accessLogs}
+          newLogIds={newLogIds}
+        />
+      )}
+
+      {activeSection === "processors" && (
+        <ProcessorsSection company={company} />
+      )}
+
+      {activeSection === "evidence" && (
+        <EvidenceSection company={company} />
+      )}
+    </ConsoleLayout>
   );
 }

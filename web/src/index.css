@@ -1,9 +1,92 @@
+/* Google Fonts – Manrope (UI) and IBM Plex Mono (hashes). Loaded once here so
+   every component gets them without extra <link> tags per page. */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;700&family=Noto+Sans+Kannada:wght@400;500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   body {
     @apply bg-paper font-sans text-ink antialiased;
+    /* Custom scrollbar – thin, using design tokens. */
+    scrollbar-width: thin;
+    scrollbar-color: #e3e5f0 transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-pill bg-line;
+  }
+
+  /* Keyboard focus ring uses marigold for visibility. */
+  :focus-visible {
+    outline: 2px solid #f4a300;
+    outline-offset: 2px;
   }
 }
+
+@layer utilities {
+  /* Feed row slide-in from top: used by FeedRow when a new event arrives. */
+  @keyframes feed-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-feed-enter {
+    animation: feed-enter 200ms ease-out both;
+  }
+
+  /* Brief colour wash (green or red) fading to transparent – applied via JS
+     by adding / removing a class. prefers-reduced-motion disables it. */
+  @keyframes wash-allow {
+    from {
+      background-color: #12805c22;
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+  @keyframes wash-block {
+    from {
+      background-color: #c8283b22;
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
+  .animate-wash-allow {
+    animation: wash-allow 800ms ease-out both;
+  }
+  .animate-wash-block {
+    animation: wash-block 800ms ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-feed-enter,
+    .animate-wash-allow,
+    .animate-wash-block {
+      animation: none;
+    }
+  }
+}
+

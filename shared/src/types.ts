@@ -221,6 +221,11 @@ export interface RegisterPurposeResponse {
   txHash: Hex;
 }
 
+export interface FiduciaryPurposesResponse {
+  fiduciary: Hex;
+  purposes: NoticePurpose[];
+}
+
 export interface RegisterProcessorBody {
   purposeId: Hex;
   name: string;

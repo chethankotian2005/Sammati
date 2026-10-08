@@ -85,6 +85,11 @@ export function companyRoutes(ctx: Ctx): Router {
     return [...store.accessFor(store.fiduciary(fid).address)].sort((a, b) => b.seq - a.seq).slice(0, limit);
   };
 
+  r.get("/fiduciaries/:fid/purposes", (req, res) => {
+    const f = store.fiduciary(req.params.fid!);
+    res.json({ fiduciary: f.address, purposes: f.purposes });
+  });
+
   r.post("/fiduciaries/:fid/purposes", (req, res) => {
     const f = store.fiduciary(req.params.fid!);
     const o = requireBody(req.body);
