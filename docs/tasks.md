@@ -59,6 +59,9 @@ Built after the portal. Order: (1) spec commit; (2) Core: tables, signed-message
 ### Company onboarding (R-01 to R-04)
 Built after targeted requests. Order: (1) spec commit; (2) Core: tables and migration, key store, API-key auth and rate limit on the gateway routes (with the SDK's `apiKey`), directory endpoint; (3) registration (apply, approve with the chain steps and their retry, reject, reissue), sandbox rules, test customers; (4) web: directory provider and the removal of hard-coded companies, `/join`, the status page, the Registrations tab, the SANDBOX badge; (5) `integration.md` and the sample app; (6) e2e. Gate: DemoBank joins, is approved, runs the quickstart, is asked, is granted, ALLOWED, withdrawn, BLOCKED, inside `pnpm e2e`.
 
+### Console operator login (C-10)
+Built after company onboarding. Order: (1) spec commit; (2) Core: `console_operators` and `console_sessions` schemas, `POST /v1/console/login`, `GET /v1/console/me`; (3) web: Operator login screen at `/login` or within `/company/:id`, enforcing that the switcher only shows companies the operator owns. Gate: Login works, one operator cannot see another company's data.
+
 ### Expiry, renewal and notification centre (N-03, N-04, N-05, W-11)
 Built after the inbox. Order: (1) spec commit; (2) Core: `notifications`, the scheduler, renewal requests and routes, with tests; (3) the Processor's erasure grace; (4) wallet: Alerts tab, actions, local notifications, strings; (5) console Expiring table; (6) e2e with a few seconds of expiry. Gate: with the wallet's short-expiry option on, grant 2 minutes, see expiring then expired, 451 `CONSENT_EXPIRED`, Renew, ALLOWED again.
 

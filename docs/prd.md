@@ -80,6 +80,7 @@ Adding a category is a spec change first (this table, `trd.md` ยง4.6, `drd.md` ย
 | C-07 | Consent table | P1 | Live table of customers and per-purpose status |
 | C-08 | Compliance export | P1 | One-click evidence pack for the regulator |
 | C-09 | Company customer portal | P1 | A customer page for a company that uses the Processor (`/portal/:slug`, the sample lender of `examples/lender`): sign-in with a company-side customer id, a loan application form with one unticked consent checkbox and the purposes listed beneath it in plain language; ticking it creates the consent request and shows the QR inline with a live status; the page follows the customer through consent received, data submitted securely, decided and withdrawn from real events. It never asks for, receives, shows or logs a PAN or an income, and no text input of the sign-in or the form takes one. Apply calls the company backend, which calls the Processor with the handle only; the decision card shows approved or declined, the limit and the reasons, never the data |
+| C-10 | Console operator login | P1 | A real console login for the company operator (email + password, hashed in Core). The company switcher lists only the companies the signed-in operator owns. All console and gateway endpoints enforce the caller's fiduciary id so no company sees another's data. |
 
 ### 6.2b Reaching a customer without a QR
 

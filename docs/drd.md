@@ -222,6 +222,24 @@ CREATE TABLE processor_keys (           -- demo shortcut: Core signs the process
 CREATE TABLE sandbox_testers (          -- R-03: customers a sandbox company may ask
   principal TEXT PRIMARY KEY, added_at INTEGER NOT NULL
 );
+
+CREATE TABLE console_operators (        -- C-10: company operator login
+  email TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE fiduciary_operators (      -- C-10: operator-to-company link
+  fiduciary TEXT REFERENCES fiduciaries(address),
+  operator_email TEXT REFERENCES console_operators(email),
+  PRIMARY KEY (fiduciary, operator_email)
+);
+
+CREATE TABLE console_sessions (         -- C-10: operator sessions
+  token TEXT PRIMARY KEY,
+  operator_email TEXT REFERENCES console_operators(email),
+  expires_at INTEGER NOT NULL
+);
 ```
 
 Rules: no row of `fiduciaries`, `purposes`, `processors` or `fiduciary_credentials` exists until a company is approved (R-02): nothing is pre-registered. A reset (`clearAll`) empties every table above, because the chain they describe is gone. Private keys and API keys never appear in a response, event, log line or error message; the only place a key is ever returned is the applicant's one read of their own status.

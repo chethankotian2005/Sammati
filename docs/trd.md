@@ -266,6 +266,8 @@ Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs
 ### 6.2 Company and gateway
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/v1/console/login` | Operator login (C-10). Body `{ email, password }` returns `{ token, operatorEmail, fiduciaries: [{ address, slug }] }` |
+| GET | `/v1/console/me` | Authenticate operator. Header `Authorization: Bearer <token>` |
 | GET | `/v1/fiduciaries/:fid/purposes` | List registered purposes |
 | POST | `/v1/fiduciaries/:fid/purposes` | Register purpose (writes chain) |
 | POST | `/v1/fiduciaries/:fid/processors` | Register downstream processor |
