@@ -78,17 +78,20 @@ Animated stamp, then a receipt: company, purposes, expiry, ledger tx (short, cop
 - Live feed rows: company dot, purpose, "Credit check · QuickLoan", ALLOWED (green) or BLOCKED (red) chip, time. New items appear at the top.
 - Filter chips: All, Allowed, Blocked, by company.
 - Tap row opens proof sheet (W7).
+- **Data-use rows (W-18).** When an entry has `dataCategories` (a Processor use), the row's sentence is "{company} used your {data} for {purpose}. Decision shared: {outcome}." (`activity_used`), where {data} lists the category labels in the app's language ("PAN and yearly income", `list_and`) and {outcome} is Approved or Declined in that language. A BLOCKED use reads "{company} tried to use your data for {purpose}. Blocked." (`activity_used_blocked`). Rows without categories keep their existing wording. A new row arrives within 2 seconds of the evaluation (the `access.logged` event).
 
 ### W7 Proof sheet
+- **Data use block (W-18).** For an entry with `dataCategories` the sheet opens with a block "How your data was used" of four labelled rows: **What was used** (the categories), **Where it was stored** ("Encrypted at rest on the Processor. Ciphertext hash:" and the hash shortened `0x4f2a…9be1`, tap to copy; "Not recorded on this phone" when this phone has no record of sending), **Where it was processed** ("Sammati Processor (simulated enclave)"), **What left the Processor** ("Decision only: {outcome}. No details."). Then the existing rows below it: record hash, batch anchor, Merkle "Verified ✓", explorer link. Nothing in the block is a value; the sheet replaces the removed inspector page.
 - Plain sentence first: "This access was recorded and locked on the ledger."
 - Rows: record hash, batch anchor tx, Merkle check "Verified ✓" (runs locally, shows green after check), "Open in block explorer".
 - For consent receipts: signer (you), ledger head, tx, explorer link.
 
 ### W8 Rights
 Three actions: "See what a company holds" (access), "Ask a company to erase data" (erasure), "Raise a complaint" (grievance). Each opens a short form (company, note) and shows status: Open, In progress, Resolved.
+The "See what a company holds" view returns real data per company: purposes, consent status, categories held (ids and labels), handles, ciphertext hashes. It also includes a "Download my data summary" button that compiles this data across all companies into a JSON and PDF on the phone (built from local profile and Core metadata; Core never gets the profile).
 
 ### W9 Me
-Language, **My details** (W15), Your Sammati ID (W12), security (biometric), wallet address (copy), developer settings (see W9b), **About** (W16).
+Language, **My details** (W15), Your Sammati ID (W12), **Your Nominee** (W18), security (biometric), wallet address (copy), developer settings (see W9b), **About** (W16).
 
 ### W9b Developer settings (X-01), from W9 Me
 A plain list screen titled "Developer settings", with a `mute` caption "For testing. Nothing here is needed to use Sammati."
@@ -111,6 +114,12 @@ A plain list screen titled "Developer settings", with a `mute` caption "For test
 - Errors: not 3 to 30 letters, numbers, dots, underscores or dashes: "Use 3 to 30 letters, numbers, dots or dashes"; taken: "That ID is taken. Try another."; no connection: "Could not reach Sammati. Check Wi-Fi."
 - Changing the ID is registering another one; the old one is released. No phone number or email is ever asked for.
 
+### W18 Your Nominee (D-06), from W9 Me
+- A row on Me: "Your Nominee". Tap opens W18.
+- Explanatory copy: "Nominate someone you trust to manage your data rights. This is a prototype feature without legal effect."
+- A field to enter the nominee's Sammati ID, and a "Nominate" button.
+- On success, shows the nominee's ID and "Nomination signed and stored locally."
+
 ### V1 (removed, X-01)
 The wallet ships no sample profile and no screen that shows one. The standing line "Processor (simulated enclave, not real hardware protection)" lives on W10 and on the console's holdings card.
 
@@ -118,7 +127,7 @@ The wallet ships no sample profile and no screen that shows one. The standing li
 Only on a purpose in `VAULT_PURPOSES` (`credit_check`) while it is Active. Under that purpose row:
 - Idle: text button "Send securely" (48 dp) and the hint "{company} gets a decision, not your details. Only the Sammati Processor can open them." Tap: opens W10, where the customer types what is sent, confirms with the device credential (`auth_reason_vault`), and sees the progress line "Encrypting and sending…". The sent, erased and failed lines below are shown on both screens.
 - Sent: `allow`-coloured line with a lock icon, "Sent encrypted. {company} holds only a reference.", then the handle shortened (`0x4f2a…9be1`, tap to copy) and the button reads "Send again" (a new envelope replaces the old one).
-- Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "Your encrypted details were erased." The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
+- Erased: when `vault.erased` arrives, or the purpose is withdrawn, the line turns `mute` and reads "{company} no longer holds your {data}." (`erased_named`, {data} from the purpose's categories; "Your encrypted details were erased." if the categories are unknown). The button is gone while the purpose is withdrawn. Withdrawing needs no extra step: the existing two-tap withdraw is what erases.
 - Failed: `block`-coloured line "Could not send securely. Try again." with the existing retry pattern (the button stays). Core or Processor unreachable uses `error_unreachable`; the user declining the device prompt uses `wallet_auth_failed`. A refusal for lack of consent is a failure like any other, never shown as sent.
 - The state is held while the app runs; after a restart the section is idle again until the next `vault.stored` / `vault.erased` event (there is no read endpoint for "what do I have stored", on purpose: the wallet does not ask the Processor questions about stored data).
 - The vault never changes the pass-cut animation or the cascade list.
@@ -167,7 +176,7 @@ One screen, three steps, with "Step {n} of 3" and a progress bar of three segmen
 
 ## 3. Company Console (web)
 
-Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with a company switcher that lists **every approved company from Core** (R-04), pills for up to five, a dropdown beyond that. A company in sandbox shows a **SANDBOX** chip (a flask icon and the word, `marigold` outline on `paper`) next to its name in the switcher and in the page title, with the tooltip "Test sandbox: only test customers can be asked". **Live requests** shows a card "Your requests come from your own server" with a link to the integration guide, above the feed.
+Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Rights inbox, Evidence), top bar with a company switcher that lists **every approved company from Core** (R-04), pills for up to five, a dropdown beyond that. A company in sandbox shows a **SANDBOX** chip (a flask icon and the word, `marigold` outline on `paper`) next to its name in the switcher and in the page title, with the tooltip "Test sandbox: only test customers can be asked". **Live requests** shows a card "Your requests come from your own server" with a link to the integration guide, above the feed.
 
 - **Overview:** four numbers (active consents, allowed today, blocked today, last anchor), live feed beside a small consent trend chart.
 - **Purposes:** table plus "Add purpose" drawer (code, plain description in 3 languages, categories, retention, sharing flag).
@@ -176,6 +185,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **Live requests, a company that uses the Processor (V-05, V-06):** beside the feed, a **What {company} holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "{company} staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time; Decided reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow` or "Declined · …" in `block`. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
 - **Consents:** table of customers by purpose with status, filterable. Above it, **Expiring consents** (N-03, N-04): the company's consents that expire within the window or expired within it, soonest first. Columns: customer (the company's own alias), purpose, expires (absolute and relative), a state chip (**Expiring** with `warn` styling, **Expired** with `expired`, each with an icon and the word), the renewal's status chip if one was asked (Sent, Seen, Granted, Declined, Expired), and the action **Request renewal** (48 px tall; while a request is open it reads "Requested" and is disabled). Updates live from `consent.updated` and `request.updated`. Empty: "No consents are about to expire." A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
 - **Processors:** per purpose list, ack state and time.
+- **Rights inbox:** table of access, correction, erasure, and grievance requests. Each row shows customer handle, type, status, date, note. An action "Resolve" allows the company to mark the request as resolved with a reply note. For erasure, marking resolved confirms erasure of company data and triggers Processor erasure + consent withdrawal.
 - **Evidence:** "Generate evidence pack" button, preview, download. Titles say "evidence", never "compliance" (L-02).
 
 ### 3.1 Company customer portal (`/portal/:slug`, C-09)
@@ -623,6 +633,26 @@ Hindi and Kannada are first drafts and need the native-speaker check, like the r
 | about_prototype | Sammati is a prototype. Use made-up details. | Sammati एक प्रोटोटाइप है। बनावटी जानकारी का उपयोग करें। | Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್. ಕಾಲ್ಪನಿಕ ವಿವರಗಳನ್ನು ಬಳಸಿ. |
 | about_no_recovery_title | No account recovery in this build | इस संस्करण में खाता पुनर्प्राप्ति नहीं है | ಈ ಆವೃತ್ತಿಯಲ್ಲಿ ಖಾತೆ ಮರುಪಡೆಯುವಿಕೆ ಇಲ್ಲ |
 | about_no_recovery_body | If you lose this phone or clear the app's data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release. | यह फ़ोन खो जाए या ऐप का डेटा मिट जाए, तो आपका वॉलेट, आपकी Sammati ID और सहेजी हुई जानकारी चली जाती है और आपको नया खाता बनाना पड़ता है। असली संस्करण में बैकअप और पुनर्प्राप्ति की योजना है। | ಈ ಫೋನ್ ಕಳೆದುಹೋದರೆ ಅಥವಾ ಆ್ಯಪ್‌ನ ಡೇಟಾ ಅಳಿಸಿದರೆ, ನಿಮ್ಮ ವಾಲೆಟ್, ನಿಮ್ಮ Sammati ID ಮತ್ತು ಉಳಿಸಿದ ವಿವರಗಳು ಹೋಗುತ್ತವೆ, ಮತ್ತು ನೀವು ಹೊಸ ಖಾತೆಯೊಂದಿಗೆ ಮತ್ತೆ ಆರಂಭಿಸಬೇಕು. ನಿಜವಾದ ಬಿಡುಗಡೆಯಲ್ಲಿ ಬ್ಯಾಕಪ್ ಮತ್ತು ಮರುಪಡೆಯುವಿಕೆಗೆ ಯೋಜನೆ ಇದೆ. |
+
+### 6.4 Keys for data use (W-18)
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| activity_used | {company} used your {data} for {purpose}. Decision shared: {outcome}. | {company} ने {purpose} के लिए आपका {data} इस्तेमाल किया। साझा किया गया फ़ैसला: {outcome}। | {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ {data} ಬಳಸಿದೆ. ಹಂಚಿಕೊಂಡ ನಿರ್ಧಾರ: {outcome}. |
+| activity_used_blocked | {company} tried to use your data for {purpose}. Blocked. | {company} ने {purpose} के लिए आपका डेटा इस्तेमाल करने की कोशिश की। रोका गया। | {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾ ಬಳಸಲು ಪ್ರಯತ್ನಿಸಿದೆ. ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. |
+| outcome_approved | approved | मंज़ूर | ಅನುಮೋದಿಸಲಾಗಿದೆ |
+| outcome_declined | declined | अस्वीकृत | ತಿರಸ್ಕರಿಸಲಾಗಿದೆ |
+| list_and | {rest} and {last} | {rest} और {last} | {rest} ಮತ್ತು {last} |
+| use_title | How your data was used | आपके डेटा का उपयोग कैसे हुआ | ನಿಮ್ಮ ಡೇಟಾ ಹೇಗೆ ಬಳಕೆಯಾಯಿತು |
+| use_what | What was used | क्या इस्तेमाल हुआ | ಏನು ಬಳಕೆಯಾಯಿತು |
+| use_stored | Where it was stored | कहाँ रखा गया | ಎಲ್ಲಿ ಸಂಗ್ರಹಿಸಲಾಗಿದೆ |
+| use_stored_value | Encrypted at rest on the Processor. Ciphertext hash: | प्रोसेसर पर एन्क्रिप्टेड रूप में। सिफरटेक्स्ट हैश: | ಪ್ರೊಸೆಸರ್‌ನಲ್ಲಿ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗಿ. ಸೈಫರ್‌ಟೆಕ್ಸ್ಟ್ ಹ್ಯಾಶ್: |
+| use_stored_unknown | Not recorded on this phone | इस फ़ोन पर दर्ज नहीं | ಈ ಫೋನ್‌ನಲ್ಲಿ ದಾಖಲಾಗಿಲ್ಲ |
+| use_where | Where it was processed | कहाँ प्रोसेस हुआ | ಎಲ್ಲಿ ಸಂಸ್ಕರಿಸಲಾಯಿತು |
+| use_where_value | Sammati Processor (simulated enclave) | Sammati प्रोसेसर (सिम्युलेटेड एन्क्लेव) | Sammati ಪ್ರೊಸೆಸರ್ (ಅನುಕರಣೆ ಎನ್‌ಕ್ಲೇವ್) |
+| use_left | What left the Processor | प्रोसेसर से क्या बाहर गया | ಪ್ರೊಸೆಸರ್‌ನಿಂದ ಹೊರಬಂದದ್ದು |
+| use_left_value | Decision only: {outcome}. No details. | सिर्फ़ फ़ैसला: {outcome}। कोई जानकारी नहीं। | ನಿರ್ಧಾರ ಮಾತ್ರ: {outcome}. ವಿವರಗಳಿಲ್ಲ. |
+| erased_named | {company} no longer holds your {data}. | {company} के पास अब आपका {data} नहीं है। | {company} ಬಳಿ ಇನ್ನು ನಿಮ್ಮ {data} ಇಲ್ಲ. |
 
 ## 7. Accessibility and quality floor
 - Contrast AA minimum; status never relies on colour alone (chips carry text and icon).

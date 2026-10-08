@@ -138,6 +138,14 @@ Processor ──events (hashes, no data)──► Core ──► wallet · conso
 
 **Recovery: out of scope here, and said so** (`prd.md` §5, `drd.md` §3b, the wallet's About screen). Losing the phone or clearing the app's data loses the wallet key, the profile and control of the Sammati ID; the customer starts again with a new account, and the old on-chain consents stay on chain until they expire or the old key withdraws them (which nobody can do any more). That last point is a real gap: a lost key cannot withdraw. **Production path:** (a) the profile and keys are backed up as a ciphertext the customer holds (a recovery phrase or a passkey-protected cloud blob), never readable by Sammati; (b) a recovery flow re-binds the Sammati ID and rotates the wallet key, with the contract allowing a recovery key or guardian to withdraw on a lost wallet's behalf; (c) hardware-backed keys bound to the biometric. Each is a separate piece of work with its own threat model, which is why none is half-built here.
 
+### 5.5a Usage you can see (V-08, V-09, W-18)
+1. **Share.** The wallet seals, for each purpose, only the profile fields that purpose's categories name, with a version and the notice hash it agreed to. The Processor checks consent and that notice hash on chain, stores ciphertext, and supersedes any older version.
+2. **Apply.** The company's backend calls evaluate with the handle(s) and the application. The Processor re-checks consent, opens the envelopes in memory, runs the rules of `drd.md` §4.5, and answers decision, limit, rate and reason codes. The plaintext is gone when the function returns.
+3. **Record.** The same call writes an access-log entry (`dataCategories`, `outcome`) on the company's hash-chained, anchored log. Core fans out `access.logged`; the wallet's Activity shows the sentence within two seconds, and its detail sheet joins the entry to the phone's own record of what it sent (ciphertext hash) and to the anchor proof.
+4. **Withdraw.** The Processor erases every live version, keeps the metadata row as the erasure record, and Core announces `data.erased`; the pass says what the company no longer holds.
+
+The Processor is a separate service with an in-memory key: **simulated sealed processing**, not a TEE (§4). Production path: a TEE with remote attestation, so the phone encrypts only to a key the hardware vouches for.
+
 ### 5.6 Asking a specific customer (no QR)
 1. The customer registers a Sammati ID in the wallet (`asha@sammati`): a signed message, `trd.md` §4.5. Core stores handle to address; nothing else.
 2. A company's console posts a request to that handle. Core answers the company with an opaque request id and `sent`, **the same answer for any well-formed handle**. If the handle is registered and the customer has not blocked the company or reached the open-request limit, Core pushes `consent.requested` to the wallet's socket; otherwise nothing is pushed and the request quietly expires.

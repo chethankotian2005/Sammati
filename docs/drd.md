@@ -125,6 +125,8 @@ CREATE TABLE access_logs (
   prev_hash TEXT NOT NULL,
   hash TEXT NOT NULL,
   batch_index INTEGER,                 -- set after anchoring
+  data_categories TEXT,                -- V-09: JSON array of registry ids the evaluation read. NULL = old format
+  outcome TEXT,                        -- V-09: approved | declined | blocked | error | '' . NULL = old format
   PRIMARY KEY (fiduciary, seq)
 );
 
@@ -182,7 +184,7 @@ CREATE TABLE blocks (                  -- "Block this company" (N-02)
 CREATE TABLE rights_requests (
   id TEXT PRIMARY KEY,
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL,
-  type TEXT NOT NULL,                  -- access | erasure | grievance
+  type TEXT NOT NULL,                  -- access | correction | erasure | grievance
   note TEXT, status TEXT NOT NULL,     -- open | in_progress | resolved
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
@@ -257,7 +259,9 @@ CREATE TABLE vault (
   request_id TEXT NOT NULL,            -- from the signed submission (idempotency)
   created_at INTEGER NOT NULL,
   erased_at INTEGER,                   -- NULL while the ciphertext exists
-  erase_cause TEXT                     -- withdrawn | expired | no_consent | superseded
+  erase_cause TEXT,                    -- withdrawn | expired | no_consent | superseded
+  version INTEGER NOT NULL DEFAULT 1,  -- V-08: increases per (principal, fiduciary, purpose_code); a correction is a new version
+  consent_ref TEXT                     -- the notice hash the submission was bound to, if given
 );
 CREATE INDEX vault_live ON vault (principal, fiduciary, purpose_code) WHERE erased_at IS NULL;
 ```
@@ -291,7 +295,7 @@ Decrypted `profile_blob`:
 }
 ```
 
-`fields` is the profile of `trd.md` §4.6 (flat, string values, any subset). `shares` is a record of what was sent where, **names of fields and handles only, never values**: it lets the wallet say "your details changed, update what QuickLoan holds?" (W-17) when an edit touches a field in a share of a still-active consent. `stale` turns true when such a field is edited and false when the share is re-sent; a share is dropped when its consent is withdrawn.
+`fields` is the profile of `trd.md` §4.6 (flat, string values, any subset). `shares` is a record of what was sent where, **names of fields and handles only, never values**: it lets the wallet say "your details changed, update what QuickLoan holds?" (W-17) when an edit touches a field in a share of a still-active consent. Each share also keeps `ciphertextHash` and `version` (a hash and a number, no values) so the Activity detail can show where the data was stored. `stale` turns true when such a field is edited and false when the share is re-sent; a share is dropped when its consent is withdrawn.
 
 Rules. The profile is optional field by field; an empty profile is valid. It is dropped from memory when the app goes to the background and is re-opened only through the device check. **Account recovery is out of scope in this build**: if the app's data is cleared or the phone is lost, the key, the blob and the Sammati ID's controlling wallet are gone with it, and the customer starts again with a new account (a new principal). The profile cannot be rebuilt from Core, because Core never had it. The production path (an encrypted backup the customer holds, and recovery) is in `architecture.md` §5.9. The wallet's About screen says this in plain words.
 
@@ -320,6 +324,31 @@ Leaves = `entry.hash`. Parent = `keccak256(min(a,b) || max(a,b))`. Odd node is p
 ### 4.4 Vault envelope
 Format, key derivation, AAD, `handle` and `ciphertextHash` are defined in `trd.md` §4.4. The stored `ciphertext` blob is the canonical JSON bytes of the envelope, so `handle = keccak256(blob)` can be recomputed from a row at any time.
 
+### 4.1a Usage record format and chain epochs (V-09)
+
+The canonical entry of §4.1 gains two keys, sorted among the others like any key: `dataCategories` (array of registry ids, in registry order, `[]` when none) and `outcome` (string). Example: `{"at":1760000000,"dataCategories":["financial.income_band","financial.pan"],"decision":"ALLOWED","endpoint":"POST /v1/processor/evaluate",...,"outcome":"approved","reason":"OK","seq":43}`. The hash is computed as before (`keccak256(prevHash || canonical bytes)`). `shared/src/canonical.ts` (`entryCanonical`, `entryFormat`), the SDK, Core's append check, the verifier and the Auditor use the same function.
+
+- **Format** is read from the entry: **1** has no `outcome` key, **2** has `outcome` (and `dataCategories`). Core stores both new columns NULL for format 1 (§3), so a database made before this change is still valid as it is.
+- **Epochs.** A chain is a run of format-1 entries followed by a run of format-2 entries. The first format-2 entry carries `prevHash` = 32 zero bytes (a new epoch); every later entry links to its predecessor as usual. A format-1 entry after a format-2 entry is refused (`FORMAT_OUTDATED`) and reported by the verifier as `FORMAT_MIXED`. `seq` stays contiguous across the epoch, because the anchor contract requires it, and Merkle batches may span the boundary since their leaves are only entry hashes.
+- **Migration.** There is none to run. Existing rows stay as they are (format 1); the first entry written after the upgrade starts epoch 2. Documented here so an auditor reading an old database knows why the chain restarts at one `seq`.
+- A test (`shared`, `core`) builds a mixed chain both ways and requires a refusal, builds epoch 1 then epoch 2 and requires a clean verify, and tampers with `dataCategories` or `outcome` of a stored row and requires a mismatch pinpointed to that record.
+
+### 4.5 Scoring rules (V-09), so a decision can be explained
+
+Deterministic, integers only, in `processor/src/rules.ts`. Input: the opened fields (`pan`, `incomeBand`, `employment`, optionally `score`) and the application (`amount`, `tenureMonths`, optional). The rules read only those fields, and the usage record's `dataCategories` is exactly the registry ids of the fields they read (`financial.pan`, `financial.income_band`, `financial.employment`, nothing else, even if more was opened).
+
+| Step | Rule | Outcome |
+|---|---|---|
+| 1 | `pan` matches `^[A-Z]{5}[0-9]{4}[A-Z]$` | else declined `PAN_INVALID` |
+| 2 | `incomeBand` is one of `0-3 LPA`, `3-6 LPA`, `6-9 LPA`, `9+ LPA` | else declined `INCOME_UNKNOWN`. Base limit 100,000 / 250,000 / 500,000 / 1,000,000 INR |
+| 3 | `employment`, when present, is `salaried`, `self-employed`, `student` or `unemployed` | else declined `EMPLOYMENT_UNKNOWN`; `student`, `unemployed` declined `EMPLOYMENT_INELIGIBLE` |
+| 4 | score = `score` if given, else 700 (and the code `SCORE_ASSUMED` is added) | `< 650` declined `SCORE_LOW` |
+| 5 | limit | score ≥ 750: base (`SCORE_GOOD`); 650 to 749: 60% of base (`SCORE_FAIR`) |
+| 6 | rate in basis points | score ≥ 750: 1100; else 1400. `self-employed` +100. Tenure over 12 months: +25 per full 12 months beyond the first 12. Without an application, tenure 12 |
+| 7 | `amount`, when given, is at most the limit | else declined `AMOUNT_ABOVE_LIMIT`, with the limit and no rate, so the customer sees what would be possible |
+
+A decline at steps 1 to 4 has `limit: null`, `rateBps: null`. The decision still reveals coarse facts (a score band, a limit): that is data minimisation, said plainly in `demo.md`.
+
 ## 5. What a fresh deployment holds (X-01)
 
 Nothing but infrastructure: the two contracts, the regulator's chain account (the admin), and the relayer, funded. No company, purpose, processor, customer, request or access log is pre-registered, in the database or on chain. Every company arrives through R-01 to R-03, and its purposes and processors are exactly those its application declared.
@@ -337,6 +366,7 @@ No customer data is shipped, and the wallet ships no sample profile. A tester cr
 - The Processor's key is never persisted. Restarting the Processor without `PROCESSOR_KEY` generates a new key, which makes every stored ciphertext unreadable: it answers `CIPHERTEXT_INVALID`, and the wallet must submit again. `pnpm demo:up` sets no key on purpose, and `pnpm dev:reset` clears the vault.
 
 ## 7. Integrity rules
+- An access-log chain has at most one epoch change, from format 1 to format 2, and the first format-2 entry links to the zero hash (§4.1a). Any other mix is a tamper signal.
 - `access_logs.seq` strictly increasing per fiduciary with no gaps. A gap is a tamper signal.
 - `hash` must equal recomputation from `prev_hash` and canonical entry.
 - Every `batch_index` set implies a row in `anchor_batches` whose root matches recomputation.

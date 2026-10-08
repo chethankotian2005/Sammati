@@ -94,6 +94,10 @@ Separately, and as limits of this build rather than shortcuts: the regulator's a
 
 ## 7. Judge Q&A
 
+**"Where does the loan decision actually happen? Is that a real secure enclave?"** No, and we say so on the About screen. The Processor is a separate service with an in-memory key: simulated sealed processing. What is real: the phone encrypts only the fields a purpose needs, the Processor checks consent on the ledger before it opens anything, it answers decision, limit, rate and reason codes, and the use is written to the anchored log with the categories it read. The production path is a TEE with remote attestation, so even the operator cannot read the data.
+
+**"How do I know which of my data was used?"** Open the Activity row: it names the categories, shows where the ciphertext sits (its hash), says the Processor kept nothing and sent back a decision only, and links to the Merkle proof.
+
 **Why blockchain, not a database?**
 "Consent is a dispute between a user and a company, so the company cannot hold the evidence. A user-signed, shared ledger means neither side, and no single company, can rewrite history. A normal database gives you a log. This gives you a log that the audited party doesn't control."
 
