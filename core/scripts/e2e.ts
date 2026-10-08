@@ -458,7 +458,7 @@ async function main(): Promise<void> {
     const portalUser: { wallet?: ReturnType<typeof Wallet.createRandom>; journey?: Journey; feed?: WebSocket; requestId?: string; purposes?: string[]; nonce?: number } = {};
     const portalFrames: unknown[] = [];
 
-    await step("user gives credit_check consent; the wallet seals the demo profile and the Processor stores ciphertext only", async () => {
+    await step("user gives credit_check consent; the wallet seals the test profile and the Processor stores ciphertext only", async () => {
       const message = { principal: user.address, fiduciary: FID, purposeId: CREDIT_ID, expiresAt: inAnHour() + 86_400, noticeHash: notice.noticeHash, nonce: String(nonce++), deadline: inAnHour() };
       const signature = await user.signTypedData(notice.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
       expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature })).status, "confirmed", "grant status");

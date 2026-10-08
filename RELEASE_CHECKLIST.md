@@ -17,7 +17,7 @@ Install the release build (`flutter build apk --release`), same hotspot as the l
 - [ ] Scan the portal QR: the notice shows three purposes in English and in Kannada
 - [ ] Grant two purposes: receipt with a transaction; the portal says "Consent received"
 - [ ] Console **Run credit check** is ALLOWED; **Share with bureau** is BLOCKED; the phone's feed shows both
-- [ ] **Share your details securely** → demo details → the portal says "Data submitted securely"; **Apply** gives a decision; Data flow lanes fill
+- [ ] **Share your details securely** → type made-up details → the QuickLoan page logs in and **Apply** gives a decision; the console's "What QuickLoan holds" card shows only a handle and a hash
 - [ ] Withdraw: the console turns BLOCKED 451 at once, the cascade list shows an acknowledgement, the phone says the details were erased
 - [ ] **Sammati ID**: register `asha@sammati`; console **Send to user** reaches the inbox in about 2 seconds; Review, Decline and Block all work; a made-up ID gets the same "Request sent" and nothing arrives
 - [ ] **Expiry** (Developer settings: Short expiry for testing on): grant with **2 minutes**; Alerts shows "expires in 1 minute", then "expired"; console **Expiring consents** → **Request renewal**; **Renew** and approve; the same console call is ALLOWED
@@ -34,13 +34,13 @@ These are specified and built, but never run on a device. Until one has been, th
 
 ## 3. The spare phone
 - [ ] Same APK installed, wallet created, a different language selected
-- [ ] It scans the portal QR and gets ALLOWED (so it can take over mid-demo)
+- [ ] It scans the QuickLoan QR and gets ALLOWED (so it can take over mid-demo)
 - [ ] Charged, on the hotspot, Do Not Disturb set
 
 ## 4. Record the fallback video (once everything above passed)
 Record on a **clean** `pnpm dev:reset` run, screen mirrored so both the phone and the laptop are in frame (or record both and join them). Keep the narration to the script.
 
-- [ ] Take 1, full four minutes, as in `docs/demo.md` §2, all eight acts
+- [ ] Take 1, the full walkthrough of `docs/demo.md` §2
 - [ ] Take 2, three-minute cut (no Acts 6 and 7)
 - [ ] Short clips as insurance, each on its own: **withdraw then BLOCKED** (Act 5), **a decision with the company holding only a handle** (Act 4), **tamper then red Verify** (Act 8), **a targeted request arriving** (Act 6), **expiry then Renew then ALLOWED** (Act 7)
 - [ ] Save the files on the laptop **and** on the spare phone; check one plays without a network

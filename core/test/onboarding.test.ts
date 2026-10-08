@@ -239,7 +239,7 @@ describe("approving (R-02)", () => {
     expect(await reg.getFunction("isProcessor")(purposeIdOf(co.address, "partner_share"), processor.address)).toBe(true);
     expect(co.txHashes.length).toBeGreaterThanOrEqual(4);
 
-    // in the directory, with ink for a colour, in the sandbox, and not a demo company
+    // in the directory, with ink for a colour, in the sandbox, and with no special status
     const entry = (await api("GET", "/v1/fiduciaries")).json.fiduciaries.find((f: { address: string }) => f.address === co.address);
     expect(entry).toMatchObject({ name: co.name, slug: co.slug, sandbox: true, color: "#16173F" });
     expect((await api("GET", `/v1/fiduciaries/${co.address}/purposes`)).json.purposes.map((p: { code: string }) => p.code)).toEqual(["loan_offers", "partner_share"]);

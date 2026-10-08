@@ -5,7 +5,7 @@
 
 ## 2. The walkthrough (about 5 minutes)
 
-Everything here is done as a normal user or as the regulator, through the product's own screens. Nothing is fired from a control panel and nothing is seeded: the company, QuickLoan, registers first. `pnpm e2e` plays the same story with a headless wallet (44 steps, about 35 s of story, under a minute with the stack).
+Everything here is done as a normal user or as the regulator, through the product's own screens. Nothing is fired from a control panel and nothing is pre-registered: the company, QuickLoan, registers first. `pnpm e2e` plays the same story with a headless wallet (44 steps, about 35 s of story, under a minute with the stack).
 
 ### Before the room fills (once)
 1. `pnpm demo:up`. Open `/join`, register **QuickLoan** (purposes: a required `credit_check`, optional `marketing` and `bureau_share`, with a processor on `bureau_share`). Approve it as the regulator under Auditor > Registrations (promote it out of the sandbox, or add the phone's ID as a test customer). Copy the API key: it is shown once.
