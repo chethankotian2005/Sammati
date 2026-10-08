@@ -41,6 +41,7 @@ const LENDER_PORT = Number(process.env.E2E_LENDER_PORT ?? 4310);
 /** Set by the registration step, before anything uses them. */
 let FID = "" as Hex;
 let API_KEY = "";
+let rightsId = ""; // the erasure request the wallet files, completed later by the company
 let MARKETING_ID = "" as Hex;
 let CREDIT_ID = "" as Hex; // the purpose behind the confidential-processing acts
 const GRANTED = "marketing"; // has a downstream processor, so the cascade has someone to tell
@@ -371,6 +372,7 @@ async function main(): Promise<void> {
       expectEqual(purposes.purposes.map((p) => p.code), ["credit_check", "marketing", "bureau_share"], "QuickLoan's purposes");
       const filed = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "erasure", note: "e2e" });
       expectEqual([filed.status, filed.json.status], [201, "open"], "filing a rights request");
+      rightsId = filed.json.id;
       const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
       expectEqual(mine.rights.map((r) => [r.id, r.fiduciaryName, r.type]), [[filed.json.id, "QuickLoan", "erasure"]], "the wallet's rights list");
 
@@ -517,6 +519,41 @@ async function main(): Promise<void> {
       expectEqual(used.dataCategories, ["financial.pan", "financial.income_band", "financial.employment"], "the categories the loan decision read");
     });
 
+    await step("the wallet's activity record shows the company's use of the details", async () => {
+      const feed = await call<{ items: Array<{ purposeCode: string; decision: string; id: string }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`);
+      const uses = feed.items.filter((i) => i.purposeCode === "credit_check" && i.decision === "ALLOWED");
+      check(uses.length >= 2, `the activity feed shows ${uses.length} allowed credit_check uses, expected the admin view and the loan decision`);
+    });
+
+    await step("correction: the wallet sends a corrected profile; the Processor replaces the old copy and the next decision uses it", async () => {
+      const old = profile.handle;
+      const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
+      const corrected = { ...TEST_PROFILE, incomeBand: "9+ LPA" };
+      const envelope = seal(corrected, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
+      const requestId = `e2e-fix-${Date.now()}`;
+      const signature = await user.signMessage(submitMessage(handleOf(envelope), requestId, 2));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 2, signature });
+      check(submit.status === 200 || submit.status === 201, `the corrected submission answered ${submit.status}`);
+      profile.handle = submit.json.handle!;
+      profile.ciphertextHash = submit.json.ciphertextHash!;
+      const stale = (await raw("GET", `${PROCESSOR}/v1/vault/${old}`)).json;
+      expectEqual([stale.status, stale.envelope], ["erased", null], "the superseded copy");
+      await until(
+        "the company to be told the new handle",
+        async () => ((await fireAt(user.address, GRANTED_LOAN)).result as { handle?: string } | undefined)?.handle === profile.handle ? true : undefined,
+        4000,
+      );
+      const decided = await until(
+        "the decision on the corrected details",
+        async () => {
+          const f = await fireAt(user.address, GRANTED_LOAN, "loan_decision");
+          return f.decision === "ALLOWED" && (f.result as { limit?: number }).limit === 600000 ? f : undefined;
+        },
+        5000,
+      );
+      check(decided, "the corrected profile did not change the limit");
+    });
+
     await step("user withdraws credit_check; apply is refused with 451 CONSENT_WITHDRAWN", async () => {
       const message = { principal: user.address, fiduciary: FID, purposeId: CREDIT_ID, nonce: String(nonce++), deadline: inAnHour() };
       const signature = await user.signTypedData(notice.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, message);
@@ -544,6 +581,17 @@ async function main(): Promise<void> {
       expectEqual([erased.envelope, erased.ciphertextHash], [null, profile.ciphertextHash], "erased entry");
     });
 
+    await step("erasure request completion: the company resolves the customer's request and the wallet is told", async () => {
+      check(rightsId, "no rights request was filed earlier");
+      const reply = "Your data has been erased from our systems.";
+      await call("POST", `/v1/fiduciaries/${FID}/rights/${rightsId}`, { status: "resolved", reply }, { [API_KEY_HEADER]: API_KEY });
+      const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
+      expectEqual(mine.rights.find((r) => r.id === rightsId)?.status, "resolved", "the rights request status");
+      const notes = (await call<NotificationsResponse>("GET", `/v1/principals/${user.address}/notifications`)).notifications;
+      const told = notes.find((n) => n.type === "rights.updated" && n.payload.rightsId === rightsId);
+      expectEqual([told?.payload.rightsStatus, told?.payload.reply], ["resolved", reply], "the wallet's alert");
+    });
+
     await step("the live feeds carried every vault step, and nothing but handles, hashes and codes", async () => {
       const names = () => events.filter((e) => /^(vault|processor)\./.test(e.event)).map((e) => e.event);
       await until("the vault.erased event", async () => (names().includes("vault.erased") ? true : undefined), 3000);
@@ -553,8 +601,8 @@ async function main(): Promise<void> {
         "vault and processor events, in order of first appearance",
       );
       const decided = events.filter((e): e is Extract<WsEvent, { event: "processor.decided" }> => e.event === "processor.decided");
-      expectEqual(decided.map((e) => [e.decision, e.limit, e.reasonCodes]), [["approved", 300000, ["SCORE_FAIR"]], ["blocked", null, ["CONSENT_WITHDRAWN"]]], "processor.decided");
-      expectEqual(events.filter((e) => e.event === "vault.erased").map((e) => (e as Extract<WsEvent, { event: "vault.erased" }>).cause), ["withdrawn"], "vault.erased cause (once)");
+      expectEqual(decided.map((e) => [e.decision, e.limit, e.reasonCodes]), [["approved", 300000, ["SCORE_FAIR"]], ["approved", 600000, ["SCORE_FAIR"]], ["blocked", null, ["CONSENT_WITHDRAWN"]]], "processor.decided");
+      expectEqual(events.filter((e) => e.event === "vault.erased").map((e) => (e as Extract<WsEvent, { event: "vault.erased" }>).cause), ["superseded", "withdrawn"], "vault.erased causes (the corrected copy replaced the first, then the withdrawal)");
     });
 
     // --- the customer portal and the wallet's data entry (prd.md C-09, W-13) ---
@@ -1156,7 +1204,7 @@ async function main(): Promise<void> {
       check(haystacks.some(([, text]) => text.includes("approved")), "control failed: the captured traffic does not contain the loan decision");
       check(files.some((f) => /processor/.test(f)), "control failed: the Processor's database file was not found, so it was not searched");
       for (const [where, text] of haystacks) {
-        for (const secret of [PLAINTEXT, TEST_PROFILE.incomeBand]) {
+        for (const secret of [PLAINTEXT, TEST_PROFILE.incomeBand, "9+ LPA"]) {
           if (text.includes(secret)) fail(`"${secret}" was found in ${where}`);
         }
       }
