@@ -70,7 +70,8 @@ class ConsentsController extends Notifier<ConsentsState> {
     try {
       final snapshot = await ref.read(coreApiFactoryProvider)(ref.read(coreUrlProvider)).getConsents(principal);
       state = state.copyWith(snapshot: snapshot, loading: false, fetchFailed: false);
-      NotificationService().scheduleExpiryReminders(snapshot);
+      // A reminder that cannot be scheduled (no plugin on web, permission denied) must never surface as a crash.
+      unawaited(NotificationService().scheduleExpiryReminders(snapshot).catchError((Object _) {}));
     } on CoreException {
       state = state.copyWith(loading: false, fetchFailed: true);
     }

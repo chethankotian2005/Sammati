@@ -26,12 +26,15 @@ class ConsentProof {
     required this.at,
   });
 
+  // Core's ConsentProofResponse (shared/src/types.ts) names the signer `principal` (a consent is signed by the
+  // data principal) and the kind `type`; `signer` / `eventType` are accepted too. explorerUrl is null on the
+  // local chain, which has no explorer.
   factory ConsentProof.fromJson(Map<String, dynamic> json) => ConsentProof(
         txHash: json['txHash'] as String,
         ledgerHead: json['ledgerHead'] as String,
-        signer: json['signer'] as String,
+        signer: (json['signer'] ?? json['principal']) as String,
         explorerUrl: json['explorerUrl'] as String? ?? '',
-        eventType: json['eventType'] as String? ?? 'granted',
+        eventType: (json['eventType'] ?? json['type']) as String? ?? 'granted',
         fiduciary: json['fiduciary'] as String,
         purposeId: json['purposeId'] as String,
         at: json['at'] as int,
@@ -64,19 +67,23 @@ class AccessProof {
     required this.at,
   });
 
+  // Core's AccessProofResponse (shared/src/types.ts) nests the log entry: { entry: { id, hash, fiduciary,
+  // purposeCode, decision, at, ... }, merklePath, merkleRoot, batchIndex, anchorTxHash, explorerUrl }.
+  // The flat form (entryId, entryHash, merkleProof, ...) is still accepted.
   factory AccessProof.fromJson(Map<String, dynamic> json) {
-    final proofList = json['merkleProof'] as List? ?? [];
+    final entry = json['entry'] is Map<String, dynamic> ? json['entry'] as Map<String, dynamic> : json;
+    final proofList = (json['merklePath'] ?? json['merkleProof']) as List? ?? [];
     return AccessProof(
-      entryId: json['entryId'] as String,
-      entryHash: json['entryHash'] as String,
+      entryId: (entry['id'] ?? entry['entryId']) as String,
+      entryHash: (entry['hash'] ?? entry['entryHash']) as String,
       merkleProof: [for (final s in proofList) s as String],
       merkleRoot: json['merkleRoot'] as String,
       anchorTxHash: json['anchorTxHash'] as String,
       explorerUrl: json['explorerUrl'] as String? ?? '',
-      fiduciary: json['fiduciary'] as String,
-      purposeCode: json['purposeCode'] as String,
-      decision: json['decision'] as String,
-      at: json['at'] as int,
+      fiduciary: entry['fiduciary'] as String,
+      purposeCode: entry['purposeCode'] as String,
+      decision: entry['decision'] as String,
+      at: entry['at'] as int,
     );
   }
 
@@ -103,6 +110,7 @@ class CascadeAckRow {
   const CascadeAckRow({
     required this.processor,
     required this.notifiedAt,
+    this.processorName,
     this.ackedAt,
     this.txHash,
   });
@@ -112,17 +120,24 @@ class CascadeAckRow {
   static CascadeAckRow? tryParse(Object? json) {
     if (json is! Map<String, dynamic>) return null;
     final processor = json['processor'];
-    final notifiedAt = json['notifiedAt'];
+    // notifiedAt is null for a processor that has not been told yet (nothing to show) and, after Core re-reads the
+    // chain, for an acknowledgement it never saw the notification for: that one is shown as acknowledged.
+    final notifiedAt = json['notifiedAt'] ?? json['ackedAt'];
     if (processor is! String || notifiedAt is! int) return null;
+    final name = json['name'] ?? json['processorName'];
     return CascadeAckRow(
       processor: processor,
       notifiedAt: notifiedAt,
+      processorName: name is String && name.isNotEmpty ? name : null,
       ackedAt: json['ackedAt'] as int?,
       txHash: json['txHash'] as String?,
     );
   }
 
   final String processor;
+
+  /// The processor's display name (Core's `name`), e.g. AdPartnerQ. Null if Core did not send one.
+  final String? processorName;
 
   /// Unix seconds when Core sent the withdrawal notification to this processor.
   final int notifiedAt;

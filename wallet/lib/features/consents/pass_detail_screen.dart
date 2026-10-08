@@ -5,6 +5,7 @@ import '../../core/consent_providers.dart';
 import '../../core/consents.dart';
 import '../../core/consents_controller.dart';
 import '../../core/core_api.dart';
+import '../../core/format.dart';
 import '../../core/cascade_controller.dart';
 import '../../core/preferences.dart';
 import '../../core/wallet_providers.dart';
@@ -253,7 +254,7 @@ class _CascadeList extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
                 children: [
-                  Expanded(child: Text(ack.processor, style: style.bodyMedium)),
+                  Expanded(child: Text(ack.processorName ?? shortHex(ack.processor), style: style.bodyMedium)),
                   if (ack.ackedAt != null)
                     Text(
                       t.cascade_acked(now.difference(DateTime.fromMillisecondsSinceEpoch(ack.ackedAt! * 1000)).inSeconds.clamp(0, 999999)),

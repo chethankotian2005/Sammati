@@ -266,10 +266,11 @@ class _PurposeCard extends StatelessWidget {
           if (purpose.required) ...[
             const SizedBox(height: 4),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.info_outline, size: 16, color: SammatiColors.mute),
                 const SizedBox(width: 6),
-                Text(t.needed_for_service, style: style.bodyMedium),
+                Expanded(child: Text(t.needed_for_service, style: style.bodyMedium)),
               ],
             ),
           ],
@@ -294,10 +295,14 @@ class _PurposeCard extends StatelessWidget {
             _Chip(label: t.shares_third_party, icon: Icons.warning_amber_rounded, danger: true),
           ],
           const SizedBox(height: 12),
-          Row(
+          // The picker sits under its label and takes the card's width: its longest option in Hindi or Kannada, or at
+          // large system text, is wider than half the card, and an unbounded dropdown overflows.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(t.expiry_label, style: style.bodyMedium)),
+              Text(t.expiry_label, style: style.bodyMedium),
               DropdownButton<ConsentExpiry>(
+                isExpanded: true,
                 value: expiry,
                 underline: const SizedBox.shrink(),
                 borderRadius: BorderRadius.circular(SammatiRadius.row),

@@ -89,9 +89,11 @@ class CascadeController extends Notifier<CascadeState> {
     if (event.principal.toLowerCase() != _key.principal.toLowerCase()) return;
 
     // Build a CascadeAckRow from the live event, then upsert it.
+    final known = state.acks.where((r) => r.processor.toLowerCase() == event.processor.toLowerCase()).firstOrNull;
     final live = CascadeAckRow(
       processor: event.processor,
-      notifiedAt: event.notifiedAt,
+      processorName: event.processorName ?? known?.processorName,
+      notifiedAt: known?.notifiedAt ?? event.notifiedAt,
       ackedAt: event.ackedAt,
       txHash: event.txHash,
     );

@@ -17,6 +17,7 @@ class CascadeAck {
     required this.purposeId,
     required this.processor,
     required this.notifiedAt,
+    this.processorName,
     this.ackedAt,
     this.txHash,
   });
@@ -29,7 +30,10 @@ class CascadeAck {
         principal: decoded['principal'] as String,
         purposeId: decoded['purposeId'] as String,
         processor: decoded['processor'] as String,
-        notifiedAt: decoded['notifiedAt'] as int,
+        // Core sends notifiedAt: null for an acknowledgement replayed from chain history (it never saw the
+        // notification): that is still an acknowledgement, so fall back to when it was acknowledged.
+        notifiedAt: (decoded['notifiedAt'] ?? decoded['ackedAt']) as int,
+        processorName: decoded['processorName'] as String?,
         ackedAt: decoded['ackedAt'] as int?,
         txHash: decoded['txHash'] as String?,
       );
@@ -41,6 +45,7 @@ class CascadeAck {
   final String principal;
   final String purposeId;
   final String processor;
+  final String? processorName;
 
   /// Unix seconds when the processor was notified.
   final int notifiedAt;

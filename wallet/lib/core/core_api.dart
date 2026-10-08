@@ -180,7 +180,8 @@ class DioCoreApi implements CoreApi {
     final json = await _send(() => _dio.get<Map<String, dynamic>>(
           '/v1/principals/${Uri.encodeComponent(principal)}/cascade/${Uri.encodeComponent(purposeId)}',
         ));
-    final rows = json['acks'];
+    // Core's CascadeResponse calls the list `processors`; `acks` was an earlier guess and is still accepted.
+    final rows = json['processors'] ?? json['acks'];
     if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed cascade acks');
     return [for (final r in rows) if (CascadeAckRow.tryParse(r) case final row?) row];
   }
