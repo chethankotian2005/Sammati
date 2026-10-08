@@ -4,6 +4,7 @@ import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import concurrently from "concurrently";
+import { describeQrUrl } from "./lan.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -19,8 +20,18 @@ if (dbPath !== ":memory:") {
   }
 }
 
+// An explicit CORE_PUBLIC_URL (environment or .env) wins over detection: the real environment is read first.
+try {
+  process.loadEnvFile(resolve(repoRoot, ".env"));
+} catch {
+  // no .env
+}
+
+const qr = describeQrUrl({ port: process.env.PORT ?? "4000", env: process.env });
+console.log(qr.banner);
+
 const real = process.argv.includes("--real");
-const coreEnv = { STUB_MODE: real ? "false" : "true" };
+const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;
 

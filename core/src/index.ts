@@ -30,6 +30,9 @@ if (config.stubMode) {
 server.listen(config.port, () => {
   console.log(`Sammati Core (${config.stubMode ? "stub" : "real"}) on http://localhost:${config.port}  ws://localhost:${config.port}/ws`);
   console.log(`QR payloads point wallets at ${config.publicUrl}`);
+  if (/\/\/(localhost|127\.)/.test(config.publicUrl)) {
+    console.warn("WARNING: that address is this laptop's own. A phone cannot reach it: set CORE_PUBLIC_URL to the laptop's LAN address (`pnpm demo:up` does this for you).");
+  }
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
