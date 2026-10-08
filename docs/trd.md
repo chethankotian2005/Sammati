@@ -152,7 +152,8 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/v1/fiduciaries/:fid/requests` | Body `{ purposes:[code], customerAlias }` returns `{ requestId, qrPayload }` |
-| GET | `/v1/requests/:requestId` | Wallet fetches notice: fiduciary, purposes (localised text), noticeHash, typed-data template, nonce |
+| GET | `/v1/health` | Liveness: `{ ok, service, mode: "stub" \| "live", time }` |
+| GET | `/v1/requests/:requestId?principal=0x..` | Wallet fetches notice: fiduciary, purposes (localised text), noticeHash, typed-data template, nonce (the principal's current on-chain nonce; `"0"` if `principal` omitted) |
 | POST | `/v1/consents/grant` | Body `{ request: GrantConsent, signature }` returns `{ txHash, status }` |
 | POST | `/v1/consents/withdraw` | Body `{ request: WithdrawConsent, signature }` returns `{ txHash, status }` |
 | GET | `/v1/principals/:addr/consents` | All consents grouped by fiduciary |
@@ -169,7 +170,7 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 | POST | `/v1/fiduciaries/:fid/purposes` | Register purpose (writes chain) |
 | POST | `/v1/fiduciaries/:fid/processors` | Register downstream processor |
 | GET | `/v1/fiduciaries/:fid/consents` | Console table |
-| GET | `/v1/fiduciaries/:fid/access` | Console feed and history |
+| GET | `/v1/fiduciaries/:fid/access?limit=` | Console feed and history, newest first (the SDK reads `limit=1` to resume `seq`/`prevHash`) |
 | POST | `/v1/gateway/log` | SDK posts each decision entry |
 | GET | `/v1/gateway/consent-state?principal=&fid=&purpose=` | SDK fallback check |
 | POST | `/v1/fiduciaries/:fid/export` | Compliance pack (C-08) |
@@ -226,7 +227,7 @@ On `ConsentWithdrawn`: look up processors for the purpose; for each, POST a sign
 |---|---|
 | Live demo | Laptop runs Hardhat node, Core, 3 companies, web. Phone on laptop hotspot (or shared hotspot) |
 | Proof | `hardhat run scripts/deploy.ts --network amoy`; store addresses and an explorer link in `shared/deployments.json` |
-| Env | `CHAIN_RPC`, `CHAIN_ID`, `RELAYER_KEY`, `ADMIN_KEY`, `DEMO_MODE`, `PORT`, `DB_PATH` |
+| Env | `CHAIN_RPC`, `CHAIN_ID`, `RELAYER_KEY`, `ADMIN_KEY`, `DEMO_MODE`, `PORT`, `DB_PATH`, `STUB_MODE` (default `true` until the real Core lands: serves `core/fixtures/*.json` with light in-memory state, no chain) |
 | Seed | `pnpm seed` registers 3 fiduciaries, purposes, processors, funds the relayer |
 | One command | `pnpm demo:up` starts everything; `pnpm demo:reset` resets state |
 

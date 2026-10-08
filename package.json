@@ -5,10 +5,18 @@
   "packageManager": "pnpm@9.15.9",
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "demo:up": "concurrently -k -n chain,core,quickloan,medicare,foodrush,web -c gray,blue,#2F5BEA,#0E9AA7,#E4572E,magenta \"pnpm --filter @sammati/contracts node\" \"pnpm --filter @sammati/core dev\" \"pnpm --filter @sammati/company-quickloan dev\" \"pnpm --filter @sammati/company-medicare dev\" \"pnpm --filter @sammati/company-foodrush dev\" \"pnpm --filter @sammati/web dev\"",
+    "demo:reset": "node scripts/demo-reset.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
   },
   "devDependencies": {
-    "typescript": "5.6.3"
+    "@eslint/js": "9.17.0",
+    "concurrently": "9.1.0",
+    "eslint": "9.17.0",
+    "typescript": "5.6.3",
+    "typescript-eslint": "8.18.1"
   }
 }

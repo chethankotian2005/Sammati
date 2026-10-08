@@ -63,6 +63,13 @@ export interface StoredAccessLogEntry extends AccessLogEntry {
   batchIndex: number | null;
 }
 
+export interface HealthResponse {
+  ok: true;
+  service: "sammati-core";
+  mode: "stub" | "live";
+  time: UnixSeconds;
+}
+
 // --- 6.1 Consent flow ---
 
 export interface CreateRequestBody {

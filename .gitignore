@@ -5,3 +5,10 @@ build/
 *.sqlite
 .env
 .env.local
+coverage/
+*.tsbuildinfo
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+web/dist/
+data/

@@ -1,0 +1,147 @@
+{
+  "principal": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "fiduciaries": [
+    {
+      "fiduciary": {
+        "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "name": "QuickLoan",
+        "sector": "Fintech lending",
+        "color": "#2F5BEA"
+      },
+      "consents": [
+        {
+          "purposeId": "0x707a80a4813eb36bdfb3f3aebdeea292384852e7f680fd128ea1009ac1192b29",
+          "code": "credit_check",
+          "title": {
+            "en": "Credit check",
+            "hi": "[hi] Credit check",
+            "kn": "[kn] Credit check"
+          },
+          "status": "Active",
+          "grantedAt": 1760000100,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000100,
+          "noticeHash": "0xfda7645e0622280797cb18674d283c0f72f3a513041cda4038ab2511a7263b62",
+          "lastTx": "0xa36ef755807034ba567dd25fc9536663f08383aa6404bad0b8a2129972523909",
+          "required": false
+        },
+        {
+          "purposeId": "0x200aac73b1ffccefb5cbde2ae0c42cc316ec9e58f7178cc4692fffee77e36cb3",
+          "code": "marketing",
+          "title": {
+            "en": "Loan offers",
+            "hi": "[hi] Loan offers",
+            "kn": "[kn] Loan offers"
+          },
+          "status": "Withdrawn",
+          "grantedAt": 1760000110,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000400,
+          "noticeHash": "0x956a05bd1d9d0c9066aa753ed9af9c1d299e0ada9e834e8427305083f8a3d433",
+          "lastTx": "0xe7d27e8a8bb8223a7af4ab4a002cbc4fffc6168c12bef51c4254600fdabc0de0",
+          "required": false
+        },
+        {
+          "purposeId": "0x2c1fab3b52a471ed24a5c0775282f7ef04cf0217b4be9e219eae3509976155e0",
+          "code": "bureau_share",
+          "title": {
+            "en": "Credit bureau sharing",
+            "hi": "[hi] Credit bureau sharing",
+            "kn": "[kn] Credit bureau sharing"
+          },
+          "status": "Active",
+          "grantedAt": 1760000120,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000110,
+          "noticeHash": "0x6e96ce5949cf6aa45a9c026ede994533bad7098a6b497e0d3d5cbc97c7d56b76",
+          "lastTx": "0x272fc752defe34a23e1ec49e7af08d4d5f6984a14eefe3ebf966834db593d6cb",
+          "required": false
+        }
+      ]
+    },
+    {
+      "fiduciary": {
+        "address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+        "name": "MediCare+",
+        "sector": "Health",
+        "color": "#0E9AA7"
+      },
+      "consents": [
+        {
+          "purposeId": "0x87bcdde685aafc82818b2d03c98acbe654028c73f149fcaba9da89949d880c44",
+          "code": "treatment",
+          "title": {
+            "en": "Treatment",
+            "hi": "[hi] Treatment",
+            "kn": "[kn] Treatment"
+          },
+          "status": "Active",
+          "grantedAt": 1760000130,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000120,
+          "noticeHash": "0x715872c706f587005eef7b5df669e718559483abd66d645faab240f3492650e9",
+          "lastTx": "0x20960c29abd5b816ff177e107feee72da1153e67d28871fb51838513b0382c27",
+          "required": true
+        },
+        {
+          "purposeId": "0x66b1da51ab48ec6fcbb1988c49ec839b9ce38e6a2b9c1a69245eaae28821ee14",
+          "code": "insurance_claim",
+          "title": {
+            "en": "Insurance claims",
+            "hi": "[hi] Insurance claims",
+            "kn": "[kn] Insurance claims"
+          },
+          "status": "Withdrawn",
+          "grantedAt": 1760000140,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000420,
+          "noticeHash": "0x7e83e3d1632c6ebad4c3f14bb9d00a7b43a2f6d59ba0fe9f941e9ac5e2d1a42a",
+          "lastTx": "0x81fd3454fe4c81e7442afdc151757ce823f563fa362aa221770d292045c21db9",
+          "required": false
+        }
+      ]
+    },
+    {
+      "fiduciary": {
+        "address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+        "name": "FoodRush",
+        "sector": "Food delivery",
+        "color": "#E4572E"
+      },
+      "consents": [
+        {
+          "purposeId": "0xdcf5160b5876cd289de2e34f2e7d4d7fa6821a7fb58338022ce16a16d3ee63c5",
+          "code": "delivery",
+          "title": {
+            "en": "Delivery",
+            "hi": "[hi] Delivery",
+            "kn": "[kn] Delivery"
+          },
+          "status": "Active",
+          "grantedAt": 1760000150,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000130,
+          "noticeHash": "0x113bc3b41ff877c993c98cff4e79cc7c696fc9cfb5434ada904809fbfdb73fbe",
+          "lastTx": "0xfa88c8a6347b274c829113e3e4f52f778137453ac324e94277491954160765ae",
+          "required": true
+        },
+        {
+          "purposeId": "0x1844bfce7c8f3a86346c8d8009cb56f0e44de5b3198080abe433cab76ce5dbea",
+          "code": "ad_targeting",
+          "title": {
+            "en": "Personalised ads",
+            "hi": "[hi] Personalised ads",
+            "kn": "[kn] Personalised ads"
+          },
+          "status": "Active",
+          "grantedAt": 1760000160,
+          "expiresAt": 1893456000,
+          "updatedAt": 1760000140,
+          "noticeHash": "0x0fda76dec907b6ce945c276b1db7418057ff79b264163093111010f4b729de88",
+          "lastTx": "0x96387eaab38cfe5fa45ac68560363108198297d09eaf39c01a79122f3fac4054",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

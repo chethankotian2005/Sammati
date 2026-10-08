@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TypedDataEncoder, computeAddress, recoverAddress } from "ethers";
+import { TypedDataEncoder, computeAddress, getAddress, recoverAddress } from "ethers";
 import vectors from "../test-vectors/eip712.json";
 import {
   GRANT_CONSENT_TYPE,
@@ -10,7 +10,7 @@ import {
 } from "../src/eip712";
 import { noticeHash, purposeIdOf } from "../src/canonical";
 import { REASON_CODES } from "../src/types";
-import { SEED_FIDUCIARIES } from "../src/seed";
+import { DEMO_PRINCIPAL, SEED_FIDUCIARIES } from "../src/seed";
 
 describe("EIP-712 definitions", () => {
   it("field names and order match trd.md §3.1", () => {
@@ -91,6 +91,12 @@ describe("shared constants", () => {
     expect(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => p.name))).toEqual([
       "CreditBureauX", "AdPartnerQ", "InsureCo", "ResearchLab", "AdNetworkZ",
     ]);
+    const addresses = [
+      DEMO_PRINCIPAL,
+      ...SEED_FIDUCIARIES.flatMap((f) => [f.address, ...f.processors.map((p) => p.address)]),
+    ];
+    for (const a of addresses) expect(getAddress(a)).toBe(a); // valid EIP-55 checksum
+    expect(new Set(addresses).size).toBe(addresses.length);
     for (const f of SEED_FIDUCIARIES) {
       const codes = f.purposes.map((p) => p.code);
       for (const proc of f.processors) expect(codes).toContain(proc.purposeCode);

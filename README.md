@@ -3,6 +3,35 @@
 > **Sammati** (सम्मति, "consent") is a placeholder name. Rename freely.
 > **One-liner:** UPI for consent. A citizen wallet that gives, manages and withdraws consent across companies, backed by a ledger and an enforcement layer that makes withdrawal actually stop data access.
 
+## Run it
+
+Needs Node 20+, pnpm 9 (`npm i -g pnpm@9`) and, for the wallet, Flutter 3.x.
+
+```
+pnpm install
+pnpm demo:up        # chain :8545, Core :4000, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
+```
+
+Core starts in **stub mode** (`STUB_MODE=true`): it serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state, and no chain is touched yet. Build wallet and web against it.
+
+| Check | Command |
+|---|---|
+| Core is up | `curl localhost:4000/v1/health` |
+| Web | http://localhost:5173 (`/company/quickloan`, `/auditor`, `/stage`) |
+| Guarded endpoint | `curl -H "x-sammati-principal: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" localhost:4101/customers/1/credit-profile` returns data; without the header, `451 NO_PRINCIPAL` |
+| Reset state | `pnpm demo:reset` |
+| Everything | `pnpm lint && pnpm typecheck && pnpm -r test` |
+| Wallet | `cd wallet && flutter analyze && flutter run` |
+
+Useful for stub development:
+- A ready-made consent request exists at `GET /v1/requests/req_demo_quickloan?principal=0x…`.
+- `POST /v1/demo/tamper/:fid` then `POST /v1/audit/verify/:fid` shows the tamper alarm; `pnpm demo:reset` clears it.
+- Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
+- Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
+- `pnpm e2e` is a placeholder for now.
+
+Layout: `contracts/` `core/` `gateway/` `shared/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
+
 ## Problem statement (CB-04)
 Build a consent manager where users grant, view and withdraw purpose-specific consent across several companies, every action is recorded on a tamper-evident ledger, and companies' systems check consent before using data.
 

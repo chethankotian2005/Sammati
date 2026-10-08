@@ -1,0 +1,22 @@
+# Lanes from docs/tasks.md §1. Every line currently points at the repo owner because the
+# teammates' GitHub handles are not recorded yet: replace with @handle-for-A / -B / -C.
+
+# A: Chain and Core
+/contracts/            @chethankotian2005
+/core/                 @chethankotian2005
+/gateway/              @chethankotian2005
+/shared/               @chethankotian2005
+
+# B: Wallet
+/wallet/               @chethankotian2005
+
+# C: Web and Story
+/web/                  @chethankotian2005
+/companies/            @chethankotian2005
+/docs/demo.md          @chethankotian2005
+
+# Shared interfaces: changes here must be announced to all lanes (docs/tasks.md §5).
+/shared/src/eip712.ts          @chethankotian2005
+/shared/test-vectors/          @chethankotian2005
+/docs/trd.md                   @chethankotian2005
+/docs/drd.md                   @chethankotian2005
