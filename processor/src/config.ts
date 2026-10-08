@@ -18,6 +18,8 @@ export interface ProcessorConfig {
   /** Shared secret for Core's event intake. */
   eventKey: string;
   sweepMs: number;
+  /** How long after expiry the ciphertext is kept (every use is refused meanwhile), so a renewal need not resend it (trd.md §6.7, §6.12). */
+  expiryGraceSeconds: number;
   demoMode: boolean;
 }
 
@@ -49,6 +51,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ProcessorConfi
     callbacks: Object.fromEntries(Object.entries(callbacks).map(([a, u]) => [a.toLowerCase(), u])),
     eventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
     sweepMs: Number(env.PROCESSOR_SWEEP_MS ?? 30_000),
+    expiryGraceSeconds: Number(env.EXPIRY_ERASURE_GRACE_SECONDS ?? (env.DEMO_FAST_EXPIRY === "1" || env.DEMO_FAST_EXPIRY === "true" ? 60 : 604_800)),
     demoMode: env.DEMO_MODE !== "false",
   };
 }

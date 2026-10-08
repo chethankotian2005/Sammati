@@ -655,4 +655,151 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get auth_reason_id => 'ನಿಮ್ಮ Sammati ID ನೋಂದಾಯಿಸಲು ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get nav_alerts => 'ಎಚ್ಚರಿಕೆಗಳು';
+
+  @override
+  String get alerts_title => 'ಎಚ್ಚರಿಕೆಗಳು';
+
+  @override
+  String get alerts_unread => 'ಓದದ ಎಚ್ಚರಿಕೆಗಳು';
+
+  @override
+  String get alerts_today => 'ಇಂದು';
+
+  @override
+  String get alerts_earlier => 'ಹಿಂದಿನವು';
+
+  @override
+  String get alerts_mark_all => 'ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ';
+
+  @override
+  String get alerts_empty =>
+      'ಯಾವುದೇ ಎಚ್ಚರಿಕೆಗಳಿಲ್ಲ. ಅವಧಿ ಮುಗಿಯುವ ನೆನಪುಗಳು ಮತ್ತು ಕಂಪನಿಗಳ ಅಪ್‌ಡೇಟ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.';
+
+  @override
+  String get alerts_offline =>
+      'ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಎಚ್ಚರಿಕೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ.';
+
+  @override
+  String alert_expiring(String purpose, String company, String time) {
+    return '$company ನಲ್ಲಿ $purpose ಗಾಗಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ $time ನಲ್ಲಿ ಮುಗಿಯುತ್ತದೆ';
+  }
+
+  @override
+  String alert_expired(String purpose, String company) {
+    return '$company ನಲ್ಲಿ $purpose ಗಾಗಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಮುಗಿದಿದೆ';
+  }
+
+  @override
+  String alert_renewal(String company, String purpose) {
+    return '$company ನಿಮ್ಮನ್ನು $purpose ಗಾಗಿ ಒಪ್ಪಿಗೆಯನ್ನು ನವೀಕರಿಸಲು ಕೇಳುತ್ತದೆ';
+  }
+
+  @override
+  String alert_erased_withdrawn(String company, String purpose) {
+    return 'ನೀವು ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆದ ನಂತರ $company $purpose ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ';
+  }
+
+  @override
+  String alert_erased_expired(String company, String purpose) {
+    return 'ಒಪ್ಪಿಗೆ ಮುಗಿದ ನಂತರ $company $purpose ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ';
+  }
+
+  @override
+  String alert_cascade(String processor, String purpose) {
+    return '$processor $purpose ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾ ಬಳಕೆಯನ್ನು ನಿಲ್ಲಿಸಿದೆ ಎಂದು ದೃಢಪಡಿಸಿದೆ';
+  }
+
+  @override
+  String get alert_renew => 'ನವೀಕರಿಸಿ';
+
+  @override
+  String get alert_let_expire => 'ಮುಗಿಯಲು ಬಿಡಿ';
+
+  @override
+  String get alert_view_proof => 'ಪುರಾವೆ ನೋಡಿ';
+
+  @override
+  String get alert_let_expire_done => 'ಸರಿ. ಈ ಒಪ್ಪಿಗೆ ತಾನಾಗಿಯೇ ಮುಗಿಯುತ್ತದೆ.';
+
+  @override
+  String get alert_renew_failed => 'ನವೀಕರಣ ತೆರೆಯಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get alert_state_renewed => 'ನವೀಕರಿಸಲಾಗಿದೆ';
+
+  @override
+  String get alert_state_left => 'ಮುಗಿಯಲು ಬಿಡಲಾಗಿದೆ';
+
+  @override
+  String duration_days(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ದಿನಗಳು',
+      one: '1 ದಿನ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_hours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ಗಂಟೆಗಳು',
+      one: '1 ಗಂಟೆ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_minutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ನಿಮಿಷಗಳು',
+      one: '1 ನಿಮಿಷ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_seconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ಸೆಕೆಂಡುಗಳು',
+      one: '1 ಸೆಕೆಂಡ್',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get expiry_demo => '2 ನಿಮಿಷಗಳು (ಡೆಮೊ)';
+
+  @override
+  String get notif_expiring_title => 'ಒಪ್ಪಿಗೆ ಶೀಘ್ರದಲ್ಲಿ ಮುಗಿಯಲಿದೆ';
+
+  @override
+  String get notif_expired_title => 'ಒಪ್ಪಿಗೆ ಮುಗಿದಿದೆ';
+
+  @override
+  String get notif_renewal_title => 'ನವೀಕರಣದ ವಿನಂತಿ';
+
+  @override
+  String get notif_erased_title => 'ನಿಮ್ಮ ಡೇಟಾ ಅಳಿಸಲಾಗಿದೆ';
+
+  @override
+  String get notif_cascade_title => 'ಕಂಪನಿ ದೃಢಪಡಿಸಿದೆ';
+
+  @override
+  String get notif_channel => 'ಒಪ್ಪಿಗೆ ಎಚ್ಚರಿಕೆಗಳು';
+
+  @override
+  String alert_ago(String time) {
+    return '$time ಹಿಂದೆ';
+  }
 }

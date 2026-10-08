@@ -420,6 +420,7 @@ Requests inbox (W11) and Sammati ID (W12), same status as above. `{company}`, `{
 | alert_erased_withdrawn | {company} erased your data for {purpose} after you withdrew consent | आपके सहमति वापस लेने के बाद {company} ने {purpose} का आपका डेटा मिटा दिया | ನೀವು ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆದ ನಂತರ {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ |
 | alert_erased_expired | {company} erased your data for {purpose} after consent expired | सहमति समाप्त होने के बाद {company} ने {purpose} का आपका डेटा मिटा दिया | ಒಪ್ಪಿಗೆ ಮುಗಿದ ನಂತರ {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ |
 | alert_cascade | {processor} confirmed it stopped using your data for {purpose} | {processor} ने पुष्टि की कि उसने {purpose} के लिए आपके डेटा का उपयोग बंद कर दिया है | {processor} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾ ಬಳಕೆಯನ್ನು ನಿಲ್ಲಿಸಿದೆ ಎಂದು ದೃಢಪಡಿಸಿದೆ |
+| alert_ago | {time} ago | {time} पहले | {time} ಹಿಂದೆ |
 | alert_renew | Renew | नवीनीकृत करें | ನವೀಕರಿಸಿ |
 | alert_let_expire | Let expire | समाप्त होने दें | ಮುಗಿಯಲು ಬಿಡಿ |
 | alert_view_proof | View proof | प्रमाण देखें | ಪುರಾವೆ ನೋಡಿ |

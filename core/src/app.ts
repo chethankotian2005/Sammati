@@ -5,6 +5,7 @@ import type { Ctx } from "./context";
 import { errorHandler, notFoundHandler } from "./errors";
 import type { RealCore } from "./real/core";
 import { realRoutes } from "./real/routes";
+import { notificationRoutes } from "./real/notification-routes";
 import { targetedRoutes } from "./real/targeted-routes";
 import { auditRoutes } from "./routes/audit";
 import { companyRoutes } from "./routes/company";
@@ -59,6 +60,6 @@ export function createApp(ctx: Ctx): Express {
 /** Real mode: SQLite, the chain and a relayer behind the same routes. */
 export function createRealApp(core: RealCore): Express {
   const app = baseApp(core.config);
-  app.use("/v1", realRoutes(core), vaultRoutes(core), targetedRoutes(core));
+  app.use("/v1", realRoutes(core), vaultRoutes(core), targetedRoutes(core), notificationRoutes(core));
   return finish(app);
 }

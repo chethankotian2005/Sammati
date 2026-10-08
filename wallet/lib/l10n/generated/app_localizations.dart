@@ -1130,6 +1130,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm to register your Sammati ID'**
   String get auth_reason_id;
+
+  /// No description provided for @nav_alerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get nav_alerts;
+
+  /// No description provided for @alerts_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get alerts_title;
+
+  /// No description provided for @alerts_unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread alerts'**
+  String get alerts_unread;
+
+  /// No description provided for @alerts_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get alerts_today;
+
+  /// No description provided for @alerts_earlier.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get alerts_earlier;
+
+  /// No description provided for @alerts_mark_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all as read'**
+  String get alerts_mark_all;
+
+  /// No description provided for @alerts_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No alerts. Expiry reminders and updates from companies will appear here.'**
+  String get alerts_empty;
+
+  /// No description provided for @alerts_offline.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Showing last known alerts.'**
+  String get alerts_offline;
+
+  /// No description provided for @alert_expiring.
+  ///
+  /// In en, this message translates to:
+  /// **'Your consent for {purpose} at {company} expires in {time}'**
+  String alert_expiring(String purpose, String company, String time);
+
+  /// No description provided for @alert_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your consent for {purpose} at {company} has expired'**
+  String alert_expired(String purpose, String company);
+
+  /// No description provided for @alert_renewal.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} asks you to renew your consent for {purpose}'**
+  String alert_renewal(String company, String purpose);
+
+  /// No description provided for @alert_erased_withdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} erased your data for {purpose} after you withdrew consent'**
+  String alert_erased_withdrawn(String company, String purpose);
+
+  /// No description provided for @alert_erased_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} erased your data for {purpose} after consent expired'**
+  String alert_erased_expired(String company, String purpose);
+
+  /// No description provided for @alert_cascade.
+  ///
+  /// In en, this message translates to:
+  /// **'{processor} confirmed it stopped using your data for {purpose}'**
+  String alert_cascade(String processor, String purpose);
+
+  /// No description provided for @alert_renew.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew'**
+  String get alert_renew;
+
+  /// No description provided for @alert_let_expire.
+  ///
+  /// In en, this message translates to:
+  /// **'Let expire'**
+  String get alert_let_expire;
+
+  /// No description provided for @alert_view_proof.
+  ///
+  /// In en, this message translates to:
+  /// **'View proof'**
+  String get alert_view_proof;
+
+  /// No description provided for @alert_let_expire_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Okay. This consent will expire on its own.'**
+  String get alert_let_expire_done;
+
+  /// No description provided for @alert_renew_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the renewal. Try again.'**
+  String get alert_renew_failed;
+
+  /// No description provided for @alert_state_renewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Renewed'**
+  String get alert_state_renewed;
+
+  /// No description provided for @alert_state_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left to expire'**
+  String get alert_state_left;
+
+  /// No description provided for @duration_days.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String duration_days(int count);
+
+  /// No description provided for @duration_hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour} other{{count} hours}}'**
+  String duration_hours(int count);
+
+  /// No description provided for @duration_minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
+  String duration_minutes(int count);
+
+  /// No description provided for @duration_seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 second} other{{count} seconds}}'**
+  String duration_seconds(int count);
+
+  /// No description provided for @expiry_demo.
+  ///
+  /// In en, this message translates to:
+  /// **'2 minutes (demo)'**
+  String get expiry_demo;
+
+  /// No description provided for @notif_expiring_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent expiring soon'**
+  String get notif_expiring_title;
+
+  /// No description provided for @notif_expired_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent expired'**
+  String get notif_expired_title;
+
+  /// No description provided for @notif_renewal_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Renewal requested'**
+  String get notif_renewal_title;
+
+  /// No description provided for @notif_erased_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data was erased'**
+  String get notif_erased_title;
+
+  /// No description provided for @notif_cascade_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Company confirmed'**
+  String get notif_cascade_title;
+
+  /// No description provided for @notif_channel.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent alerts'**
+  String get notif_channel;
+
+  /// No description provided for @alert_ago.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} ago'**
+  String alert_ago(String time);
 }
 
 class _AppLocalizationsDelegate

@@ -652,4 +652,148 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get auth_reason_id => 'अपनी Sammati ID पंजीकृत करने की पुष्टि करें';
+
+  @override
+  String get nav_alerts => 'अलर्ट';
+
+  @override
+  String get alerts_title => 'अलर्ट';
+
+  @override
+  String get alerts_unread => 'अपठित अलर्ट';
+
+  @override
+  String get alerts_today => 'आज';
+
+  @override
+  String get alerts_earlier => 'पहले';
+
+  @override
+  String get alerts_mark_all => 'सभी को पढ़ा हुआ मानें';
+
+  @override
+  String get alerts_empty =>
+      'कोई अलर्ट नहीं। समाप्ति की याद दिलाने वाले संदेश और कंपनियों के अपडेट यहाँ दिखेंगे।';
+
+  @override
+  String get alerts_offline =>
+      'कनेक्शन नहीं है। पिछले ज्ञात अलर्ट दिख रहे हैं।';
+
+  @override
+  String alert_expiring(String purpose, String company, String time) {
+    return '$company में $purpose के लिए आपकी सहमति $time में समाप्त होगी';
+  }
+
+  @override
+  String alert_expired(String purpose, String company) {
+    return '$company में $purpose के लिए आपकी सहमति समाप्त हो गई है';
+  }
+
+  @override
+  String alert_renewal(String company, String purpose) {
+    return '$company आपसे $purpose के लिए सहमति नवीनीकृत करने को कहती है';
+  }
+
+  @override
+  String alert_erased_withdrawn(String company, String purpose) {
+    return 'आपके सहमति वापस लेने के बाद $company ने $purpose का आपका डेटा मिटा दिया';
+  }
+
+  @override
+  String alert_erased_expired(String company, String purpose) {
+    return 'सहमति समाप्त होने के बाद $company ने $purpose का आपका डेटा मिटा दिया';
+  }
+
+  @override
+  String alert_cascade(String processor, String purpose) {
+    return '$processor ने पुष्टि की कि उसने $purpose के लिए आपके डेटा का उपयोग बंद कर दिया है';
+  }
+
+  @override
+  String get alert_renew => 'नवीनीकृत करें';
+
+  @override
+  String get alert_let_expire => 'समाप्त होने दें';
+
+  @override
+  String get alert_view_proof => 'प्रमाण देखें';
+
+  @override
+  String get alert_let_expire_done =>
+      'ठीक है। यह सहमति अपने आप समाप्त हो जाएगी।';
+
+  @override
+  String get alert_renew_failed => 'नवीनीकरण नहीं खुल सका। फिर कोशिश करें।';
+
+  @override
+  String get alert_state_renewed => 'नवीनीकृत';
+
+  @override
+  String get alert_state_left => 'समाप्त होने दिया';
+
+  @override
+  String duration_days(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count दिन',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_hours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count घंटे',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_minutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count मिनट',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_seconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count सेकंड',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get expiry_demo => '2 मिनट (डेमो)';
+
+  @override
+  String get notif_expiring_title => 'सहमति जल्द समाप्त होगी';
+
+  @override
+  String get notif_expired_title => 'सहमति समाप्त हो गई';
+
+  @override
+  String get notif_renewal_title => 'नवीनीकरण का अनुरोध';
+
+  @override
+  String get notif_erased_title => 'आपका डेटा मिटा दिया गया';
+
+  @override
+  String get notif_cascade_title => 'कंपनी ने पुष्टि की';
+
+  @override
+  String get notif_channel => 'सहमति अलर्ट';
+
+  @override
+  String alert_ago(String time) {
+    return '$time पहले';
+  }
 }

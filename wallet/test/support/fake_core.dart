@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:eth_sig_util/eth_sig_util.dart';
 import 'package:sammati/core/activity.dart';
+import 'package:sammati/core/alerts.dart';
 import 'package:sammati/core/consents.dart';
 import 'package:sammati/core/core_api.dart';
 import 'package:sammati/core/eip712.dart';
@@ -188,6 +189,50 @@ class FakeCoreApi implements CoreApi {
     }
   }
 
+  // --- Alerts and renewal (N-03 to N-05) ---
+  List<AlertItem> alerts = [];
+  List<int> alertThresholds = [259200, 86400];
+  bool alertsFastExpiry = false;
+  Object? alertsError;
+  int alertFetches = 0;
+  final List<({String id, bool read, AlertAction? action})> alertUpdates = [];
+  int markAllCalls = 0;
+  final List<({String fiduciary, String purposeCode})> renewals = [];
+  Object? renewalError;
+  String renewalRequestId = 'req_renew001';
+
+  @override
+  Future<AlertsSnapshot> getAlerts(String principal) async {
+    alertFetches++;
+    final e = alertsError;
+    if (e != null) throw e;
+    return AlertsSnapshot(items: List.of(alerts), thresholdsSeconds: alertThresholds, fastExpiry: alertsFastExpiry);
+  }
+
+  @override
+  Future<void> markAllAlertsRead(String principal) async {
+    markAllCalls++;
+    alerts = [for (final a in alerts) a.unread ? a.copyWith(readAt: 1760000000) : a];
+  }
+
+  @override
+  Future<AlertItem> updateAlert(String principal, String id, {bool read = false, AlertAction? action}) async {
+    alertUpdates.add((id: id, read: read, action: action));
+    final e = actionError;
+    if (e != null) throw e;
+    final updated = alerts.firstWhere((a) => a.id == id).copyWith(readAt: read ? 1760000000 : null, actionTaken: action);
+    alerts = [for (final a in alerts) a.id == id ? updated : a];
+    return updated;
+  }
+
+  @override
+  Future<String> openRenewal({required String principal, required String fiduciary, required String purposeCode}) async {
+    final e = renewalError;
+    if (e != null) throw e;
+    renewals.add((fiduciary: fiduciary, purposeCode: purposeCode));
+    return renewalRequestId;
+  }
+
   /// Where the Processor is, as Core would say (trd.md §6.1).
   String processorUrl = 'http://processor.test:4200';
   Object? processorUrlError;
@@ -334,6 +379,7 @@ class FakeLiveEvents implements LiveEvents {
   final _cascade = StreamController<CascadeAck>.broadcast();
   final _vault = StreamController<VaultNotice>.broadcast();
   final _requests = StreamController<ConsentRequested>.broadcast();
+  final _alerts = StreamController<AlertItem>.broadcast();
   bool disposed = false;
 
   @override
@@ -357,6 +403,11 @@ class FakeLiveEvents implements LiveEvents {
   Stream<ConsentRequested> get requestEvents => _requests.stream;
 
   void emitRequested(ConsentRequested event) => _requests.add(event);
+
+  @override
+  Stream<AlertItem> get alertEvents => _alerts.stream;
+
+  void emitAlert(AlertItem item) => _alerts.add(item);
 
   void emitAccess(ActivityItem item) => _access.add(item);
   void emit(ConsentUpdated event) => _updates.add(event);

@@ -105,7 +105,8 @@ function keyMatches(given: string | undefined, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function vaultRoutes(deps: { config: Config; publish: (event: WsEvent) => void }): Router {
+/** `onVaultEvent` is real mode's hook (erasures become alerts); the stub has nothing to keep them in. */
+export function vaultRoutes(deps: { config: Config; publish: (event: WsEvent) => void; onVaultEvent?: (event: VaultEvent) => void }): Router {
   const r = Router();
 
   r.get("/processor", (_req, res) => {
@@ -116,7 +117,9 @@ export function vaultRoutes(deps: { config: Config; publish: (event: WsEvent) =>
     if (!keyMatches(req.header("x-sammati-processor-key"), deps.config.processorEventKey)) {
       throw new HttpError(401, "UNAUTHORIZED", "A valid x-sammati-processor-key is required");
     }
-    deps.publish(parseVaultEvent(req.body));
+    const event = parseVaultEvent(req.body);
+    deps.publish(event);
+    deps.onVaultEvent?.(event);
     res.status(202).json({ ok: true });
   });
 

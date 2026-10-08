@@ -333,6 +333,12 @@ export class Repo {
     return r?.customer_alias ?? null;
   }
 
+  /** The company's own alias for the customer behind this consent, if it has one (renewals reuse it). */
+  aliasOfConsent(principal: Hex, fiduciary: Hex, purposeId: Hex): string | null {
+    const c = this.cachedConsent(addr(principal), addr(fiduciary), purposeId);
+    return c ? this.aliasFor(addr(fiduciary), c.noticeHash, addr(principal)) : null;
+  }
+
   consentRows(f: FiduciaryRow): ConsentRow[] {
     const rows = this.db.prepare("SELECT * FROM consents_cache WHERE fiduciary = ? ORDER BY updated_at DESC").all(f.address) as Row[];
     return rows.map((r) => {

@@ -143,7 +143,7 @@ export class TargetedRequests {
     const blocked = this.db.prepare("SELECT 1 FROM blocks WHERE principal = ? AND fiduciary = ?").get(target, company) !== undefined;
     const open = (
       this.db
-        .prepare("SELECT COUNT(*) AS n FROM request_targets WHERE principal = ? AND fiduciary = ? AND status IN ('sent','seen') AND expires_at > ?")
+        .prepare("SELECT COUNT(*) AS n FROM request_targets WHERE principal = ? AND fiduciary = ? AND kind <> 'self_renewal' AND status IN ('sent','seen') AND expires_at > ?")
         .get(target, company, created) as { n: number }
     ).n;
     const deliver = target !== null && !blocked && open < this.config.maxOpenRequestsPerUser;
@@ -152,19 +152,22 @@ export class TargetedRequests {
       .prepare("INSERT INTO request_targets (request_id, fiduciary, principal, message, status, created_at, expires_at) VALUES (?, ?, ?, ?, 'sent', ?, ?)")
       .run(requestId, company, deliver ? target : null, message, created, expiresAt);
 
-    if (deliver) {
-      this.publish({
-        event: "consent.requested",
-        principal: target,
-        requestId,
-        fiduciary: f.address,
-        fiduciaryName: f.name,
-        purposeCodes,
-        message,
-        expiresAt,
-        at: created,
-      });
-    }
+    if (deliver) this.publishRequested({ requestId, principal: target, f, purposeCodes, message, expiresAt });
+  }
+
+  /** Tells the customer's wallet to refetch its inbox: used for targeted requests and for a company's renewal request. */
+  publishRequested(r: { requestId: string; principal: Hex; f: FiduciaryRow; purposeCodes: string[]; message: string | null; expiresAt: number }): void {
+    this.publish({
+      event: "consent.requested",
+      principal: lc(r.principal) as Hex,
+      requestId: r.requestId,
+      fiduciary: r.f.address,
+      fiduciaryName: r.f.name,
+      purposeCodes: r.purposeCodes,
+      message: r.message,
+      expiresAt: r.expiresAt,
+      at: this.clock(),
+    });
   }
 
   // ------------------------------------------------------------ reading
@@ -194,7 +197,7 @@ export class TargetedRequests {
     const rows = this.db
       .prepare(
         `SELECT t.*, r.customer_alias AS alias, r.purposes AS purposes FROM request_targets t JOIN requests r ON r.id = t.request_id
-         WHERE t.fiduciary = ? ORDER BY t.created_at DESC, t.rowid DESC`,
+         WHERE t.fiduciary = ? AND t.kind = 'targeted' ORDER BY t.created_at DESC, t.rowid DESC`,
       )
       .all(lc(f.address)) as Row[];
     return rows.map((r) => this.rowFor(f, r));
@@ -224,7 +227,7 @@ export class TargetedRequests {
     const rows = this.db
       .prepare(
         `SELECT t.*, r.purposes AS purposes FROM request_targets t JOIN requests r ON r.id = t.request_id
-         WHERE t.principal = ? AND t.status IN ('sent','seen') AND t.expires_at > ?
+         WHERE t.principal = ? AND t.kind <> 'self_renewal' AND t.status IN ('sent','seen') AND t.expires_at > ?
            AND NOT EXISTS (SELECT 1 FROM blocks b WHERE b.principal = t.principal AND b.fiduciary = t.fiduciary)
          ORDER BY t.created_at DESC, t.rowid DESC`,
       )
@@ -332,6 +335,9 @@ export class TargetedRequests {
   }
 
   private announce(fiduciary: string, requestId: string, status: TargetedStatus): void {
+    // A request the customer opened on their own behalf is not one the company knows about.
+    const kind = (this.db.prepare("SELECT kind FROM request_targets WHERE request_id = ?").get(requestId) as { kind: string } | undefined)?.kind;
+    if (kind === "self_renewal") return;
     this.publish({ event: "request.updated", fiduciary: fiduciary as Hex, requestId, status, at: this.clock() });
   }
 }

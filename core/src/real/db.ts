@@ -116,8 +116,23 @@ CREATE TABLE IF NOT EXISTS request_targets (
   message TEXT,
   status TEXT NOT NULL,
   created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
-  seen_at INTEGER, decided_at INTEGER
+  seen_at INTEGER, decided_at INTEGER,
+  kind TEXT NOT NULL DEFAULT 'targeted'
 );
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  dedupe_key TEXT NOT NULL UNIQUE,
+  principal TEXT NOT NULL,
+  type TEXT NOT NULL,
+  fiduciary TEXT NOT NULL,
+  purpose_id TEXT,
+  payload TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  read_at INTEGER,
+  action_taken TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_principal ON notifications (principal, created_at);
 
 CREATE TABLE IF NOT EXISTS blocks (
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL, blocked_at INTEGER NOT NULL,
@@ -143,6 +158,7 @@ const CHAIN_DERIVED = ["ledger_events", "consents_cache", "anchor_batches", "cas
 const ALL_TABLES = [
   ...CHAIN_DERIVED,
   "access_logs",
+  "notifications",
   "request_targets",
   "blocks",
   "identities",
@@ -159,6 +175,9 @@ export function openDb(path: string): Db {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA);
+  // A database made before renewals existed has no `kind`: add it rather than lose the file.
+  const columns = db.prepare("PRAGMA table_info(request_targets)").all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === "kind")) db.exec("ALTER TABLE request_targets ADD COLUMN kind TEXT NOT NULL DEFAULT 'targeted'");
   return db;
 }
 

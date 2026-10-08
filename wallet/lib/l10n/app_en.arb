@@ -236,7 +236,6 @@
     }
   },
   "offline_activity_banner": "No connection. Showing last known activity.",
-
   "proof_headline": "This access was recorded and locked on the ledger.",
   "proof_record_hash": "Record hash",
   "proof_batch_anchor": "Batch anchor",
@@ -249,7 +248,6 @@
   "proof_consent_tx": "Transaction",
   "proof_loading": "Loading proof…",
   "proof_failed": "Could not load proof. Try again.",
-
   "cascade_title": "Also told",
   "cascade_waiting": "Waiting…",
   "cascade_acked": "{n} s ago",
@@ -260,7 +258,6 @@
       }
     }
   },
-
   "vault_profile_title": "My demo details",
   "vault_profile_note": "Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.",
   "vault_pan": "PAN",
@@ -289,7 +286,6 @@
   "vault_erased": "Your encrypted details were erased.",
   "vault_failed": "Could not send securely. Try again.",
   "auth_reason_vault": "Confirm to send your details securely",
-
   "share_title": "Share your details securely",
   "share_intro": "{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.",
   "@share_intro": {
@@ -314,7 +310,6 @@
   "emp_student": "Student",
   "emp_unemployed": "Not employed",
   "share_cta": "Share your details securely",
-
   "inbox_title": "Requests",
   "inbox_badge_label": "{count, plural, =1{1 request} other{{count} requests}}",
   "@inbox_badge_label": {
@@ -395,5 +390,136 @@
       }
     }
   },
-  "auth_reason_id": "Confirm to register your Sammati ID"
+  "auth_reason_id": "Confirm to register your Sammati ID",
+  "nav_alerts": "Alerts",
+  "alerts_title": "Alerts",
+  "alerts_unread": "Unread alerts",
+  "alerts_today": "Today",
+  "alerts_earlier": "Earlier",
+  "alerts_mark_all": "Mark all as read",
+  "alerts_empty": "No alerts. Expiry reminders and updates from companies will appear here.",
+  "alerts_offline": "No connection. Showing last known alerts.",
+  "alert_expiring": "Your consent for {purpose} at {company} expires in {time}",
+  "@alert_expiring": {
+    "placeholders": {
+      "purpose": {
+        "type": "String"
+      },
+      "company": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_expired": "Your consent for {purpose} at {company} has expired",
+  "@alert_expired": {
+    "placeholders": {
+      "purpose": {
+        "type": "String"
+      },
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_renewal": "{company} asks you to renew your consent for {purpose}",
+  "@alert_renewal": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_erased_withdrawn": "{company} erased your data for {purpose} after you withdrew consent",
+  "@alert_erased_withdrawn": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_erased_expired": "{company} erased your data for {purpose} after consent expired",
+  "@alert_erased_expired": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_cascade": "{processor} confirmed it stopped using your data for {purpose}",
+  "@alert_cascade": {
+    "placeholders": {
+      "processor": {
+        "type": "String"
+      },
+      "purpose": {
+        "type": "String"
+      }
+    }
+  },
+  "alert_renew": "Renew",
+  "alert_let_expire": "Let expire",
+  "alert_view_proof": "View proof",
+  "alert_let_expire_done": "Okay. This consent will expire on its own.",
+  "alert_renew_failed": "Could not open the renewal. Try again.",
+  "alert_state_renewed": "Renewed",
+  "alert_state_left": "Left to expire",
+  "duration_days": "{count, plural, =1{1 day} other{{count} days}}",
+  "@duration_days": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duration_hours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@duration_hours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duration_minutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@duration_minutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duration_seconds": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@duration_seconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "expiry_demo": "2 minutes (demo)",
+  "notif_expiring_title": "Consent expiring soon",
+  "notif_expired_title": "Consent expired",
+  "notif_renewal_title": "Renewal requested",
+  "notif_erased_title": "Your data was erased",
+  "notif_cascade_title": "Company confirmed",
+  "notif_channel": "Consent alerts",
+  "alert_ago": "{time} ago",
+  "@alert_ago": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

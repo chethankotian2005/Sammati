@@ -657,4 +657,151 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auth_reason_id => 'Confirm to register your Sammati ID';
+
+  @override
+  String get nav_alerts => 'Alerts';
+
+  @override
+  String get alerts_title => 'Alerts';
+
+  @override
+  String get alerts_unread => 'Unread alerts';
+
+  @override
+  String get alerts_today => 'Today';
+
+  @override
+  String get alerts_earlier => 'Earlier';
+
+  @override
+  String get alerts_mark_all => 'Mark all as read';
+
+  @override
+  String get alerts_empty =>
+      'No alerts. Expiry reminders and updates from companies will appear here.';
+
+  @override
+  String get alerts_offline => 'No connection. Showing last known alerts.';
+
+  @override
+  String alert_expiring(String purpose, String company, String time) {
+    return 'Your consent for $purpose at $company expires in $time';
+  }
+
+  @override
+  String alert_expired(String purpose, String company) {
+    return 'Your consent for $purpose at $company has expired';
+  }
+
+  @override
+  String alert_renewal(String company, String purpose) {
+    return '$company asks you to renew your consent for $purpose';
+  }
+
+  @override
+  String alert_erased_withdrawn(String company, String purpose) {
+    return '$company erased your data for $purpose after you withdrew consent';
+  }
+
+  @override
+  String alert_erased_expired(String company, String purpose) {
+    return '$company erased your data for $purpose after consent expired';
+  }
+
+  @override
+  String alert_cascade(String processor, String purpose) {
+    return '$processor confirmed it stopped using your data for $purpose';
+  }
+
+  @override
+  String get alert_renew => 'Renew';
+
+  @override
+  String get alert_let_expire => 'Let expire';
+
+  @override
+  String get alert_view_proof => 'View proof';
+
+  @override
+  String get alert_let_expire_done =>
+      'Okay. This consent will expire on its own.';
+
+  @override
+  String get alert_renew_failed => 'Could not open the renewal. Try again.';
+
+  @override
+  String get alert_state_renewed => 'Renewed';
+
+  @override
+  String get alert_state_left => 'Left to expire';
+
+  @override
+  String duration_days(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_hours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hours',
+      one: '1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_minutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String duration_seconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seconds',
+      one: '1 second',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get expiry_demo => '2 minutes (demo)';
+
+  @override
+  String get notif_expiring_title => 'Consent expiring soon';
+
+  @override
+  String get notif_expired_title => 'Consent expired';
+
+  @override
+  String get notif_renewal_title => 'Renewal requested';
+
+  @override
+  String get notif_erased_title => 'Your data was erased';
+
+  @override
+  String get notif_cascade_title => 'Company confirmed';
+
+  @override
+  String get notif_channel => 'Consent alerts';
+
+  @override
+  String alert_ago(String time) {
+    return '$time ago';
+  }
 }

@@ -32,8 +32,12 @@ import {
   type FiduciaryConsentsResponse,
   type FiduciaryPurposesResponse,
   type GrantResponse,
+  type ExpiringResponse,
   type HealthResponse,
   type InboxResponse,
+  type NotificationEvent,
+  type NotificationItem,
+  type NotificationsResponse,
   type PrincipalConsentsResponse,
   type RequestNotice,
   type RightsRequest,
@@ -69,6 +73,12 @@ const MARKETING_ID = purposeIdOf(FID, GRANTED);
 const GRANTED_LOAN = "credit_check";
 const CREDIT_ID = purposeIdOf(FID, GRANTED_LOAN); // the purpose behind the confidential-processing acts
 const PLAINTEXT = DEMO_PROFILE.pan; // what must appear nowhere but the wallet and the Processor's memory (prd.md V-05)
+
+/** The notification inside a notification event (the event name is the notification's type). */
+const noteOf = (e: WsEvent): NotificationItem => (e as NotificationEvent).notification;
+
+/** A freshly made wallet (ethers calls it an HDNodeWallet). */
+type Signer = ReturnType<typeof Wallet.createRandom>;
 
 class E2eError extends Error {}
 const fail = (message: string): never => {
@@ -189,7 +199,17 @@ async function ensureStack(): Promise<"reused" | "started"> {
   removeDb();
   stack.child = spawn(process.execPath, [join(repoRoot, "scripts/demo-up.mjs")], {
     cwd: repoRoot,
-    env: { ...process.env, DB_PATH: stack.dbFile, PROCESSOR_DB_PATH: stack.vaultFile },
+    env: {
+      ...process.env,
+      DB_PATH: stack.dbFile,
+      PROCESSOR_DB_PATH: stack.vaultFile,
+      // Seconds, not days, so expiry and the grace period fit in the run (trd.md §6.12); anything set in the environment wins.
+      DEMO_FAST_EXPIRY: "1",
+      EXPIRY_THRESHOLDS_SECONDS: process.env.EXPIRY_THRESHOLDS_SECONDS ?? "5,2",
+      EXPIRY_TICK_MS: process.env.EXPIRY_TICK_MS ?? "500",
+      EXPIRY_ERASURE_GRACE_SECONDS: process.env.EXPIRY_ERASURE_GRACE_SECONDS ?? "12",
+      PROCESSOR_SWEEP_MS: process.env.PROCESSOR_SWEEP_MS ?? "500",
+    },
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -759,6 +779,157 @@ async function main(): Promise<void> {
       expectEqual(bad.map((b) => b.firstBadSeq), [tampered.seq], "the failing batch names the row");
       check(bad[0]!.recomputedRoot !== bad[0]!.anchoredRoot, "the failing batch's root should differ from the anchored one");
     });
+
+    // --- expiry, renewal and the notification centre (prd.md N-03 to N-05) ---
+    // Needs the stack in DEMO_FAST_EXPIRY (seconds, not days): a stack started here is; one that was already running may not be.
+
+    const fastExpiry = (await call<NotificationsResponse>("GET", `/v1/principals/${Wallet.createRandom().address}/notifications`)).config;
+    if (!fastExpiry.fastExpiry || (fastExpiry.thresholdsSeconds[0] ?? Infinity) > 10) {
+      console.log("  - SKIPPED expiry, renewal and notifications: the stack that was already running is not in DEMO_FAST_EXPIRY. Stop it, or run `pnpm demo:up:fast`, or let `pnpm e2e` start its own.");
+    } else {
+      const LIFE = (fastExpiry.thresholdsSeconds[0] ?? 5) + 4; // seconds the short consents last: the first reminder, then the rest of the way
+      const alerts = new Map<string, WsEvent[]>();
+      const sockets: WebSocket[] = [];
+      const listen = async (who: Signer) => {
+        const got: WsEvent[] = [];
+        alerts.set(who.address, got);
+        const ws = new WebSocket(CORE.replace(/^http/, "ws") + "/ws");
+        ws.on("message", (frame) => got.push(JSON.parse(frame.toString()) as WsEvent));
+        await new Promise<void>((ok, bad) => {
+          ws.once("open", () => ok());
+          ws.once("error", bad);
+        });
+        ws.send(JSON.stringify({ sub: [`principal:${who.address}`] }));
+        sockets.push(ws);
+      };
+      const heard = (who: Signer, name: WsEvent["event"]) => (alerts.get(who.address) ?? []).filter((e) => e.event === name);
+      const listOf = async (who: Signer) => (await call<NotificationsResponse>("GET", `/v1/principals/${who.address}/notifications`)).notifications.reverse();
+      const fireFor = (who: Signer, action?: "loan_decision") =>
+        call<DemoFireResponse>("POST", "/v1/demo/fire", { fiduciary: FID, purposeCode: GRANTED_LOAN, principal: who.address, ...(action ? { action } : {}) });
+
+      const bea = Wallet.createRandom(); // renews
+      const cy = Wallet.createRandom(); // lets it lapse, and had sent details
+      let cyHandle = "";
+      let grantedAt = 0;
+
+      try {
+        await step(`expiry: two customers consent for ${LIFE} seconds; one sends details to the Processor`, async () => {
+          await Promise.all([listen(bea), listen(cy)]);
+          const grantFor = async (who: Signer, seconds: number) => {
+            const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes: [GRANTED_LOAN], customerAlias: "E2E expiry" });
+            const n = await call<RequestNotice>("GET", `/v1/requests/${created.requestId}?principal=${who.address}`);
+            const message = { principal: who.address, fiduciary: FID, purposeId: CREDIT_ID, expiresAt: Math.floor(Date.now() / 1000) + seconds, noticeHash: n.noticeHash, nonce: n.nonce, deadline: inAnHour() };
+            const signature = await who.signTypedData(n.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
+            expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature })).status, "confirmed", "grant status");
+          };
+          await Promise.all([grantFor(bea, LIFE), grantFor(cy, LIFE)]);
+          grantedAt = Date.now();
+
+          const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
+          const envelope = seal(DEMO_PROFILE, key.publicKey!, { fiduciary: FID, principal: cy.address, purposeCode: GRANTED_LOAN });
+          const requestId = `e2e-cy-${Date.now()}`;
+          const signature = await cy.signMessage(submitMessage(handleOf(envelope), requestId));
+          const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: cy.address, fiduciary: FID, purposeCode: GRANTED_LOAN, envelope, requestId, signature });
+          expectEqual(submit.status, 201, "submit status");
+          cyHandle = submit.json.handle!;
+
+          for (const who of [bea, cy]) {
+            const fired = await fireFor(who);
+            expectEqual([fired.decision, fired.reason], ["ALLOWED", "OK"], "while consent lasts");
+          }
+        });
+
+        await step("expiry: the reminder reaches the wallet, then the expiry; both are in the Alerts list, unread", async () => {
+          const expiring = await until("consent.expiring on the wallet's socket", async () => heard(bea, "consent.expiring")[0], LIFE * 1000);
+          const n = noteOf(expiring);
+          check(fastExpiry.thresholdsSeconds.includes(n.payload.thresholdSeconds ?? -1), `the reminder named an unexpected threshold ${n.payload.thresholdSeconds}`);
+          expectEqual([n.purposeCode, n.fiduciary.name, n.readAt, n.actionTaken], [GRANTED_LOAN, "QuickLoan", null, null], "the reminder");
+          check(Date.now() - grantedAt < LIFE * 1000, "the reminder came after the consent had already expired");
+
+          await until("consent.expired on the wallet's socket", async () => heard(bea, "consent.expired")[0], LIFE * 1000 + 3000);
+          const mine = await listOf(bea);
+          const types = mine.map((x) => x.type);
+          check(types.includes("consent.expiring") && types.includes("consent.expired"), `the list has ${types}`);
+          expectEqual(heard(bea, "consent.expired").length, 1, "consent.expired is raised once");
+          expectEqual(mine.filter((x) => x.type === "consent.expired").length, 1, "and listed once");
+          const unread = (await call<NotificationsResponse>("GET", `/v1/principals/${bea.address}/notifications`)).unread;
+          expectEqual(unread, mine.length, "everything is unread");
+        });
+
+        await step("expiry: the gateway answers 451 CONSENT_EXPIRED; the Processor refuses too, but keeps the ciphertext through the grace period", async () => {
+          const refused = await until(
+            "the gateway to refuse the expired consent",
+            async () => {
+              const f = await fireFor(bea);
+              return f.decision === "BLOCKED" ? f : undefined;
+            },
+            4000,
+          );
+          expectEqual([refused.decision, refused.reason], ["BLOCKED", "CONSENT_EXPIRED"], "the gateway's answer");
+
+          const apply = await until(
+            "the Processor to refuse the expired consent",
+            async () => {
+              const f = await fireFor(cy, "loan_decision");
+              return f.decision === "BLOCKED" ? f : undefined;
+            },
+            4000,
+          );
+          expectEqual([apply.decision, apply.reason], ["BLOCKED", "CONSENT_EXPIRED"], "the Processor's answer");
+          const kept = (await raw("GET", `${PROCESSOR}/v1/vault/${cyHandle}`)).json;
+          expectEqual(kept.status, "stored", "the vault entry during the grace period");
+          check(typeof kept.envelope?.ciphertext === "string", "the ciphertext should still be there");
+        });
+
+        await step("renewal: the company asks, the wallet is told, Renew opens that request, and the same call is ALLOWED again", async () => {
+          const asked = await api<TargetedRequestResponse>("POST", `/v1/fiduciaries/${FID}/renewals`, { principal: bea.address, purposeCode: GRANTED_LOAN, message: "Please renew" });
+          expectEqual([asked.status, asked.json.status], [201, "sent"], "the company's request");
+
+          const told = await until("consent.renewal_requested on the wallet's socket", async () => heard(bea, "consent.renewal_requested")[0], 2000);
+          expectEqual(noteOf(told).payload.message, "Please renew", "the company's message");
+          check(heard(bea, "consent.requested").length >= 1, "the inbox was not told");
+          expectEqual((await call<InboxResponse>("GET", `/v1/principals/${bea.address}/requests`)).requests.map((r) => r.requestId), [asked.json.requestId], "the wallet's inbox");
+
+          const rowOf = async () => (await call<ExpiringResponse>("GET", `/v1/fiduciaries/${FID}/expiring`)).rows.find((r) => r.principal.toLowerCase() === bea.address.toLowerCase());
+          const table = await rowOf();
+          expectEqual([table?.state, table?.renewal?.status, table?.renewal?.requestId], ["expired", "sent", asked.json.requestId], "the company's Expiring table");
+
+          // Renew in the wallet: the same request the company opened, not a second one
+          const renew = await call<{ requestId: string }>("POST", `/v1/principals/${bea.address}/renewals`, { fiduciary: FID, purposeCode: GRANTED_LOAN });
+          expectEqual(renew.requestId, asked.json.requestId, "Renew opens the company's request");
+          const n = await call<RequestNotice>("GET", `/v1/requests/${renew.requestId}?principal=${bea.address}`);
+          expectEqual(n.purposes.map((p) => p.code), [GRANTED_LOAN], "the notice is for that one purpose");
+          expectEqual((await rowOf())?.renewal?.status, "seen", "the company sees Seen");
+
+          const message = { principal: bea.address, fiduciary: FID, purposeId: CREDIT_ID, expiresAt: inAnHour() + 86_400, noticeHash: n.noticeHash, nonce: n.nonce, deadline: inAnHour() };
+          const signature = await bea.signTypedData(n.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
+          expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature })).status, "confirmed", "the renewal's grant");
+
+          const again = await fireFor(bea);
+          expectEqual([again.decision, again.reason], ["ALLOWED", "OK"], "the same call after Renew");
+          const mine = await listOf(bea);
+          check(mine.length >= 3 && mine.every((x) => x.actionTaken === "renewed"), `every reminder should read as renewed: ${mine.map((x) => `${x.type}:${x.actionTaken}`)}`);
+          await until("Granted on the company's feed", async () => events.find((e) => e.event === "request.updated" && e.requestId === asked.json.requestId && e.status === "granted"), 2000);
+        });
+
+        await step("expiry: the lapsed customer's details are erased after the grace period, and the wallet hears \"data erased\"", async () => {
+          const erased = await until(
+            "the Processor to erase the expired entry",
+            async () => {
+              const v = (await raw("GET", `${PROCESSOR}/v1/vault/${cyHandle}`)).json;
+              return v.status === "erased" ? v : undefined;
+            },
+            20_000,
+          );
+          expectEqual(erased.envelope, null, "no ciphertext once erased");
+          const told = await until("data.erased on the wallet's socket", async () => heard(cy, "data.erased")[0], 3000);
+          expectEqual(noteOf(told).payload.cause, "expired", "why it was erased");
+          expectEqual((await listOf(cy)).filter((x) => x.type === "data.erased").length, 1, "listed once");
+        });
+      } finally {
+        for (const ws of sockets) ws.close();
+      }
+    }
 
     await step("the live feeds saw it all (WebSocket)", async () => {
       await until(

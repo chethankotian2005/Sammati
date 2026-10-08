@@ -36,6 +36,11 @@ const qr = describeQrUrl({ port: process.env.PORT ?? "4000", env: process.env })
 console.log(qr.banner);
 
 const real = !process.argv.includes("--stub");
+// `pnpm demo:up:fast`: consent expiry in seconds, so the demo can show reminders, expiry and erasure live (trd.md §6.12).
+if (process.argv.includes("--fast-expiry")) {
+  process.env.DEMO_FAST_EXPIRY = "1";
+  console.log("DEMO_FAST_EXPIRY is on: the wallet offers a 2-minute expiry; reminders at 60 s and 30 s; erasure 60 s after expiry.");
+}
 // The wallet fetches the Processor's key from the laptop's address too, on its own port (trd.md §10).
 const processorUrl = process.env.PROCESSOR_PUBLIC_URL?.trim() || `${new URL(qr.url).protocol}//${new URL(qr.url).hostname}:${process.env.PROCESSOR_PORT ?? "4200"}`;
 console.log(`The wallet will find the Sammati Processor (simulated enclave) on ${processorUrl}
