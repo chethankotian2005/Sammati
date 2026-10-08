@@ -8,7 +8,7 @@ import { Contract, Wallet } from "ethers";
 import { WebSocket } from "ws";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { sammati, type SammatiGate } from "@sammati/gateway";
-import { GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, ZERO_HASH, chainEntry, noticeHash, purposeIdOf, type ActivityResponse, type AccessLogEntry, type ConsentStateResponse, type CreateRequestResponse, type FiduciaryAccessResponse, type PrincipalConsentsResponse, type RequestNotice, type WsEvent } from "@sammati/shared";
+import { GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, ZERO_HASH, chainEntry, entryFormat, expectedPrevHash, noticeHash, purposeIdOf, type ActivityResponse, type AccessLogEntry, type Hex, type StoredAccessLogEntry, type ConsentStateResponse, type CreateRequestResponse, type FiduciaryAccessResponse, type PrincipalConsentsResponse, type RequestNotice, type WsEvent } from "@sammati/shared";
 import { createRealApp } from "../src/app";
 import type { Config } from "../src/config";
 import type { RealCore } from "../src/real/core";
@@ -105,7 +105,7 @@ beforeAll(async () => {
   socket.send(JSON.stringify({ sub: [`principal:${PRINCIPAL}`, `fiduciary:${QUICKLOAN.address}`] }));
 
   // A company backend guarded by the real SDK (with its live consent feed), pointed at the real Core.
-  gate = sammati({ coreUrl: base, fiduciary: QUICKLOAN.address, apiKey: testApiKey("quickloan"), timeoutMs: 2000, cacheTtlMs: 1000 });
+  gate = sammati({ coreUrl: base, fiduciary: QUICKLOAN.address, apiKey: testApiKey("quickloan"), timeoutMs: 15_000, cacheTtlMs: 1000 });
   const company = express();
   for (const p of QUICKLOAN.purposes) {
     company.get(
@@ -285,26 +285,40 @@ describe("real mode: rejected requests", () => {
 
 describe("real mode: gateway log", () => {
   it("accepts a correctly chained entry and refuses a replayed or forged one", async () => {
-    await gate.flush(); // nothing from the SDK may land between reading the head and posting on top of it
-    const head = (await api<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${QUICKLOAN.address}/access?limit=1`)).json.items[0]!;
-    const entry: AccessLogEntry = {
-      at: Math.floor(Date.now() / 1000),
-      decision: "ALLOWED",
-      endpoint: "GET /guarded/credit_check",
-      fiduciary: QUICKLOAN.address,
-      id: "log-test-1",
-      latencyMs: 3,
-      principal: PRINCIPAL,
-      purposeCode: "marketing",
-      reason: "OK",
-      seq: head.seq + 1,
-    };
-    const chained = chainEntry(head.hash, entry);
-    const row = { ...entry, prevHash: chained.prevHash, hash: chained.hash, batchIndex: null };
-
-    expect((await api("POST", "/v1/gateway/log", row)).status).toBe(201);
+    // Another writer may legitimately append between reading the head and posting (the SDK's own queue, or a request it
+    // timed out on that Core still finished), so a 409 means "read the head again", exactly as the SDK does.
+    let row: StoredAccessLogEntry | null = null;
+    let chainedHash = "" as Hex;
+    for (let attempt = 0; attempt < 5 && !row; attempt++) {
+      await gate.flush();
+      const head = (await api<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${QUICKLOAN.address}/access?limit=1`)).json.items[0]!;
+      const entry: AccessLogEntry = {
+        at: Math.floor(Date.now() / 1000),
+        decision: "ALLOWED",
+        endpoint: "GET /guarded/credit_check",
+        fiduciary: QUICKLOAN.address,
+        id: `log-test-${attempt}`,
+        latencyMs: 3,
+        principal: PRINCIPAL,
+        purposeCode: "marketing",
+        reason: "OK",
+        seq: head.seq + 1,
+        outcome: "", // format 2, like the SDK's entries (drd.md §4.1a)
+        dataCategories: [],
+      };
+      const chained = chainEntry(expectedPrevHash({ hash: head.hash, format: entryFormat(head) }, entryFormat(entry)), entry);
+      const candidate = { ...entry, prevHash: chained.prevHash, hash: chained.hash, batchIndex: null } as StoredAccessLogEntry;
+      const res = await api("POST", "/v1/gateway/log", candidate);
+      if (res.status === 201) {
+        row = candidate;
+        chainedHash = chained.hash;
+      } else {
+        expect(res.status).toBe(409);
+      }
+    }
+    expect(row, "the entry was not accepted in 5 tries").not.toBeNull();
     expect((await api<{ error: { code: string } }>("POST", "/v1/gateway/log", row)).json.error.code).toBe("SEQ_MISMATCH");
-    const forged = { ...row, seq: row.seq + 1, hash: ZERO_HASH, prevHash: chained.hash };
+    const forged = { ...row!, seq: row!.seq + 1, hash: ZERO_HASH, prevHash: chainedHash };
     expect((await api<{ error: { code: string } }>("POST", "/v1/gateway/log", forged)).json.error.code).toBe("BAD_HASH");
   });
 
@@ -446,10 +460,13 @@ describe("real mode: no stale reads", () => {
 describe("real mode: chain reset and outage", () => {
   it("discards what it derived from a chain that was reset", async () => {
     await chain.reset(); // new chain, same addresses, with the test companies registered again: what dev:reset does
-    await core.indexer.syncOnce();
+    // syncOnce returns at once when the background poller is mid-pass, so wait for the outcome, not for the call.
+    await vi.waitFor(async () => {
+      await core.indexer.syncOnce();
+      expect(count("ledger_events", "type = 'purpose'")).toBe(17);
+    }, { timeout: 15_000 });
     expect((await api<PrincipalConsentsResponse>("GET", `/v1/principals/${PRINCIPAL}/consents`)).json.fiduciaries).toEqual([]);
     expect(count("ledger_events", "type IN ('granted','withdrawn')")).toBe(0);
-    expect(count("ledger_events", "type = 'purpose'")).toBe(17);
 
     // the golden path works again from nonce 0
     const n = await quickloanNotice();
