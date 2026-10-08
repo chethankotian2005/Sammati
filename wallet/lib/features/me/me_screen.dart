@@ -49,6 +49,13 @@ class MeScreen extends ConsumerWidget {
                 ),
               ListTile(
                 minTileHeight: 56,
+                leading: const Icon(Icons.badge_outlined),
+                title: Text(t.vault_profile_title),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.demoProfile),
+              ),
+              ListTile(
+                minTileHeight: 56,
                 leading: const Icon(Icons.code),
                 title: Text(t.me_developer),
                 trailing: const Icon(Icons.chevron_right),

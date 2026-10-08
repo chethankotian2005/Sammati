@@ -3,7 +3,7 @@ import { Wallet } from "ethers";
 import { submitMessage, handleOf } from "@sammati/shared/src/envelope";
 import { decideLoan } from "../src/rules";
 import { ApiFailure } from "../src/service";
-import { MC_KEY, MEDICARE, PAN, PROFILE, QL_KEY, QUICKLOAN, rig } from "./rig";
+import { MC_KEY, MEDICARE, PAN, QL_KEY, QUICKLOAN, rig } from "./rig";
 
 const fails = async (p: Promise<unknown>): Promise<ApiFailure> => {
   try {

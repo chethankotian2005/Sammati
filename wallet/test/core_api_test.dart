@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/core_api.dart';
+import 'package:sammati/core/envelope.dart';
+import 'package:sammati/core/processor_api.dart';
 
 import 'support/fake_core.dart';
 
@@ -261,6 +263,72 @@ void main() {
     test('no response is unreachable', () async {
       final adapter = _CannedAdapter(error: (o) => DioException.connectionError(requestOptions: o, reason: 'down'));
       await expectCoreFailure(_apiWith(adapter).getActivity('0xabc'), CoreFailure.unreachable);
+    });
+  });
+
+  group('getProcessorUrl (GET /v1/processor)', () {
+    test('reads the address Core names, without a trailing slash', () async {
+      final adapter = _CannedAdapter(body: {'url': 'http://192.168.1.5:4200/'});
+      expect(await _apiWith(adapter).getProcessorUrl(), 'http://192.168.1.5:4200');
+      expect(adapter.last!.path, '/v1/processor');
+    });
+
+    test('an address that is not http(s) is a server failure', () async {
+      await expectCoreFailure(_apiWith(_CannedAdapter(body: {'url': 'javascript:alert(1)'})).getProcessorUrl(), CoreFailure.server);
+      await expectCoreFailure(_apiWith(_CannedAdapter(body: {'nope': 1})).getProcessorUrl(), CoreFailure.server);
+    });
+  });
+
+  group('DioProcessorApi', () {
+    DioProcessorApi processorWith(_CannedAdapter adapter) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://processor.test:4200', validateStatus: (s) => s != null && s >= 200 && s < 300))
+        ..httpClientAdapter = adapter;
+      return DioProcessorApi('http://processor.test:4200', dio: dio);
+    }
+
+    const key = '0x368bfb005513e4139a8cf639faf29eed6c9ea74abd6150f9b81c512df29dd26e';
+    final envelope = Envelope(ephPub: '0x${'11' * 32}', nonce: '0x${'22' * 12}', ciphertext: '0x${'33' * 5}', tag: '0x${'44' * 16}');
+
+    Future<VaultReceipt> submit(DioProcessorApi api) => api.submit(
+          principal: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          fiduciary: fiduciaryAddress,
+          purposeCode: 'credit_check',
+          envelope: envelope,
+          requestId: 'request-1-0000',
+          signature: '0xsig',
+        );
+
+    test('reads the public key', () async {
+      final adapter = _CannedAdapter(body: {'v': 1, 'alg': 'X25519', 'publicKey': key, 'mode': 'simulated-enclave'});
+      final got = await processorWith(adapter).getPublicKey();
+      expect([got.publicKey, got.mode], [key, 'simulated-enclave']);
+    });
+
+    test('refuses a key that is not 32 bytes of X25519', () async {
+      await expectCoreFailure(processorWith(_CannedAdapter(body: {'alg': 'X25519', 'publicKey': '0x1234'})).getPublicKey(), CoreFailure.server);
+      await expectCoreFailure(processorWith(_CannedAdapter(body: {'alg': 'RSA', 'publicKey': key})).getPublicKey(), CoreFailure.server);
+    });
+
+    test('posts the envelope and the signed request, and reads the handle back', () async {
+      final adapter = _CannedAdapter(status: 201, body: {'handle': '0xaa', 'ciphertextHash': '0xbb'});
+      final got = await submit(processorWith(adapter));
+      expect([got.handle, got.ciphertextHash], ['0xaa', '0xbb']);
+      expect(adapter.last!.path, '/v1/vault/submit');
+      final sent = jsonDecode(adapter.lastBody!) as Map<String, dynamic>;
+      expect(sent.keys.toSet(), {'principal', 'fiduciary', 'purposeCode', 'envelope', 'requestId', 'signature'});
+      expect(sent['envelope'], envelope.toJson());
+    });
+
+    test('a 451 is a refusal carrying the reason code', () async {
+      final adapter = _CannedAdapter(status: 451, body: {'code': 'CONSENT_WITHDRAWN', 'message': 'x'});
+      await expectLater(submit(processorWith(adapter)), throwsA(isA<VaultRefusedException>().having((e) => e.code, 'code', 'CONSENT_WITHDRAWN')));
+    });
+
+    test('other refusals and no answer map like the Core client does', () async {
+      await expectCoreFailure(submit(processorWith(_CannedAdapter(status: 400, body: {'error': {'code': 'BAD_SIGNATURE', 'message': 'x'}}))), CoreFailure.rejected, code: 'BAD_SIGNATURE');
+      await expectCoreFailure(submit(processorWith(_CannedAdapter(status: 500, body: {'error': {'code': 'INTERNAL', 'message': 'x'}}))), CoreFailure.server, code: 'INTERNAL');
+      final down = _CannedAdapter(error: (o) => DioException.connectionError(requestOptions: o, reason: 'down'));
+      await expectCoreFailure(submit(processorWith(down)), CoreFailure.unreachable);
     });
   });
 }

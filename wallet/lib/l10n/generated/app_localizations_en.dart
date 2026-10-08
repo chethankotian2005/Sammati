@@ -435,4 +435,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String cascade_acked(int n) {
     return '$n s ago';
   }
+
+  @override
+  String get vault_profile_title => 'My demo details';
+
+  @override
+  String get vault_profile_note =>
+      'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.';
+
+  @override
+  String get vault_pan => 'PAN';
+
+  @override
+  String get vault_income => 'Income';
+
+  @override
+  String get vault_score => 'Credit score';
+
+  @override
+  String get vault_simulated =>
+      'Demo processor (simulated enclave, not real hardware protection)';
+
+  @override
+  String get vault_send => 'Send securely';
+
+  @override
+  String get vault_send_again => 'Send again';
+
+  @override
+  String vault_send_hint(String company) {
+    return '$company gets a decision, not your details. Only the Sammati Processor can open them.';
+  }
+
+  @override
+  String get vault_sending => 'Encrypting and sending…';
+
+  @override
+  String vault_sent(String company) {
+    return 'Sent encrypted. $company holds only a reference.';
+  }
+
+  @override
+  String get vault_erased => 'Your encrypted details were erased.';
+
+  @override
+  String get vault_failed => 'Could not send securely. Try again.';
+
+  @override
+  String get auth_reason_vault => 'Confirm to send your details securely';
 }

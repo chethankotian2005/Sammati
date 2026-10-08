@@ -17,6 +17,7 @@ import '../features/onboarding/language_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/onboarding/splash_screen.dart';
 import '../features/rights/rights_screen.dart';
+import '../features/vault/demo_profile_screen.dart';
 import '../features/scan/scan_screen.dart';
 import '../features/shell/home_shell.dart';
 
@@ -30,6 +31,7 @@ abstract final class Routes {
   static const rights = '/rights';
   static const me = '/me';
   static const devSettings = '/dev-settings';
+  static const demoProfile = '/demo-profile';
   static const scan = '/scan';
   static const pass = '/pass/:fiduciary';
   static String passFor(String fiduciary) => '/pass/$fiduciary';
@@ -93,6 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.pass, builder: (_, state) => PassDetailScreen(fiduciary: state.pathParameters['fiduciary']!)),
       GoRoute(path: Routes.devSettings, builder: (_, _) => const DevSettingsScreen()),
+      GoRoute(path: Routes.demoProfile, builder: (_, _) => const DemoProfileScreen()),
     ],
   );
 });

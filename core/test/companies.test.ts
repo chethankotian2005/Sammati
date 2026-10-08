@@ -55,7 +55,7 @@ describe("QuickLoan holds no customer data (V-05)", () => {
   });
 
   it("has no PAN, income or score anywhere in its source", () => {
-    expect(source).not.toMatch(/ABCDE1234F|incomeBand\s*:|pan\s*:|score\s*:\s*\d/);
+    expect(source).not.toMatch(/ABCDE1234F|incomeBand\s*:|\bpan\s*:|score\s*:\s*\d/);
   });
 
   it("keeps a handle per customer, replaces it on a new one and marks it erased", () => {

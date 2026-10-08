@@ -433,4 +433,53 @@ class AppLocalizationsKn extends AppLocalizations {
   String cascade_acked(int n) {
     return '$n ಸೆಕೆಂಡ್ ಹಿಂದೆ';
   }
+
+  @override
+  String get vault_profile_title => 'ನನ್ನ ಡೆಮೊ ವಿವರಗಳು';
+
+  @override
+  String get vault_profile_note =>
+      'ಡೆಮೊಗಾಗಿ ಮಾಡಿದ ವಿವರಗಳು. ಇವು ಈ ಫೋನ್‌ನಲ್ಲೇ ಇರುತ್ತವೆ ಮತ್ತು ಎಲ್ಲಿಗಾದರೂ ಕಳುಹಿಸುವ ಮೊದಲು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ.';
+
+  @override
+  String get vault_pan => 'PAN';
+
+  @override
+  String get vault_income => 'ಆದಾಯ';
+
+  @override
+  String get vault_score => 'ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್';
+
+  @override
+  String get vault_simulated =>
+      'ಡೆಮೊ ಪ್ರೊಸೆಸರ್ (ಸಿಮ್ಯುಲೇಟೆಡ್ ಎನ್‌ಕ್ಲೇವ್, ನಿಜವಾದ ಹಾರ್ಡ್‌ವೇರ್ ರಕ್ಷಣೆ ಅಲ್ಲ)';
+
+  @override
+  String get vault_send => 'ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಿ';
+
+  @override
+  String get vault_send_again => 'ಮತ್ತೆ ಕಳುಹಿಸಿ';
+
+  @override
+  String vault_send_hint(String company) {
+    return '$company ಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಅವುಗಳನ್ನು Sammati Processor ಮಾತ್ರ ತೆರೆಯಬಹುದು.';
+  }
+
+  @override
+  String get vault_sending => 'ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…';
+
+  @override
+  String vault_sent(String company) {
+    return 'ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿ ಕಳುಹಿಸಲಾಗಿದೆ. $company ಬಳಿ ಕೇವಲ ಒಂದು ಉಲ್ಲೇಖವಿದೆ.';
+  }
+
+  @override
+  String get vault_erased => 'ನಿಮ್ಮ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿದ ವಿವರಗಳನ್ನು ಅಳಿಸಲಾಗಿದೆ.';
+
+  @override
+  String get vault_failed => 'ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get auth_reason_vault =>
+      'ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಕಳುಹಿಸಲು ದೃಢೀಕರಿಸಿ';
 }

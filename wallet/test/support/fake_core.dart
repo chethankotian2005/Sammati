@@ -8,6 +8,8 @@ import 'package:sammati/core/activity.dart';
 import 'package:sammati/core/consents.dart';
 import 'package:sammati/core/core_api.dart';
 import 'package:sammati/core/eip712.dart';
+import 'package:sammati/core/envelope.dart';
+import 'package:sammati/core/processor_api.dart';
 import 'package:sammati/core/live_events.dart';
 import 'package:sammati/core/notice.dart';
 import 'package:sammati/core/proof.dart';
@@ -124,6 +126,17 @@ class FakeCoreApi implements CoreApi {
 
   @override
   Future<List<RightsRequestRow>> getRights(String principal) async => rights;
+
+  /// Where the Processor is, as Core would say (trd.md §6.1).
+  String processorUrl = 'http://processor.test:4200';
+  Object? processorUrlError;
+
+  @override
+  Future<String> getProcessorUrl() async {
+    final error = processorUrlError;
+    if (error != null) throw error;
+    return processorUrl;
+  }
 
   @override
   Future<void> submitRightsRequest(String principal, String fiduciary, String type, String note) async {
@@ -258,6 +271,7 @@ class FakeLiveEvents implements LiveEvents {
   final _access = StreamController<ActivityItem>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   final _cascade = StreamController<CascadeAck>.broadcast();
+  final _vault = StreamController<VaultNotice>.broadcast();
   bool disposed = false;
 
   @override
@@ -271,6 +285,11 @@ class FakeLiveEvents implements LiveEvents {
 
   @override
   Stream<CascadeAck> get cascadeUpdates => _cascade.stream;
+
+  @override
+  Stream<VaultNotice> get vaultUpdates => _vault.stream;
+
+  void emitVault(VaultNotice notice) => _vault.add(notice);
 
   void emitAccess(ActivityItem item) => _access.add(item);
   void emit(ConsentUpdated event) => _updates.add(event);
@@ -308,3 +327,48 @@ ActivityItem activityItem(
       at: at,
       arrivedAt: arrivedAt,
     );
+
+/// The Sammati Processor as the wallet sees it. Keeps what it was handed, so a test can open the envelope with the
+/// Processor key from the shared vectors and check that nothing but ciphertext arrived.
+class FakeProcessorApi implements ProcessorApi {
+  /// The public key of the test vectors' processor (shared/test-vectors/envelope.json).
+  static const publicKeyHex = '0x368bfb005513e4139a8cf639faf29eed6c9ea74abd6150f9b81c512df29dd26e';
+
+  Object? keyError;
+  Object? submitError;
+
+  /// Answer with a handle other than the one of the envelope that was sent.
+  bool wrongHandle = false;
+  int keyFetches = 0;
+  final List<Map<String, Object>> submissions = [];
+
+  @override
+  Future<ProcessorKey> getPublicKey() async {
+    keyFetches++;
+    final error = keyError;
+    if (error != null) throw error;
+    return const ProcessorKey(publicKey: publicKeyHex, mode: 'simulated-enclave');
+  }
+
+  @override
+  Future<VaultReceipt> submit({
+    required String principal,
+    required String fiduciary,
+    required String purposeCode,
+    required Envelope envelope,
+    required String requestId,
+    required String signature,
+  }) async {
+    final error = submitError;
+    if (error != null) throw error;
+    submissions.add({
+      'principal': principal,
+      'fiduciary': fiduciary,
+      'purposeCode': purposeCode,
+      'envelope': envelope.toJson(),
+      'requestId': requestId,
+      'signature': signature,
+    });
+    return VaultReceipt(handle: wrongHandle ? '0x${'00' * 32}' : envelope.handle, ciphertextHash: envelope.ciphertextHash);
+  }
+}

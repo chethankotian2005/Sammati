@@ -770,6 +770,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{n} s ago'**
   String cascade_acked(int n);
+
+  /// No description provided for @vault_profile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My demo details'**
+  String get vault_profile_title;
+
+  /// No description provided for @vault_profile_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.'**
+  String get vault_profile_note;
+
+  /// No description provided for @vault_pan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN'**
+  String get vault_pan;
+
+  /// No description provided for @vault_income.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get vault_income;
+
+  /// No description provided for @vault_score.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit score'**
+  String get vault_score;
+
+  /// No description provided for @vault_simulated.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo processor (simulated enclave, not real hardware protection)'**
+  String get vault_simulated;
+
+  /// No description provided for @vault_send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send securely'**
+  String get vault_send;
+
+  /// No description provided for @vault_send_again.
+  ///
+  /// In en, this message translates to:
+  /// **'Send again'**
+  String get vault_send_again;
+
+  /// No description provided for @vault_send_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} gets a decision, not your details. Only the Sammati Processor can open them.'**
+  String vault_send_hint(String company);
+
+  /// No description provided for @vault_sending.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypting and sending…'**
+  String get vault_sending;
+
+  /// No description provided for @vault_sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent encrypted. {company} holds only a reference.'**
+  String vault_sent(String company);
+
+  /// No description provided for @vault_erased.
+  ///
+  /// In en, this message translates to:
+  /// **'Your encrypted details were erased.'**
+  String get vault_erased;
+
+  /// No description provided for @vault_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send securely. Try again.'**
+  String get vault_failed;
+
+  /// No description provided for @auth_reason_vault.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to send your details securely'**
+  String get auth_reason_vault;
 }
 
 class _AppLocalizationsDelegate

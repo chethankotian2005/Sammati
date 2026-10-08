@@ -54,7 +54,6 @@ const ERASE_CAUSE: Partial<Record<ReasonCode, VaultEraseCause>> = {
 };
 const CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
-const EVALUATE_ENDPOINT = "POST /v1/processor/evaluate";
 
 const refusal = (reason: ReasonCode, entryId?: string): ApiFailure => new ApiFailure(451, reason, REFUSAL_MESSAGES[reason], entryId);
 const record = (v: unknown): Record<string, unknown> => {

@@ -3,6 +3,7 @@
 // A failing process takes the rest down; the one-shot seed process exiting cleanly does not.
 import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { URL } from "node:url";
 import { fileURLToPath } from "node:url";
 import concurrently from "concurrently";
 import { describeQrUrl } from "./lan.mjs";

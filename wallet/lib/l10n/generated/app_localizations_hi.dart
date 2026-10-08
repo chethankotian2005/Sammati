@@ -431,4 +431,53 @@ class AppLocalizationsHi extends AppLocalizations {
   String cascade_acked(int n) {
     return '$n सेकंड पहले';
   }
+
+  @override
+  String get vault_profile_title => 'मेरा डेमो विवरण';
+
+  @override
+  String get vault_profile_note =>
+      'डेमो के लिए बनाए गए विवरण। ये इसी फ़ोन पर रहते हैं और कहीं भी भेजने से पहले एन्क्रिप्ट हो जाते हैं।';
+
+  @override
+  String get vault_pan => 'PAN';
+
+  @override
+  String get vault_income => 'आय';
+
+  @override
+  String get vault_score => 'क्रेडिट स्कोर';
+
+  @override
+  String get vault_simulated =>
+      'डेमो प्रोसेसर (सिम्युलेटेड एन्क्लेव, असली हार्डवेयर सुरक्षा नहीं)';
+
+  @override
+  String get vault_send => 'सुरक्षित रूप से भेजें';
+
+  @override
+  String get vault_send_again => 'दोबारा भेजें';
+
+  @override
+  String vault_send_hint(String company) {
+    return '$company को फ़ैसला मिलता है, आपका विवरण नहीं। उन्हें सिर्फ़ Sammati Processor खोल सकता है।';
+  }
+
+  @override
+  String get vault_sending => 'एन्क्रिप्ट करके भेज रहे हैं…';
+
+  @override
+  String vault_sent(String company) {
+    return 'एन्क्रिप्ट करके भेजा गया। $company के पास सिर्फ़ एक संदर्भ है।';
+  }
+
+  @override
+  String get vault_erased => 'आपका एन्क्रिप्टेड विवरण मिटा दिया गया।';
+
+  @override
+  String get vault_failed => 'सुरक्षित रूप से नहीं भेज सके। दोबारा कोशिश करें।';
+
+  @override
+  String get auth_reason_vault =>
+      'अपना विवरण सुरक्षित भेजने के लिए पुष्टि करें';
 }

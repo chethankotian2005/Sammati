@@ -358,12 +358,24 @@ async function main(): Promise<void> {
 
     // --- confidential processing (prd.md V-01 to V-06): use without reading ---
 
+    /** The fields of the Processor's and QuickLoan's answers that this script reads. */
+    interface RawJson {
+      alg?: string;
+      mode?: string;
+      publicKey?: string;
+      handle?: `0x${string}`;
+      ciphertextHash?: `0x${string}`;
+      status?: string;
+      purposeCode?: string;
+      envelope?: { ciphertext?: string } | null;
+    }
+
     /** A request to the Processor or to QuickLoan directly; recorded in `traffic` for the plaintext search. */
     const raw = async (method: string, url: string, body?: unknown, headers: Record<string, string> = {}) => {
       const res = await fetch(url, { method, headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
       const text = await res.text();
       traffic.push(`${method} ${url} ${res.status} ${[...res.headers].map(([k, v]) => `${k}: ${v}`).join("; ")} ${text}`);
-      return { status: res.status, json: text ? (JSON.parse(text) as Record<string, any>) : {}, headers: res.headers };
+      return { status: res.status, json: (text ? JSON.parse(text) : {}) as RawJson, headers: res.headers };
     };
 
     const profile = { handle: "" as `0x${string}`, ciphertextHash: "" as `0x${string}` };
@@ -380,13 +392,13 @@ async function main(): Promise<void> {
       expectEqual([key.alg, key.mode], ["X25519", "simulated-enclave"], "the Processor's public key, labelled honestly");
 
       // Seal on the "phone" (here: this script), bound to this customer, company and purpose, and sign the submission.
-      const envelope = seal(DEMO_PROFILE, key.publicKey, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
+      const envelope = seal(DEMO_PROFILE, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
       const requestId = `e2e-${Date.now()}`;
       const submitSignature = await user.signMessage(submitMessage(handleOf(envelope), requestId));
       const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature: submitSignature });
       expectEqual(submit.status, 201, "submit status");
-      profile.handle = submit.json.handle;
-      profile.ciphertextHash = submit.json.ciphertextHash;
+      profile.handle = submit.json.handle!;
+      profile.ciphertextHash = submit.json.ciphertextHash!;
       expectEqual([profile.handle, profile.ciphertextHash], [handleOf(envelope), ciphertextHashOf(envelope)], "handle and hash");
       check(!JSON.stringify(envelope).includes(PLAINTEXT), "the envelope contains the plaintext");
     });

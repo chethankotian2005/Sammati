@@ -25,7 +25,16 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise((res) => server.close(res)));
 
-async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any; headers: Headers }> {
+/** What the Processor answers with, as the tests read it (every field they look at, typed once). */
+interface Answer {
+  error: { code: string };
+  code: string;
+  entryId: string;
+  handle: string;
+  [key: string]: unknown;
+}
+
+async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: Answer; headers: Headers }> {
   const res = await fetch(url + path, {
     method,
     headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), ...headers },
@@ -33,7 +42,7 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
   });
   const text = await res.text();
   spoken.push(`${method} ${path} -> ${res.status} ${[...res.headers].map(([k, v]) => `${k}: ${v}`).join("; ")} ${text}`);
-  return { status: res.status, json: text ? JSON.parse(text) : null, headers: res.headers };
+  return { status: res.status, json: (text ? JSON.parse(text) : {}) as Answer, headers: res.headers };
 }
 
 const evaluate = (handle: string) =>

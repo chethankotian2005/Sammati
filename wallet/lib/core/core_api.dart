@@ -91,6 +91,9 @@ abstract interface class CoreApi {
   Future<List<RightsRequestRow>> getRights(String principal);
   
   Future<void> submitRightsRequest(String principal, String fiduciary, String type, String note);
+
+  /// `GET /v1/processor` (trd.md §6.1): where the Sammati Processor is. Core only points at it.
+  Future<String> getProcessorUrl();
 }
 
 class DioCoreApi implements CoreApi {
@@ -207,6 +210,16 @@ class DioCoreApi implements CoreApi {
             'note': note,
           },
         ));
+  }
+
+  @override
+  Future<String> getProcessorUrl() async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>('/v1/processor'));
+    final url = json['url'];
+    if (url is! String || !RegExp(r'^https?://').hasMatch(url)) {
+      throw const CoreException(CoreFailure.server, message: 'Malformed Processor address');
+    }
+    return url.replaceAll(RegExp(r'/+$'), '');
   }
 
   Future<TxResult> _postSigned(String path, Map<String, Object> request, String signature) async {
