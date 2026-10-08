@@ -1,0 +1,7 @@
+packages:
+  - contracts
+  - core
+  - gateway
+  - shared
+  - web
+  - 'companies/*'

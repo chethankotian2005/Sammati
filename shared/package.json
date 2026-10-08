@@ -1,0 +1,15 @@
+{
+  "name": "@sammati/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "vectors": "tsx scripts/gen-eip712-vectors.ts"
+  },
+  "dependencies": { "ethers": "6.13.4" },
+  "devDependencies": { "vitest": "2.1.8", "tsx": "4.19.2", "@types/node": "20.17.10" }
+}

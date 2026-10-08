@@ -1,0 +1,84 @@
+# Tasks — 3 people, 24 hours
+
+## 1. Roles
+
+| Person | Owns | Primary deliverables |
+|---|---|---|
+| **A: Chain and Core** | `contracts/`, `core/`, `gateway/`, `shared/` | ConsentRegistry, AccessAnchor, relayer, indexer, cache, anchoring, cascade, audit APIs, SDK, e2e script |
+| **B: Wallet** | `wallet/` | Flutter app: W-01 to W-10, signing, live feed, proofs, i18n, APK |
+| **C: Web and Story** | `web/`, `companies/`, deck, demo | Company console, simulator, 3 demo companies, Auditor, Stage view, deck, rehearsals |
+
+Whoever finishes first helps whoever is behind, in this order: B (wallet is the hero), then A, then C polish.
+
+## 2. The golden path (build this first, nothing else matters until it works)
+
+`Console QR → wallet scan → consent notice → signed grant → on-chain → gateway ALLOWED → wallet withdraw → gateway BLOCKED`
+
+Everything below P0 waits until this path runs end to end on the real phone.
+
+## 3. Timeline
+
+### H0–H2: Setup and spikes (all three, parallel)
+- **A:** monorepo scaffold, Hardhat project, `shared/` EIP-712 types, first failing contract test for grant. Start `pnpm demo:up` skeleton.
+- **B:** Flutter project, packages installed, **EIP-712 signing spike** producing a signature that the Hardhat test recovers (decide fallback in `trd.md` §4.3 by H2).
+- **C:** Vite app, routes, Tailwind tokens from `ui.md`, one demo company Express app with a fake endpoint, repo conventions.
+- **Gate H2:** signing approach decided, contract skeleton compiles, all three can run their app locally.
+
+### H2–H8: Golden path
+- **A:** ConsentRegistry grant/withdraw/expiry + tests (§3.3 of TRD), deploy script, Core: `/requests`, `/consents/grant`, `/consents/withdraw`, relayer, indexer, consent cache, WebSocket. Gateway SDK `requireConsent` with 451 responses.
+- **B:** onboarding and wallet creation, scan screen, consent notice (W3), sign and submit, consent home (W4/W5) reading Core, withdraw flow.
+- **C:** Console: purposes view, new request QR, live requests with simulator, wiring three company apps to the SDK.
+- **Gate H8 (hard):** golden path works on the real phone with real chain. If not, everyone stops new work and fixes this.
+
+### H8–H14: Differentiators
+- **A:** access-log hashing, Merkle anchoring, AccessAnchor, cascade engine and processor stubs, audit verify API, tamper demo endpoint.
+- **B:** live activity feed (W6), proof sheet (W7), cascade section, language switching (W9 with real strings).
+- **C:** Auditor (scorecard, ledger explorer, Verify with mismatch view), consent table, processors view.
+- **Gate H14:** tamper detection demo works; cascade fills in on the phone.
+
+### H14–H18: Polish and depth
+- **A:** Amoy deployment and explorer links, reconcile job, `pnpm e2e`, fail-closed behaviour, README run instructions.
+- **B:** animations (pass-cut), rights screens (W8), error/offline states, app icon, release APK.
+- **C:** Stage view, evidence/report export, deck (6 slides), copy pass with native-speaker check on Hindi and Kannada.
+- **Gate H18:** feature freeze. Only fixes after this.
+
+### H18–H22: Rehearse
+- Run the demo script (`demo.md`) end to end at least 5 times, timed.
+- Record the fallback video on a clean run.
+- Install APK on the spare phone. Test on the venue network or hotspot.
+- Prepare Q&A answers; each person rehearses the questions in their area.
+
+### H22–H24: Buffer
+- Sleep or rest if possible. Final reset (`pnpm demo:reset`), charge devices, verify Amoy links, set up the stage.
+
+## 4. Priority and cut lines
+If time runs short, cut from the bottom, never from the top:
+
+1. Golden path (non-negotiable)
+2. Tamper detection (A-03) and cascade (W-08, C-06): the two hero moments
+3. Proof sheet (W-07), Auditor scorecard (A-01), languages (W-09)
+4. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06)
+5. P2 items (reminders, nominee, grievance overview)
+
+## 5. Checklists
+
+### Definition of done (per feature)
+- Acceptance criteria in `prd.md` pass
+- Works on the real phone (for wallet features) or in the Stage view (for web)
+- Appears in `pnpm e2e` if it is on the golden path or a hero moment
+- No console errors, no placeholder text
+
+### Integration contracts (do not change without telling the others)
+- EIP-712 types and domain: `shared/eip712.ts` (and the Dart copy in `wallet/lib/core/eip712.dart`)
+- REST paths and WebSocket event names: `trd.md` §6
+- Reason codes: `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`, `NO_CONSENT`, `LEDGER_UNAVAILABLE`, `NO_PRINCIPAL`
+- Colours and copy keys: `ui.md`
+
+### Git workflow
+- Trunk-based, short branches per feature ID (`feat/W-05-withdraw`), merge to `main` at least hourly.
+- A merges contract or API changes first and announces them in the team chat.
+- Tag `demo-ready` on the commit used for the stage; never deploy untagged code.
+
+### Communication
+- 10-minute sync at every gate (H2, H8, H14, H18).
+- If blocked for more than 20 minutes, ask for help.
