@@ -130,6 +130,15 @@ Opens from the receipt (W4) as a primary button "Share your details securely" wh
 ### Edge states
 Offline banner "No connection. Showing last known consents."; expired consent chip "Expired 3 days ago, give consent again"; QR from a different network "Could not reach Sammati. Check Wi-Fi."; failed transaction "Could not record this. Try again" with retry.
 
+### W13 Alerts (N-05, W-11), the notification centre: a tab on W1
+- The bottom bar becomes Consents · Activity · [Scan] · **Alerts** · Rights · Me. Alerts has an unread **dot** (`marigold`, 10 dp, with a text alternative "Unread alerts" for screen readers) on its icon while anything is unread. Labels stay one short word in each language so six items fit at 360 dp; every item is still at least 48 dp.
+- The list is newest first under two headers, **Today** and **Earlier**. An item: the company's colour dot and name, an icon for the type (`schedule`, `event_busy`, `autorenew`, `delete_outline`, `done_all`), one plain sentence, its time ("2 min ago"), and, if unread, the dot at the start. Unread items sit on `surface`, read ones on `paper`; a state is never colour alone (the dot, the bold sentence and the icon all change).
+- Sentences: expiring "Your consent for {purpose} at {company} expires in {time}"; expired "Your consent for {purpose} at {company} has expired" (the same wording as W1's chip, "Expired {n} days ago, give consent again"); renewal requested "{company} asks you to renew your consent for {purpose}" with the company's message under "Message from {company}"; erased "{company} erased your data for {purpose} (after you withdrew consent / after consent expired)"; cascade "{processor} confirmed it stopped using your data for {purpose}".
+- Actions are text buttons of 48 dp under the sentence: **Renew** (primary), **Let expire**, **View proof**. Renew calls Core for a renewal request and opens the consent notice W3 for that one purpose with the expiry choices (and **2 minutes (demo)** when Core says `fastExpiry`); everything after is W3 and W4. Let expire records the choice and says "Okay. This consent will expire on its own." View proof opens the proof sheet W7 for that consent. An item whose consent has since been renewed shows "Renewed" instead of its actions, and one left to expire shows "Left to expire".
+- A new alert arrives at the top with the same brief colour wash as W11 (reduced motion: it is simply there). Tapping an item, or any action, marks it read; **Mark all as read** sits in the app bar. The banner "No connection. Showing last known alerts." appears when Core cannot be reached, with the list kept.
+- Empty: "No alerts. Expiry reminders and updates from companies will appear here."
+- On a consent card (W1) and the pass (W5) an expired consent keeps the chip "Expired {n} days ago, give consent again", and tapping it now starts the same Renew flow.
+
 ## 3. Company Console (web)
 
 Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evidence), top bar with company switcher (QuickLoan, MediCare+, FoodRush).
@@ -139,7 +148,7 @@ Layout: left rail (Overview, Purposes, Consents, Live requests, Processors, Evid
 - **New consent request:** two tabs. **QR (in person)**: choose customer alias and purposes, large QR on right. "Waiting for scan…" then "Consent received" with tx. **Send to user** (N-02): a field "Sammati ID" (placeholder `asha@sammati`), the same purposes picker, an optional message (140 characters, with a counter) and "Expires in" (1 hour, 24 hours, 3 days, 7 days), then **Send request**. The answer is always "Request sent" for a well-formed ID, and the page says so: "We tell you nothing about whether this ID exists." Below, a table of requests sent: ID as typed, purposes, a status chip (Sent, Seen, Granted, Declined, Expired: each with icon and word), sent time, expiry; it updates live from `request.updated`, and a Granted row links to the Consents section. A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
 - **Live requests:** two-column. Left: **Simulator** with big buttons ("Run credit check", "Send marketing SMS", "Share with bureau") firing real requests. Right: feed with ALLOWED/BLOCKED, reason code, latency. Blocked rows use `block` left border and show "451 · Consent withdrawn".
 - **Live requests, QuickLoan only (V-05, V-06):** the simulator gains **Run loan decision**. The result row reads "Approved · limit 3,00,000 · SCORE_FAIR" in `allow`, or "Declined · …" in `block`, or the usual "451 · Consent withdrawn". Beside the feed, a **What QuickLoan holds** card shows only what its backend has: handle (short, tap to copy), ciphertext hash, status `stored` / `erased`, and the sentence "QuickLoan staff cannot read this. Only the Sammati Processor can open it." A small timeline under it fills from the `vault.*` and `processor.*` events: Encrypted → Stored → Requested → Decrypting → Decided → Erased, each with its time. No screen of the console shows a PAN or an income. The card also carries the quiet "simulated enclave" label.
-- **Consents:** table of customers by purpose with status, filterable.
+- **Consents:** table of customers by purpose with status, filterable. Above it, **Expiring consents** (N-03, N-04): the company's consents that expire within the window or expired within it, soonest first. Columns: customer (the company's own alias), purpose, expires (absolute and relative), a state chip (**Expiring** with `warn` styling, **Expired** with `expired`, each with an icon and the word), the renewal's status chip if one was asked (Sent, Seen, Granted, Declined, Expired), and the action **Request renewal** (48 px tall; while a request is open it reads "Requested" and is disabled). Updates live from `consent.updated` and `request.updated`. Empty: "No consents are about to expire." A rate-limit answer reads "You are sending too fast. Try again in {n} seconds."
 - **Processors:** per purpose list, ack state and time.
 - **Evidence:** "Generate compliance pack" button, preview, download.
 
@@ -396,6 +405,39 @@ Requests inbox (W11) and Sammati ID (W12), same status as above. `{company}`, `{
 | id_register | Register | पंजीकृत करें | ನೋಂದಾಯಿಸಿ |
 | id_registered | Your ID is {handle} | आपकी ID {handle} है | ನಿಮ್ಮ ID {handle} |
 | auth_reason_id | Confirm to register your Sammati ID | अपनी Sammati ID पंजीकृत करने की पुष्टि करें | ನಿಮ್ಮ Sammati ID ನೋಂದಾಯಿಸಲು ದೃಢೀಕರಿಸಿ |
+
+| nav_alerts | Alerts | अलर्ट | ಎಚ್ಚರಿಕೆಗಳು |
+| alerts_title | Alerts | अलर्ट | ಎಚ್ಚರಿಕೆಗಳು |
+| alerts_unread | Unread alerts | अपठित अलर्ट | ಓದದ ಎಚ್ಚರಿಕೆಗಳು |
+| alerts_today | Today | आज | ಇಂದು |
+| alerts_earlier | Earlier | पहले | ಹಿಂದಿನವು |
+| alerts_mark_all | Mark all as read | सभी को पढ़ा हुआ मानें | ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ |
+| alerts_empty | No alerts. Expiry reminders and updates from companies will appear here. | कोई अलर्ट नहीं। समाप्ति की याद दिलाने वाले संदेश और कंपनियों के अपडेट यहाँ दिखेंगे। | ಯಾವುದೇ ಎಚ್ಚರಿಕೆಗಳಿಲ್ಲ. ಅವಧಿ ಮುಗಿಯುವ ನೆನಪುಗಳು ಮತ್ತು ಕಂಪನಿಗಳ ಅಪ್‌ಡೇಟ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ. |
+| alerts_offline | No connection. Showing last known alerts. | कनेक्शन नहीं है। पिछले ज्ञात अलर्ट दिख रहे हैं। | ಸಂಪರ್ಕವಿಲ್ಲ. ಕೊನೆಯ ತಿಳಿದ ಎಚ್ಚರಿಕೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ. |
+| alert_expiring | Your consent for {purpose} at {company} expires in {time} | {company} में {purpose} के लिए आपकी सहमति {time} में समाप्त होगी | {company} ನಲ್ಲಿ {purpose} ಗಾಗಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ {time} ನಲ್ಲಿ ಮುಗಿಯುತ್ತದೆ |
+| alert_expired | Your consent for {purpose} at {company} has expired | {company} में {purpose} के लिए आपकी सहमति समाप्त हो गई है | {company} ನಲ್ಲಿ {purpose} ಗಾಗಿ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಮುಗಿದಿದೆ |
+| alert_renewal | {company} asks you to renew your consent for {purpose} | {company} आपसे {purpose} के लिए सहमति नवीनीकृत करने को कहती है | {company} ನಿಮ್ಮನ್ನು {purpose} ಗಾಗಿ ಒಪ್ಪಿಗೆಯನ್ನು ನವೀಕರಿಸಲು ಕೇಳುತ್ತದೆ |
+| alert_erased_withdrawn | {company} erased your data for {purpose} after you withdrew consent | आपके सहमति वापस लेने के बाद {company} ने {purpose} का आपका डेटा मिटा दिया | ನೀವು ಒಪ್ಪಿಗೆ ಹಿಂಪಡೆದ ನಂತರ {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ |
+| alert_erased_expired | {company} erased your data for {purpose} after consent expired | सहमति समाप्त होने के बाद {company} ने {purpose} का आपका डेटा मिटा दिया | ಒಪ್ಪಿಗೆ ಮುಗಿದ ನಂತರ {company} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಅಳಿಸಿದೆ |
+| alert_cascade | {processor} confirmed it stopped using your data for {purpose} | {processor} ने पुष्टि की कि उसने {purpose} के लिए आपके डेटा का उपयोग बंद कर दिया है | {processor} {purpose} ಗಾಗಿ ನಿಮ್ಮ ಡೇಟಾ ಬಳಕೆಯನ್ನು ನಿಲ್ಲಿಸಿದೆ ಎಂದು ದೃಢಪಡಿಸಿದೆ |
+| alert_renew | Renew | नवीनीकृत करें | ನವೀಕರಿಸಿ |
+| alert_let_expire | Let expire | समाप्त होने दें | ಮುಗಿಯಲು ಬಿಡಿ |
+| alert_view_proof | View proof | प्रमाण देखें | ಪುರಾವೆ ನೋಡಿ |
+| alert_let_expire_done | Okay. This consent will expire on its own. | ठीक है। यह सहमति अपने आप समाप्त हो जाएगी। | ಸರಿ. ಈ ಒಪ್ಪಿಗೆ ತಾನಾಗಿಯೇ ಮುಗಿಯುತ್ತದೆ. |
+| alert_renew_failed | Could not open the renewal. Try again. | नवीनीकरण नहीं खुल सका। फिर कोशिश करें। | ನವೀಕರಣ ತೆರೆಯಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| alert_state_renewed | Renewed | नवीनीकृत | ನವೀಕರಿಸಲಾಗಿದೆ |
+| alert_state_left | Left to expire | समाप्त होने दिया | ಮುಗಿಯಲು ಬಿಡಲಾಗಿದೆ |
+| duration_days | {count, plural, =1{1 day} other{{count} days}} | {count, plural, other{{count} दिन}} | {count, plural, =1{1 ದಿನ} other{{count} ದಿನಗಳು}} |
+| duration_hours | {count, plural, =1{1 hour} other{{count} hours}} | {count, plural, other{{count} घंटे}} | {count, plural, =1{1 ಗಂಟೆ} other{{count} ಗಂಟೆಗಳು}} |
+| duration_minutes | {count, plural, =1{1 minute} other{{count} minutes}} | {count, plural, other{{count} मिनट}} | {count, plural, =1{1 ನಿಮಿಷ} other{{count} ನಿಮಿಷಗಳು}} |
+| duration_seconds | {count, plural, =1{1 second} other{{count} seconds}} | {count, plural, other{{count} सेकंड}} | {count, plural, =1{1 ಸೆಕೆಂಡ್} other{{count} ಸೆಕೆಂಡುಗಳು}} |
+| expiry_demo | 2 minutes (demo) | 2 मिनट (डेमो) | 2 ನಿಮಿಷಗಳು (ಡೆಮೊ) |
+| notif_expiring_title | Consent expiring soon | सहमति जल्द समाप्त होगी | ಒಪ್ಪಿಗೆ ಶೀಘ್ರದಲ್ಲಿ ಮುಗಿಯಲಿದೆ |
+| notif_expired_title | Consent expired | सहमति समाप्त हो गई | ಒಪ್ಪಿಗೆ ಮುಗಿದಿದೆ |
+| notif_renewal_title | Renewal requested | नवीनीकरण का अनुरोध | ನವೀಕರಣದ ವಿನಂತಿ |
+| notif_erased_title | Your data was erased | आपका डेटा मिटा दिया गया | ನಿಮ್ಮ ಡೇಟಾ ಅಳಿಸಲಾಗಿದೆ |
+| notif_cascade_title | Company confirmed | कंपनी ने पुष्टि की | ಕಂಪನಿ ದೃಢಪಡಿಸಿದೆ |
+| notif_channel | Consent alerts | सहमति अलर्ट | ಒಪ್ಪಿಗೆ ಎಚ್ಚರಿಕೆಗಳು |
 
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 

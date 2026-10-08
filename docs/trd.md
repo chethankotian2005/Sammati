@@ -271,7 +271,7 @@ Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs
 ### 6.5 WebSocket `/ws`
 Subscribe message: `{ "sub": ["principal:0x..", "fiduciary:0x..", "auditor"] }`.
 Core answers a subscribe message with an acknowledgement `{ "event": "subscribed", "topics": [...] }` once the topics are active (the gateway trusts its consent cache only after this; other clients may ignore it).
-Events: `consent.updated`, `access.logged`, `cascade.updated`, `anchor.posted`, `tamper.alert`, `consent.requested`, `request.updated`, and the confidential-processing events below.
+Events: `consent.updated`, `access.logged`, `cascade.updated`, `anchor.posted`, `tamper.alert`, `consent.requested`, `request.updated`, the notification events (`consent.expiring`, `consent.expired`, `consent.renewal_requested`, `data.erased`, `cascade.acknowledged`, §6.12) and the confidential-processing events below.
 
 - `consent.requested` (to `principal:<addr>` only): `{ event, principal, requestId, fiduciary, fiduciaryName, purposeCodes, message, expiresAt, at }`. The wallet refetches its inbox when it arrives.
 - `request.updated` (to `fiduciary:<addr>` only): `{ event, fiduciary, requestId, status, at }`. It carries **no principal**: a company hears that its request was seen, granted, declined or expired, never who the customer is (they appear in the consents table only once consent exists, as before).
@@ -315,7 +315,7 @@ A separate process from Core and from every company. It is the only place where 
 
 **Submit.** (1) Validate shape: lowercase-hex fields of the right length (`ephPub` 32, `nonce` 12, `tag` 16), `v == 1`, `purposeCode` a short code, envelope at most 4 KiB; else 400 `BAD_ENVELOPE`. (2) Compute `handle`; verify the EIP-191 signature (§4.4.8): else 400 `BAD_SIGNATURE`. Emit `vault.encrypted`. (3) Read `hasValidConsent(principal, fiduciary, purposeIdOf(fiduciary, purposeCode))` **from the chain**, not from Core: Core cannot make the Processor accept data. (Chain access needs `shared/deployments.json` and the registry ABI, like Core.) Not valid: 451 with the reason (`NO_CONSENT`, `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED`); chain unreachable: 451 `LEDGER_UNAVAILABLE`. (4) Store `{ handle, principal, fiduciary, purposeCode, ciphertextHash, ciphertext }` (`drd.md` §3); erase older live rows for the same principal, fiduciary and purpose (`cause: "superseded"`) so one live copy exists. Emit `vault.stored`. (5) Tell the company's webhook (below). The Processor does **not** open the envelope at submit: a malformed ciphertext is discovered at evaluate, which answers `CIPHERTEXT_INVALID`.
 
-**Evaluate.** (1) `x-sammati-api-key` identifies a fiduciary (`FIDUCIARY_API_KEYS`); unknown key 401 `UNAUTHORIZED`; `fiduciary` in the body must be that company, `action` must be `loan_decision` (else 400 `UNSUPPORTED_ACTION`). (2) Unknown handle, or a handle of another company: 404 `HANDLE_NOT_FOUND` (the two are indistinguishable). Emit `processor.requested`. (3) Consent, from the chain, for the **requested** `purposeCode`: not valid, or the handle was submitted for a different purpose, is refused with 451 and the reason code (a different purpose answers `NO_CONSENT`); chain unreachable is `LEDGER_UNAVAILABLE` and **erases nothing**. (4) A refusal writes a BLOCKED access-log entry and emits `processor.decided` (`blocked`). When the reason is `CONSENT_WITHDRAWN`, `CONSENT_EXPIRED` or `NO_CONSENT`, the ciphertext is erased now (`vault.erased`). (5) Consent valid but the row is already erased: 410 `VAULT_ERASED` (the customer must submit again). (6) Emit `processor.decrypting`; open the envelope in memory. Authentication failure or a payload that is not the expected JSON: 422 `CIPHERTEXT_INVALID`, `processor.decided` (`error`), never a guessed decision. (7) Run the rules below, drop the plaintext reference, respond. (8) Write an ALLOWED access-log entry (`endpoint: "POST /v1/processor/evaluate"`, `reason: "OK"`; an authentication failure is ALLOWED too, since consent was valid and the data was handled) and emit `processor.decided`.
+**Evaluate.** (1) `x-sammati-api-key` identifies a fiduciary (`FIDUCIARY_API_KEYS`); unknown key 401 `UNAUTHORIZED`; `fiduciary` in the body must be that company, `action` must be `loan_decision` (else 400 `UNSUPPORTED_ACTION`). (2) Unknown handle, or a handle of another company: 404 `HANDLE_NOT_FOUND` (the two are indistinguishable). Emit `processor.requested`. (3) Consent, from the chain, for the **requested** `purposeCode`: not valid, or the handle was submitted for a different purpose, is refused with 451 and the reason code (a different purpose answers `NO_CONSENT`); chain unreachable is `LEDGER_UNAVAILABLE` and **erases nothing**. (4) A refusal writes a BLOCKED access-log entry and emits `processor.decided` (`blocked`). When the reason is `CONSENT_WITHDRAWN` or `NO_CONSENT`, the ciphertext is erased now (`vault.erased`); for `CONSENT_EXPIRED` it is erased only once the grace period (below, Erasure) has passed. (5) Consent valid but the row is already erased: 410 `VAULT_ERASED` (the customer must submit again). (6) Emit `processor.decrypting`; open the envelope in memory. Authentication failure or a payload that is not the expected JSON: 422 `CIPHERTEXT_INVALID`, `processor.decided` (`error`), never a guessed decision. (7) Run the rules below, drop the plaintext reference, respond. (8) Write an ALLOWED access-log entry (`endpoint: "POST /v1/processor/evaluate"`, `reason: "OK"`; an authentication failure is ALLOWED too, since consent was valid and the data was handled) and emit `processor.decided`.
 
 **Rules (deterministic, `processor/src/rules.ts`).** Decision codes are not consent reason codes and never appear in `access_logs.reason`.
 
@@ -331,7 +331,7 @@ A separate process from Core and from every company. It is the only place where 
 
 For the demo profile (6-9 LPA, salaried, score 742) the answer is `approved`, `limit: 300000`, `["SCORE_FAIR"]`; the same details entered by hand, with no score, give `approved`, `300000`, `["SCORE_FAIR", "SCORE_ASSUMED"]`. A declined answer has `limit: null`. The decision itself reveals coarse facts (a score band): that is the point of data minimisation, and `demo.md` says so.
 
-**Erasure.** A row is erased by overwriting `ciphertext` with `NULL` and setting `erased_at`; the metadata row stays so a later call can still be told why. Triggers: evaluate refusals above; the Processor's subscription to Core's `fiduciary:<address>` topic (a `consent.updated` that is no longer Active for a stored row erases it at once); a sweep every `PROCESSOR_SWEEP_MS` that re-checks every live row on chain (covers expiry and missed events); a newer submission. It never erases when the chain cannot be read.
+**Erasure.** A row is erased by overwriting `ciphertext` with `NULL` and setting `erased_at`; the metadata row stays so a later call can still be told why. Triggers: evaluate refusals above; the Processor's subscription to Core's `fiduciary:<address>` topic (a `consent.updated` that is no longer Active for a stored row erases it at once); a sweep every `PROCESSOR_SWEEP_MS` that re-checks every live row on chain (covers expiry and missed events); a newer submission. It never erases when the chain cannot be read. **Expiry has a grace period** (N-03): while a consent has expired but `now < expiresAt + EXPIRY_ERASURE_GRACE_SECONDS` (default 7 days; 60 s in `DEMO_FAST_EXPIRY`) every evaluate is refused with 451 `CONSENT_EXPIRED`, nothing is decrypted, and the ciphertext is **kept**, so a renewal inside the window does not make the customer send the details again; after it, the next evaluate or sweep erases it (`vault.erased`, cause `expired`). Withdrawal has no grace: it erases at once. A renewal that arrives in time makes the kept ciphertext usable again (the purpose, and the customer's consent for it, are the same). The Processor reads `expiresAt` from the same on-chain read.
 
 **Company webhook.** After `vault.stored` and `vault.erased` the Processor POSTs `{ event: "stored" \| "erased", handle, principal, purposeCode, ciphertextHash }` to the company's callback (`FIDUCIARY_CALLBACKS`, default `http://localhost:<company port>/vault/events`) with the company's API key in `x-sammati-api-key`, 3 s timeout, failures only warned about. QuickLoan keeps the handle and nothing else (§6.8).
 
@@ -412,6 +412,67 @@ A route of the web app, `/portal/quickloan`, in QuickLoan's colour. It is a stan
 
 **Not prevented, and said so.** A company can still tell a registered handle from an unregistered one if it can observe the customer, for instance by calling them. Timing differences between the branches are not closed beyond doing the same writes in each. A customer who never opens the wallet sees nothing until they do.
 
+### 6.12 Expiry, renewal and notifications (N-03, N-04, N-05, W-11)
+
+**Scheduler.** Core runs one timer (`EXPIRY_TICK_MS`, default 30000). Each tick reads the Active rows of `consents_cache`. For a consent that expires in `r` seconds:
+
+- `r > 0`: the **smallest configured threshold that is at least `r`** fires `consent.expiring`, once. (A consent granted with 2 days left fires the 3-day threshold straight away, showing the real time left; one inside 1 day fires the 1-day one. It never fires two for one tick.) The remaining time shown is computed from `expiresAt`, not from the threshold.
+- `r <= 0`, and expired no more than `EXPIRED_NOTIFY_SECONDS` ago (7 days; so an old demo database does not flood a wallet): `consent.expired`, once.
+
+"Once" is a rule of the table, not of memory: every notification has a unique `dedupe_key` (`expiring:<principal>:<fiduciary>:<purposeId>:<expiresAt>:<threshold>`, `expired:<…>:<expiresAt>`), so a restart repeats nothing and a **renewed** consent (a new `expiresAt`) starts afresh. The scheduler uses Core's clock; on the demo chain the chain's clock follows the wall clock (`pnpm e2e` checks it), and enforcement never depends on the scheduler: the gateway and the Processor read the chain.
+
+| Setting | Default | `DEMO_FAST_EXPIRY=1` |
+|---|---|---|
+| `EXPIRY_TICK_MS` | 30000 | 2000 |
+| `EXPIRY_THRESHOLDS_SECONDS` | `259200,86400` (3 days, 1 day) | `60,30` |
+| `EXPIRING_WINDOW_SECONDS` (the console's Expiring table looks this far ahead, and back) | 2592000 (30 days) | 600 |
+| Processor `EXPIRY_ERASURE_GRACE_SECONDS` | 604800 (7 days) | 60 |
+| Wallet expiry choices | 30 days, 6 months, 1 year | adds **2 minutes (demo)**, sent by Core as `fastExpiry: true` on the notice |
+
+Explicit variables always win over the fast defaults. `pnpm demo:up:fast` is `pnpm demo:up` with `DEMO_FAST_EXPIRY=1`.
+
+**Notifications.** One row per notification per customer (`drd.md` §3, `notifications`). A notification's body is data, not prose: the wallet writes the sentence in the customer's language from `type` and `payload`.
+
+| `type` (also the WebSocket event name) | Created when | `payload` | Actions in the wallet |
+|---|---|---|---|
+| `consent.expiring` | scheduler, per threshold | `{ expiresAt, thresholdSeconds }` | Renew, Let expire, View proof |
+| `consent.expired` | scheduler | `{ expiresAt }` | Renew, View proof |
+| `consent.renewal_requested` | a company asks (below) | `{ expiresAt, message }` (message: at most 140 characters, optional) | Renew, Let expire, View proof |
+| `data.erased` | the Processor reports `vault.erased` with cause `withdrawn` or `expired` (§6.5; `superseded` and `no_consent` are not announced) | `{ cause }` | View proof |
+| `cascade.acknowledged` | a downstream processor acknowledged a withdrawal on chain (§9) | `{ processor, processorName }` | View proof |
+
+`fiduciary` and `purposeId` name the company and purpose; the item carries the company's name and colour and the purpose's code. **No payload carries personal data**: addresses, codes, times and the company's 140-character message. Every notification is also published once, to `principal:<addr>` only, as `{ event: <type>, principal, notification, at }` where `notification` is the item below. Nothing here reaches a company.
+
+`NotificationItem`: `{ id, key, type, fiduciary: { address, name, color }, purposeId, purposeCode, payload, createdAt, readAt, actionTaken }`. `key` is the dedupe key (the wallet uses it so a scheduled local notification and a live one are the same notification). `actionTaken` is `null`, `renewed` (set by Core when a grant for that company and purpose arrives), `let_expire` or `viewed_proof`.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/v1/principals/:addr/notifications?limit=` | `{ notifications: NotificationItem[], unread, config: { thresholdsSeconds, fastExpiry } }`, newest first, limit 50 (max 200). `config` lets the wallet schedule its own local reminders |
+| POST | `/v1/principals/:addr/notifications/read` | Marks every notification of this customer read. `{ ok: true, unread: 0 }` |
+| POST | `/v1/principals/:addr/notifications/:id` | Body `{ read?: true, action?: "let_expire" \| "viewed_proof" }`. Returns the item. 404 `NOTIFICATION_NOT_FOUND` for an id that is not this customer's |
+| POST | `/v1/principals/:addr/renewals` | Body `{ fiduciary, purposeCode }`. Returns `{ requestId }` of an open renewal request for this customer, company and purpose, creating one if there is none (a `self_renewal`, below). 404 `CONSENT_NOT_FOUND` if the customer has never consented to that purpose. This is what the wallet's **Renew** calls, then it opens the ordinary notice (W3) with `requestId` |
+| GET | `/v1/fiduciaries/:fid/expiring` | The company's consents expiring within `EXPIRING_WINDOW_SECONDS` or expired within it: `{ rows: [{ principal, customerAlias, purposeCode, expiresAt, state: "expiring" \| "expired", renewal: null \| { requestId, status, requestedAt } }] }`. The company already has these principals in its consents table |
+| POST | `/v1/fiduciaries/:fid/renewals` | Body `{ principal, purposeCode, message? }`. 201 `{ requestId, status: "sent", expiresAt }`. 404 `CONSENT_NOT_FOUND` if that principal has no consent with this company for that purpose (a company can only ask its own customers), 429 `RATE_LIMITED` (the company's limit is shared with §6.11). If the customer blocked the company, or already has the maximum open requests from it, the answer is the same 201 and nothing is delivered |
+
+All of these are unavailable (501) in stub mode. The wallet's notification calls are keyed by address like its other reads (a disclosed demo shortcut: there are no sessions); marking read or choosing "Let expire" changes no consent.
+
+**Renewal requests.** A renewal is an ordinary request (`requests` + `request_targets`, §6.11) for the one purpose, with a `kind`: `renewal` (a company asked), `self_renewal` (the customer pressed **Renew** on an expiry reminder), or `targeted` (§6.11, unchanged). Renewals reuse the lifecycle (Sent, Seen, Granted, Declined, Expired), the notice route (it answers only to the addressed wallet), the block list and the open-request cap. `self_renewal` rows are internal: they never appear in the company's "Requests sent" table nor the wallet's inbox, and do not count toward the cap. A company's `renewal` appears in the wallet's inbox like any request and also raises `consent.renewal_requested`. If a `self_renewal` is already open when the company asks, it is promoted to a `renewal` (same request id), so the company's status follows the customer's own action. Granting through the notice marks the matching notifications `renewed` and publishes `request.updated` to the company as usual.
+
+**Revoke.** Withdrawing stays what it is (§3, signed `WithdrawConsent`, immediate). **Let expire** is not a withdrawal: it records `action_taken` and leaves the consent to run to its expiry. A renewal request that is declined (inbox Decline) is a decline of the request only.
+
+**Delivery to the phone, honestly.**
+
+| Path | What it covers | State |
+|---|---|---|
+| WebSocket (`principal:<addr>`) | every notification, instantly, while the app process is alive (foreground, or backgrounded and not yet killed by the OS) | built, tested |
+| Local notification on a live event | the same, as a banner on the phone | built (Android, via `flutter_local_notifications`); tested in widget tests with a fake plugin, **not** tested on a real phone |
+| Local scheduled notifications | `consent.expiring` and `consent.expired` for consents the wallet already knows, scheduled from `expiresAt` and `config.thresholdsSeconds`, so they fire **with the app closed** | built; **not** tested on a real phone |
+| The list in Core | anything missed is on the Alerts tab the next time the app opens | built, tested |
+| Firebase Cloud Messaging for a closed app (`POST /v1/principals/:addr/devices` and a sender in Core) | renewal requests, erasure and cascade confirmations with the app killed | **not built**: it needs a Firebase project, credentials and a real phone. Nothing in the product claims it |
+| A foreground service that keeps the socket alive | same, on Android | **not built** (it would add a dependency and needs the same phone test). `demo.md` says the phone must stay awake or the app open for company-initiated alerts |
+
+The Processor's erasure grace and `vault.erased` are specified in §6.7. Core turns `vault.erased` (cause `withdrawn` or `expired`) into a `data.erased` notification when the event arrives at `POST /v1/events/vault`.
+
 ## 7. Gateway SDK
 
 ```ts
@@ -458,6 +519,8 @@ Real mode, in detail (`core/src/real/cascade.ts`):
 | Proof | `pnpm deploy:amoy` (`hardhat run scripts/deploy.ts --network amoy`). The network comes from the environment: `DEPLOYER_KEY` (a funded account) and optionally `AMOY_RPC_URL`. The addresses, the explorer base and links to both contracts and both deploy transactions go in `shared/deployments.json` under `amoy` |
 | Env | `CHAIN_RPC`, `CHAIN_ID`, `RELAYER_KEY`, `ADMIN_KEY`, `DEMO_MODE`, `PORT`, `DB_PATH`, `STUB_MODE` (default `true` until the real Core lands: serves `core/fixtures/*.json` with light in-memory state, no chain) |
 | Env (Core, V-06) | `PROCESSOR_PUBLIC_URL` (what `GET /v1/processor` returns; `pnpm demo:up` sets it to the laptop's LAN address on port 4200 like `CORE_PUBLIC_URL`), `PROCESSOR_EVENT_KEY` (default `demo-processor-events`, a disclosed demo secret) |
+| Env (Core, N-03) | `DEMO_FAST_EXPIRY` (`1`: seconds instead of days, §6.12), `EXPIRY_TICK_MS`, `EXPIRY_THRESHOLDS_SECONDS`, `EXPIRING_WINDOW_SECONDS`, `EXPIRED_NOTIFY_SECONDS` (604800) |
+| Env (Processor, N-03) | `EXPIRY_ERASURE_GRACE_SECONDS` (604800; 60 with `DEMO_FAST_EXPIRY`) |
 | Env (Core, N-02) | `TARGETED_RATE_PER_MINUTE` (20), `MAX_OPEN_REQUESTS_PER_USER` (3), `IDENTITY_FRESHNESS_SECONDS` (900) |
 | Env (Core, V-07) | `DEMO_PRINCIPAL_KEYS` (JSON `{ "<address>": "<private key>" }`, default Hardhat account #0): customers whose key Core holds so the presenter can withdraw for them; never a real wallet's key |
 | Env (Processor) | `PROCESSOR_PORT` (4200), `PROCESSOR_KEY` (`0x` + 64 hex: the X25519 private key; absent means generate at start. Never logged, never sent anywhere), `PROCESSOR_DB_PATH` (`./data/processor.sqlite`), `CORE_URL`, `CHAIN_RPC`, `CHAIN_NETWORK` (as Core), `FIDUCIARY_API_KEYS` (JSON `{ "<key>": "<fiduciary address>" }`, default `sk_demo_<slug>` for the three seed companies), `FIDUCIARY_CALLBACKS` (JSON `{ "<address>": "<url>" }`), `PROCESSOR_EVENT_KEY`, `PROCESSOR_SWEEP_MS` (30000), `DEMO_MODE` |

@@ -19,6 +19,11 @@
 
 Total ≈ 3:50, leaving ~10 seconds slack. To make room for the Data flow panel, Act 3b grew from 30 to 40 s, and the time came from Act 5 (15 to 10 s) and Act 6 (35 to 30 s), which the audience already follows from the Auditor's own words. If the script runs long, cut Act 5 entirely. Judges' questions come after.
 
+### Optional Act 4b: a consent that expires (needs `pnpm demo:up:fast`)
+Not in the four minutes; use it in the mentoring round or Q&A. With `DEMO_FAST_EXPIRY` the phone offers **2 minutes (demo)** as an expiry. Grant credit check with it. The **Alerts** tab shows "expires in 1 minute", then "expires in 30 seconds", then "expired" (and a phone notification if the app is open); **Run credit check** in the console answers **451 CONSENT_EXPIRED**; in the console's **Expiring consents** press **Request renewal**; the request appears in the wallet's inbox and Alerts; **Renew** gives a new consent and the same call is **ALLOWED**. If the customer sent details, the Processor erases them 60 seconds after expiry and the wallet shows **data erased**.
+
+**What is and is not background push (say it if asked).** Reminders for consents the phone already knows are scheduled on the phone, so they fire with the app closed. Everything a company sends (renewal requests, erasure and acknowledgement confirmations) reaches the phone over the live connection, so the **app must be open, or the phone awake with the app still running**; anything missed is on the Alerts tab the next time it opens. True push to a closed app needs Firebase, which is not built, and the local notifications have not been tested on a real phone yet. Do not claim otherwise.
+
 ## 3. Rehearsal rules
 - Rehearse the exact flow **at least 5 times**, with `pnpm e2e` passing before each.
 - Use `pnpm demo:reset` between runs.
