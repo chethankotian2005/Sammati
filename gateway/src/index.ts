@@ -5,6 +5,7 @@ import {
   REASON_CODES,
   ZERO_HASH,
   chainEntry,
+  checksumAddress,
   purposeIdOf,
   type AccessLogEntry,
   type AccessReason,
@@ -75,7 +76,9 @@ const MESSAGES: Record<ReasonCode, string> = {
 
 const UNAVAILABLE: ConsentVerdict = { valid: false, reason: "LEDGER_UNAVAILABLE", expiresAt: null };
 
-export function sammati(options: SammatiOptions): SammatiGate {
+export function sammati(rawOptions: SammatiOptions): SammatiGate {
+  // Core stores addresses in EIP-55 form and a log entry's hash covers them, so everything this gate writes uses it too.
+  const options = { ...rawOptions, fiduciary: checksumAddress(rawOptions.fiduciary) };
   const core = options.coreUrl.replace(/\/+$/, "");
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const log = new LogChain(core, options.fiduciary, timeout, options.maxQueuedLogs ?? DEFAULT_MAX_QUEUED_LOGS);
@@ -118,7 +121,7 @@ export function sammati(options: SammatiOptions): SammatiGate {
       return async (req: Request, res: Response, next: NextFunction) => {
         const started = Date.now();
         const raw = principalFrom(req)?.trim();
-        const principal = raw && ADDRESS.test(raw) ? raw : undefined;
+        const principal = raw && ADDRESS.test(raw) ? checksumAddress(raw) : undefined;
         const verdict = principal ? await verdictFor(principal, purposeId) : null;
         const denied: ReasonCode | null = !principal ? "NO_PRINCIPAL" : verdict!.valid ? null : (verdict!.reason ?? "LEDGER_UNAVAILABLE");
 
@@ -152,7 +155,7 @@ export function sammati(options: SammatiOptions): SammatiGate {
         endpoint: input.endpoint,
         id,
         latencyMs: input.latencyMs,
-        principal: ADDRESS.test(input.principal) ? input.principal : NO_PRINCIPAL_ADDRESS,
+        principal: ADDRESS.test(input.principal) ? checksumAddress(input.principal) : NO_PRINCIPAL_ADDRESS,
         purposeCode: input.purpose,
         reason: input.reason,
       });

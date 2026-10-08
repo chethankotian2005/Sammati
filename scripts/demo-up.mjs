@@ -21,6 +21,9 @@ if (dbPath !== ":memory:") {
   }
 }
 
+// The vault belongs to the chain that is about to be replaced, like Core's database.
+for (const suffix of ["", "-wal", "-shm"]) rmSync(resolve(repoRoot, "processor", (process.env.PROCESSOR_DB_PATH ?? "./data/processor.sqlite") + suffix), { force: true });
+
 // An explicit CORE_PUBLIC_URL (environment or .env) wins over detection: the real environment is read first.
 try {
   process.loadEnvFile(resolve(repoRoot, ".env"));
@@ -32,7 +35,11 @@ const qr = describeQrUrl({ port: process.env.PORT ?? "4000", env: process.env })
 console.log(qr.banner);
 
 const real = !process.argv.includes("--stub");
-const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url };
+// The wallet fetches the Processor's key from the laptop's address too, on its own port (trd.md §10).
+const processorUrl = process.env.PROCESSOR_PUBLIC_URL?.trim() || `${new URL(qr.url).protocol}//${new URL(qr.url).hostname}:${process.env.PROCESSOR_PORT ?? "4200"}`;
+console.log(`The wallet will find the Sammati Processor (simulated enclave) on ${processorUrl}
+`);
+const coreEnv = { STUB_MODE: real ? "false" : "true", CORE_PUBLIC_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;
 
@@ -41,6 +48,7 @@ const { result } = concurrently(
     { name: "chain", prefixColor: "gray", command: filter("contracts", "node") },
     { name: "seed", prefixColor: "yellow", command: "node scripts/bootstrap.mjs" },
     { name: "core", prefixColor: "blue", command: filter("core"), env: coreEnv },
+    { name: "processor", prefixColor: "cyan", command: filter("processor") },
     { name: "quickloan", prefixColor: "#2F5BEA", command: filter("company-quickloan") },
     { name: "medicare", prefixColor: "#0E9AA7", command: filter("company-medicare") },
     { name: "foodrush", prefixColor: "#E4572E", command: filter("company-foodrush") },

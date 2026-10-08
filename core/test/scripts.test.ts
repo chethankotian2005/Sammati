@@ -18,6 +18,12 @@ describe("pnpm demo:up", () => {
     expect(demoUp).toContain('STUB_MODE: real ? "false" : "true"');
   });
 
+  it("starts the Processor and tells Core where the wallet will find it (V-06)", () => {
+    expect(demoUp).toContain('name: "processor"');
+    expect(demoUp).toContain("PROCESSOR_PUBLIC_URL: processorUrl");
+    expect(demoUp.indexOf("processor.sqlite")).toBeGreaterThan(-1);
+  });
+
   it("gives Core the QR address it printed, and clears the previous run's database first", () => {
     expect(demoUp).toContain("CORE_PUBLIC_URL: qr.url");
     expect(demoUp).toContain("console.log(qr.banner)");
@@ -26,6 +32,12 @@ describe("pnpm demo:up", () => {
 });
 
 describe("pnpm demo:reset", () => {
+  it("empties the Processor's vault too", () => {
+    const reset = readFileSync(resolve(root, "scripts/demo-reset.mjs"), "utf8");
+    expect(reset).toContain("await resetProcessor()");
+    expect(reset.indexOf("await resetProcessor()")).toBeLessThan(reset.indexOf('rpc("hardhat_reset")'));
+  });
+
   it("resets Core's database, then the chain, then redeploys and seeds, then resets Core again", () => {
     const reset = readFileSync(resolve(root, "scripts/demo-reset.mjs"), "utf8");
     const at = (needle: string, from = 0) => {

@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 
 export const CHAIN_RPC = process.env.CHAIN_RPC ?? "http://127.0.0.1:8545";
 export const CORE_URL = process.env.CORE_URL ?? "http://localhost:4000";
+export const PROCESSOR_URL = process.env.PROCESSOR_URL ?? "http://localhost:4200";
 
 export async function rpc(method, params = [], url = CHAIN_RPC) {
   const res = await fetch(url, {
@@ -74,6 +75,20 @@ export async function resetCore(core = CORE_URL) {
   try {
     const res = await fetch(`${core}/v1/demo/reset`, { method: "POST", signal: AbortSignal.timeout(30_000) });
     return res.ok ? null : `Core answered ${res.status}: ${await res.text()}`;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
+/**
+ * Empties the Processor's vault (POST /v1/demo/reset): after a chain reset the consents behind stored ciphertext
+ * no longer exist. Returns null on success, else a short reason; a stopped Processor is not an error for callers,
+ * its own sweep would erase the stale rows anyway.
+ */
+export async function resetProcessor(processor = PROCESSOR_URL) {
+  try {
+    const res = await fetch(`${processor}/v1/demo/reset`, { method: "POST", signal: AbortSignal.timeout(10_000) });
+    return res.ok ? null : `Processor answered ${res.status}`;
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
   }

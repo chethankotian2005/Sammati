@@ -22,6 +22,8 @@ import type {
   CascadeUpdatedEvent,
   ConsentUpdatedEvent,
   TamperAlertEvent,
+  VaultEvent,
+  VaultEventName,
   WsEvent,
   WsEventName,
   WsSubscribe,
@@ -198,6 +200,14 @@ function useWsEvent<E extends WsEvent>(
   useEffect(() => {
     return ctx.on<E>(name, (evt) => cbRef.current(evt));
   }, [ctx, name]);
+}
+
+const VAULT_EVENT_NAMES: readonly VaultEventName[] = ["vault.encrypted", "vault.stored", "processor.requested", "processor.decrypting", "processor.decided", "vault.erased"];
+
+/** Fires for every confidential-processing event (trd.md §6.5): handles, hashes, codes and timings, never data. */
+export function useVaultEvents(cb: Listener<VaultEvent>): void {
+  // A fixed list, so the hooks below are called in the same order on every render.
+  for (const name of VAULT_EVENT_NAMES) useWsEvent<VaultEvent>(name, cb);
 }
 
 /** Fires whenever consent.updated arrives. */

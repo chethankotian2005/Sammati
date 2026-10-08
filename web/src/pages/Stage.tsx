@@ -5,7 +5,7 @@ import {
   type LedgerEventView,
 } from "@sammati/shared";
 import { CoreChip } from "../components";
-import { HashLabel } from "../ui";
+import { HashLabel, VaultTimeline, useVaultTimeline } from "../ui";
 import { fetchAccessLogs, fetchLedgerEvents } from "../api";
 import {
   useAccessLogged,
@@ -58,6 +58,8 @@ export function Stage() {
   const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set());
   
   const [ledgerEvents, setLedgerEvents] = useState<LedgerEventView[]>([]);
+  const quickLoan = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
+  const vaultEvents = useVaultTimeline(quickLoan.address);
   
   // Custom wallet events
   const [walletEvents, setWalletEvents] = useState<{ id: string; text: string; time: number; txHash?: string }[]>([]);
@@ -223,6 +225,15 @@ export function Stage() {
                   <span className="h-4 w-4 rounded-full shadow-sm" style={{ backgroundColor: f.color }} />
                   <h2 className="text-xl font-extrabold">{f.name}</h2>
                 </div>
+                {f.slug === "quickloan" && (
+                  <div className="mb-3 rounded-row border border-line bg-surface p-3" data-testid="stage-vault">
+                    <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-mute">
+                      <span>Confidential processing</span>
+                      <span title="A separate service with an in-memory key, not real hardware protection">simulated enclave</span>
+                    </div>
+                    <VaultTimeline events={vaultEvents} compact />
+                  </div>
+                )}
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                   <Feed rows={rows} newIds={newLogIds} emptyMessage="No requests yet." />
                 </div>

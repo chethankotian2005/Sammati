@@ -1,5 +1,5 @@
-import { getBytes, hexlify, keccak256, solidityPacked, toUtf8Bytes } from "ethers";
-import type { AccessLogEntry } from "./types";
+import { getAddress, getBytes, hexlify, keccak256, solidityPacked, toUtf8Bytes } from "ethers";
+import type { AccessLogEntry, Hex } from "./types";
 
 export const ZERO_HASH = "0x" + "00".repeat(32);
 
@@ -175,4 +175,12 @@ export function verifyMerkleProof(leaf: string, proof: string[], root: string): 
   let acc = hexlify(getBytes(leaf));
   for (const sibling of proof) acc = hashPair(acc, sibling);
   return acc === root.toLowerCase();
+}
+
+/**
+ * The EIP-55 form of an address. Core stores addresses this way, and an access-log entry's hash covers them, so a
+ * writer that hashed a lower-case address would be rejected as out of sync with the chain it is extending.
+ */
+export function checksumAddress(address: string): Hex {
+  return getAddress(address.toLowerCase()) as Hex; // lower-cased first: a mixed-case address with a wrong checksum is still that address
 }

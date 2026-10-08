@@ -343,6 +343,16 @@ describe("logAccess (an access decided elsewhere, e.g. by the Processor)", () =>
     second.close();
   });
 
+  it("writes addresses in EIP-55 form whatever case the caller used, because Core re-derives the hash from them", async () => {
+    const g = await serve();
+    expect((await get(USER.toLowerCase())).status).toBe(200); // requireConsent, lower-case header
+    g.logAccess({ purpose: "credit_check", principal: USER.toLowerCase(), decision: "ALLOWED", reason: "OK", endpoint: "x", latencyMs: 1 }); // logAccess, lower-case
+    await g.flush();
+    expect(core.logs.map((l) => [l.principal, l.fiduciary])).toEqual([[USER, FID], [USER, FID]]);
+    // the hash Core will recompute from the stored (EIP-55) row is the one the SDK chained
+    for (const { prevHash, hash, batchIndex: _batch, ...entry } of core.logs) expect(hashEntry(prevHash, entry)).toBe(hash);
+  });
+
   it("turns a malformed principal into the zero address instead of failing", async () => {
     const g = await serve();
     g.logAccess({ purpose: "credit_check", principal: "customer-4821", decision: "BLOCKED", reason: "NO_PRINCIPAL", endpoint: "x", latencyMs: 1 });
