@@ -61,7 +61,7 @@ try {
 
 const CORE = process.env.E2E_CORE_URL ?? "http://localhost:4000";
 const PROCESSOR = process.env.E2E_PROCESSOR_URL ?? "http://localhost:4200";
-const BUDGET_MS = Number(process.env.E2E_BUDGET_MS ?? 30_000);
+const BUDGET_MS = Number(process.env.E2E_BUDGET_MS ?? 45_000);
 const STACK_START_TIMEOUT_MS = 120_000;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 

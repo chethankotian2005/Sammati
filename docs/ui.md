@@ -452,6 +452,32 @@ Legal alignment (L-02): the sheet opened by "How this protects you" on the conse
 | protect_4 | When a company needs sensitive details, they are encrypted on this phone first. The company gets a decision, not your details. In this demo the secure processor is simulated. | जब किसी कंपनी को संवेदनशील जानकारी चाहिए, तो वह पहले इसी फ़ोन पर एन्क्रिप्ट होती है। कंपनी को फ़ैसला मिलता है, आपकी जानकारी नहीं। इस डेमो में सुरक्षित प्रोसेसर नकली (सिम्युलेटेड) है। | ಕಂಪನಿಗೆ ಸೂಕ್ಷ್ಮ ವಿವರಗಳು ಬೇಕಾದಾಗ, ಅವು ಮೊದಲು ಈ ಫೋನ್‌ನಲ್ಲೇ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗುತ್ತವೆ. ಕಂಪನಿಗೆ ನಿರ್ಧಾರ ಸಿಗುತ್ತದೆ, ನಿಮ್ಮ ವಿವರಗಳಲ್ಲ. ಈ ಡೆಮೊದಲ್ಲಿ ಸುರಕ್ಷಿತ ಪ್ರೊಸೆಸರ್ ಅನುಕರಣೆಯಾಗಿದೆ. |
 | protect_note | Sammati is a prototype with made-up data. It is aligned with the principles of India's DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md. | Sammati एक प्रोटोटाइप है और इसमें बनावटी डेटा है। यह भारत के DPDP अधिनियम, 2023 के सिद्धांतों के अनुरूप बनाया गया है। यह क़ानूनी सलाह या प्रमाणन नहीं है। क्या मैप किया गया है और क्या अभी जाँचना बाकी है, यह docs/dpdp-mapping.md में है। | Sammati ಒಂದು ಮಾದರಿ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿದ್ದು ಕಾಲ್ಪನಿಕ ಡೇಟಾ ಬಳಸುತ್ತದೆ. ಇದನ್ನು ಭಾರತದ DPDP ಕಾಯ್ದೆ, 2023 ರ ತತ್ವಗಳಿಗೆ ಅನುಗುಣವಾಗಿ ರೂಪಿಸಲಾಗಿದೆ. ಇದು ಕಾನೂನು ಸಲಹೆ ಅಥವಾ ಪ್ರಮಾಣೀಕರಣ ಅಲ್ಲ. ಯಾವುದನ್ನು ಹೋಲಿಸಲಾಗಿದೆ ಮತ್ತು ಯಾವುದನ್ನು ಇನ್ನೂ ಪರಿಶೀಲಿಸಬೇಕು ಎಂಬುದು docs/dpdp-mapping.md ನಲ್ಲಿದೆ. |
 
+### 6.2 Keys added with the proof sheet, cascade list and "How this protects you"
+
+These shipped in the app before the spec listed them; the table is the app's text, so spec and code agree (the consistency pass, `tasks.md`).
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| appName | Sammati | Sammati | Sammati |
+| scan_paste_hint | Paste the QR text here | यहाँ QR का पाठ पेस्ट करें | QR ಪಠ್ಯವನ್ನು ಇಲ್ಲಿ ಅಂಟಿಸಿ |
+| scan_paste_open | Open | खोलें | ತೆರೆಯಿರಿ |
+| receipt_view_proof | View proof | प्रमाण देखें | ಪುರಾವೆ ನೋಡಿ |
+| proof_headline | This access was recorded and locked on the ledger. | यह एक्सेस रिकॉर्ड किया गया और लेजर पर लॉक किया गया। | ಈ ಪ್ರವೇಶ ದಾಖಲಾಗಿದೆ ಮತ್ತು ಲೆಡ್ಜರ್‌ನಲ್ಲಿ ಲಾಕ್ ಮಾಡಲಾಗಿದೆ. |
+| proof_record_hash | Record hash | रिकॉर्ड हैश | ದಾಖಲೆ ಹ್ಯಾಶ್ |
+| proof_batch_anchor | Batch anchor | बैच एंकर | ಬ್ಯಾಚ್ ಆಂಕರ್ |
+| proof_merkle_verified | Verified ✓ | सत्यापित ✓ | ಪರಿಶೀಲಿಸಲಾಗಿದೆ ✓ |
+| proof_merkle_failed | Verification failed | सत्यापन विफल | ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ |
+| proof_merkle_checking | Checking… | जाँच हो रही है… | ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ… |
+| proof_open_explorer | Open in block explorer | ब्लॉक एक्सप्लोरर में खोलें | ಬ್ಲಾಕ್ ಎಕ್ಸ್‌ಪ್ಲೋರರ್‌ನಲ್ಲಿ ತೆರೆಯಿರಿ |
+| proof_consent_signer | Signer (you) | हस्ताक्षरकर्ता (आप) | ಸಹಿ ಮಾಡಿದವರು (ನೀವು) |
+| proof_ledger_head | Ledger head | लेजर हेड | ಲೆಡ್ಜರ್ ಹೆಡ್ |
+| proof_consent_tx | Transaction | लेन-देन | ವಹಿವಾಟು |
+| proof_loading | Loading proof… | प्रमाण लोड हो रहा है… | ಪುರಾವೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ… |
+| proof_failed | Could not load proof. Try again. | प्रमाण लोड नहीं हो सका। दोबारा कोशिश करें। | ಪುರಾವೆ ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| cascade_title | Also told | इन्हें भी बताया गया | ಇವರಿಗೂ ತಿಳಿಸಲಾಗಿದೆ |
+| cascade_waiting | Waiting… | प्रतीक्षा में… | ಕಾಯುತ್ತಿದೆ… |
+| cascade_acked | {n} s ago | {n} सेकंड पहले | {n} ಸೆಕೆಂಡ್ ಹಿಂದೆ |
+
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 
 ## 7. Accessibility and quality floor

@@ -67,13 +67,27 @@ Built after the inbox. Order: (1) spec commit; (2) Core: `notifications`, the sc
 - Sleep or rest if possible. Final reset (`pnpm demo:reset`), charge devices, verify Amoy links, set up the stage.
 
 ## 4. Priority and cut lines
-If time runs short, cut from the bottom, never from the top:
+If time runs short, cut from the bottom, never from the top. The order the features were built in, and so the order they are cut in reverse, is: confidential processing, the inline QR page (the customer portal), notifications and the inbox, then the DPDP document.
 
 1. Golden path (non-negotiable)
-2. Tamper detection (A-03) and cascade (W-08, C-06): the two hero moments
-3. Proof sheet (W-07), Auditor scorecard (A-01), languages (W-09)
-4. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06), confidential processing (V-01 to V-06; if it is cut, remove Act 3b from `demo.md` and keep the rest)
-5. P2 items (reminders, nominee, grievance overview)
+2. The three hero moments: blocked after withdraw (W-05, B-01), the staff view that sees only ciphertext while the Processor decides (V-01 to V-07), tamper detection (A-03)
+3. Cascade (W-08, C-06), proof sheet (W-07), Auditor scorecard (A-01), languages (W-09)
+4. Confidential processing as a whole (V-01 to V-06): if it is cut, remove Act 4 from `demo.md`, but then a hero moment is gone, so cut something else first
+5. The inline QR page (portal, C-09, W-13): if cut, Act 1 uses the console QR
+6. Notifications and the inbox (N-01 to N-05, W-11, W-14): cut Act 7 first, then Act 6; the Alerts tab and Sammati ID are the last to go
+7. The DPDP document and "How this protects you" (L-01, L-02)
+8. Rights (W-10), report export (C-08, A-04), Amoy deployment (B-06)
+9. P2 items (nominee, grievance overview). **Company onboarding, a sandbox company and "applications" are not built and not planned for the demo**
+
+### Gates (each must pass before moving on)
+| Gate | What must be true | How it is checked |
+|---|---|---|
+| Golden path | QR to ALLOWED to withdraw to BLOCKED on the real phone | by hand, then `pnpm e2e` |
+| Confidential processing | Seal, submit, decision, ciphertext-only admin view, erasure on withdrawal; the demo PAN appears nowhere | `pnpm e2e` (plaintext search), `processor` and `shared` tests |
+| Inline QR page | The portal journey plays with a headless wallet, and by hand with the phone | `pnpm e2e`, web tests |
+| Notifications and inbox | A targeted request reaches the inbox in 2 s; an unknown ID gives the same answer and no push; expiry gives expiring, expired, 451, renew, ALLOWED | `pnpm e2e` (needs the stack in `DEMO_FAST_EXPIRY`: a stack it starts itself is) |
+| DPDP document | Claims reviewed; no compliance overclaim | `docs/dpdp-mapping.md` |
+| Whole | `pnpm e2e` under 45 s, `pnpm -r test`, `pnpm -r typecheck`, lint, wallet `flutter test` and `flutter analyze` | before every rehearsal |
 
 ## 5. Checklists
 

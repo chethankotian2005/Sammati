@@ -95,7 +95,7 @@ Columns: the obligation in plain words | who it applies to | Sammati feature (fe
 ## 3. How to see the evidence
 
 1. `pnpm demo:up`, then walk `docs/demo.md` §2 (notice, consent, allowed, use without reading, withdraw, proof). Rows M-01 to M-09, M-14, M-18 and M-20 are on that path.
-2. `pnpm e2e` plays the same story headlessly in under 30 s and fails by step name if any evidence above stops being true.
+2. `pnpm e2e` plays the same story headlessly in under 45 s and fails by step name if any evidence above stops being true.
 3. `pnpm -r test` (contracts, core, gateway, processor, web, shared) and `flutter test` in `wallet/` hold the unit-level evidence quoted in the table.
 
 ## 4. Where the claims come from
