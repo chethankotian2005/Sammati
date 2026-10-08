@@ -128,6 +128,81 @@ Voice: plain verbs, sentence case, describe what happens. Errors state what went
 | withdraw_easy | You can withdraw any purpose later, as easily as you gave it. | आप बाद में किसी भी उद्देश्य की सहमति उतनी ही आसानी से वापस ले सकते हैं। | ನೀವು ನಂತರ ಯಾವುದೇ ಉದ್ದೇಶದ ಒಪ್ಪಿಗೆಯನ್ನು ನೀಡಿದಷ್ಟೇ ಸುಲಭವಾಗಿ ಹಿಂಪಡೆಯಬಹುದು. |
 | recorded | Recorded on the ledger | लेजर पर दर्ज | ಲೆಡ್ಜರ್‌ನಲ್ಲಿ ದಾಖಲಾಗಿದೆ |
 
+### 6.1 Shell keys (wallet)
+
+Added with the app shell. Hindi and Kannada are first drafts and need the native-speaker check below. Language names are shown in their own script in every locale.
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| nav_consents | Consents | सहमतियाँ | ಒಪ್ಪಿಗೆಗಳು |
+| nav_activity | Activity | गतिविधि | ಚಟುವಟಿಕೆ |
+| nav_scan | Scan | स्कैन | ಸ್ಕ್ಯಾನ್ |
+| nav_rights | Rights | अधिकार | ಹಕ್ಕುಗಳು |
+| nav_me | Me | मैं | ನಾನು |
+| consents_empty | No companies yet. Scan a QR code to connect your first one. | अभी कोई कंपनी नहीं। अपनी पहली कंपनी जोड़ने के लिए QR कोड स्कैन करें। | ಇನ್ನೂ ಯಾವುದೇ ಕಂಪನಿ ಇಲ್ಲ. ನಿಮ್ಮ ಮೊದಲ ಕಂಪನಿಯನ್ನು ಸಂಪರ್ಕಿಸಲು QR ಕೋಡ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ. |
+| activity_empty | No activity yet. Data access by companies will appear here. | अभी कोई गतिविधि नहीं। कंपनियों द्वारा डेटा का उपयोग यहाँ दिखेगा। | ಇನ್ನೂ ಯಾವುದೇ ಚಟುವಟಿಕೆ ಇಲ್ಲ. ಕಂಪನಿಗಳು ಡೇಟಾ ಬಳಸಿದಾಗ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ. |
+| rights_access | See what a company holds | देखें कि कंपनी के पास क्या है | ಕಂಪನಿಯ ಬಳಿ ಏನಿದೆ ಎಂದು ನೋಡಿ |
+| rights_erasure | Ask a company to erase data | कंपनी से डेटा मिटाने को कहें | ಡೇಟಾ ಅಳಿಸಲು ಕಂಪನಿಗೆ ಕೇಳಿ |
+| rights_grievance | Raise a complaint | शिकायत दर्ज करें | ದೂರು ಸಲ್ಲಿಸಿ |
+| me_language | Language | भाषा | ಭಾಷೆ |
+| me_developer | Developer settings | डेवलपर सेटिंग्स | ಡೆವಲಪರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು |
+| dev_core_url | Core URL | Core URL | Core URL |
+| dev_core_url_hint | Address of the Sammati Core on your Wi-Fi, for example http://192.168.1.5:4000 | आपके Wi-Fi पर Sammati Core का पता, जैसे http://192.168.1.5:4000 | ನಿಮ್ಮ Wi-Fi ನಲ್ಲಿರುವ Sammati Core ವಿಳಾಸ, ಉದಾಹರಣೆಗೆ http://192.168.1.5:4000 |
+| dev_core_url_invalid | Enter a full address starting with http:// or https:// | http:// या https:// से शुरू होने वाला पूरा पता दर्ज करें | http:// ಅಥವಾ https:// ನಿಂದ ಪ್ರಾರಂಭವಾಗುವ ಪೂರ್ಣ ವಿಳಾಸ ನಮೂದಿಸಿ |
+| dev_save | Save | सहेजें | ಉಳಿಸಿ |
+| dev_saved | Saved | सहेजा गया | ಉಳಿಸಲಾಗಿದೆ |
+| scan_placeholder | Camera scanning arrives with the scan screen. | कैमरा स्कैनिंग स्कैन स्क्रीन के साथ आएगी। | ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನಿಂಗ್ ಸ್ಕ್ಯಾನ್ ಪರದೆಯೊಂದಿಗೆ ಬರುತ್ತದೆ. |
+
+Onboarding and wallet creation (W0), same status as above:
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| language_title | Choose your language | अपनी भाषा चुनें | ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ |
+| onb_continue | Continue | आगे बढ़ें | ಮುಂದುವರಿಸಿ |
+| onb_next | Next | अगला | ಮುಂದೆ |
+| onb_1 | See every company that has your consent | देखें किन कंपनियों के पास आपकी सहमति है | ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಹೊಂದಿರುವ ಪ್ರತಿ ಕಂಪನಿಯನ್ನು ನೋಡಿ |
+| onb_2 | Say yes to a purpose, not to everything | हर चीज़ को नहीं, सिर्फ़ एक उद्देश्य को हाँ कहें | ಎಲ್ಲದಕ್ಕೂ ಅಲ್ಲ, ಒಂದು ಉದ್ದೇಶಕ್ಕೆ ಮಾತ್ರ ಹೌದು ಎನ್ನಿ |
+| onb_3 | Withdraw in one tap | एक टैप में वापस लें | ಒಂದೇ ಟ್ಯಾಪ್‌ನಲ್ಲಿ ಹಿಂಪಡೆಯಿರಿ |
+| wallet_create_title | Secure with fingerprint or PIN | फ़िंगरप्रिंट या PIN से सुरक्षित करें | ಫಿಂಗರ್‌ಪ್ರಿಂಟ್ ಅಥವಾ PIN ಮೂಲಕ ಸುರಕ್ಷಿತಗೊಳಿಸಿ |
+| wallet_create_body | Your consents are signed on this phone. Only you can approve them. | आपकी सहमतियाँ इसी फ़ोन पर साइन होती हैं। इन्हें सिर्फ़ आप मंज़ूर कर सकते हैं। | ನಿಮ್ಮ ಒಪ್ಪಿಗೆಗಳಿಗೆ ಈ ಫೋನ್‌ನಲ್ಲೇ ಸಹಿ ಹಾಕಲಾಗುತ್ತದೆ. ನೀವು ಮಾತ್ರ ಅವುಗಳನ್ನು ಅನುಮೋದಿಸಬಹುದು. |
+| wallet_create_button | Create wallet | वॉलेट बनाएँ | ವಾಲೆಟ್ ರಚಿಸಿ |
+| wallet_no_lock | Set a screen lock on this phone, then try again. | इस फ़ोन पर स्क्रीन लॉक सेट करें, फिर दोबारा कोशिश करें। | ಈ ಫೋನ್‌ನಲ್ಲಿ ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಹೊಂದಿಸಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| wallet_auth_failed | Could not confirm it is you. Try again. | पुष्टि नहीं हो सकी कि यह आप हैं। दोबारा कोशिश करें। | ಇದು ನೀವೇ ಎಂದು ದೃಢಪಡಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| wallet_create_failed | Could not create the wallet. Try again. | वॉलेट नहीं बन सका। दोबारा कोशिश करें। | ವಾಲೆಟ್ ರಚಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| auth_reason_create | Confirm to create your wallet | अपना वॉलेट बनाने के लिए पुष्टि करें | ನಿಮ್ಮ ವಾಲೆಟ್ ರಚಿಸಲು ದೃಢೀಕರಿಸಿ |
+| auth_reason_sign | Confirm to approve this | इसे मंज़ूर करने के लिए पुष्टि करें | ಇದನ್ನು ಅನುಮೋದಿಸಲು ದೃಢೀಕರಿಸಿ |
+| me_wallet_address | Wallet address | वॉलेट पता | ವಾಲೆಟ್ ವಿಳಾಸ |
+| copied | Copied | कॉपी किया गया | ನಕಲಿಸಲಾಗಿದೆ |
+
+Scan, consent notice (W2, W3) and receipt (W4), same status as above. `{count}`, `{days}`, `{months}`, `{purpose}`, `{company}` and `{date}` are placeholders; the counted keys use ICU plurals in the ARB files:
+
+| Key | English | Hindi | Kannada |
+|---|---|---|---|
+| scan_hint | Point the camera at the company's QR code. | कैमरे को कंपनी के QR कोड की ओर रखें। | ಕ್ಯಾಮೆರಾವನ್ನು ಕಂಪನಿಯ QR ಕೋಡ್‌ನತ್ತ ಹಿಡಿಯಿರಿ. |
+| scan_torch | Torch | टॉर्च | ಟಾರ್ಚ್ |
+| scan_camera_denied | Allow camera access to scan QR codes. | QR कोड स्कैन करने के लिए कैमरे की अनुमति दें। | QR ಕೋಡ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಲು ಕ್ಯಾಮೆರಾ ಅನುಮತಿ ನೀಡಿ. |
+| scan_invalid_qr | This is not a Sammati QR code. | यह Sammati का QR कोड नहीं है। | ಇದು Sammati QR ಕೋಡ್ ಅಲ್ಲ. |
+| error_unreachable | Could not reach Sammati. Check Wi-Fi. | Sammati तक नहीं पहुँच सके। Wi-Fi जाँचें। | Sammati ಅನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ. Wi-Fi ಪರಿಶೀಲಿಸಿ. |
+| request_gone | This request is no longer valid. Ask the company for a new QR code. | यह अनुरोध अब मान्य नहीं है। कंपनी से नया QR कोड माँगें। | ಈ ವಿನಂತಿ ಇನ್ನು ಮಾನ್ಯವಾಗಿಲ್ಲ. ಕಂಪನಿಯಿಂದ ಹೊಸ QR ಕೋಡ್ ಕೇಳಿ. |
+| notice_mismatch | This notice could not be verified, so nothing was signed. Ask the company for a new QR code. | यह सूचना सत्यापित नहीं हो सकी, इसलिए कुछ भी साइन नहीं हुआ। कंपनी से नया QR कोड माँगें। | ಈ ಸೂಚನೆಯನ್ನು ಪರಿಶೀಲಿಸಲಾಗಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನನ್ನೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ಕಂಪನಿಯಿಂದ ಹೊಸ QR ಕೋಡ್ ಕೇಳಿ. |
+| grant_failed | Could not record this. Try again. | इसे दर्ज नहीं कर सके। दोबारा कोशिश करें। | ಇದನ್ನು ದಾಖಲಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+| retry | Try again | दोबारा कोशिश करें | ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ |
+| asking_for_purposes | {count, plural, =1{Asking for 1 purpose} other{Asking for {count} purposes}} | {count, plural, other{{count} उद्देश्यों के लिए पूछ रहे हैं}} | {count, plural, other{{count} ಉದ್ದೇಶಗಳಿಗಾಗಿ ಕೇಳುತ್ತಿದೆ}} |
+| give_consent_count | Give consent ({count}) | सहमति दें ({count}) | ಒಪ್ಪಿಗೆ ನೀಡಿ ({count}) |
+| needed_for_service | Needed for the service | सेवा के लिए ज़रूरी | ಸೇವೆಗೆ ಅಗತ್ಯ |
+| shares_third_party | Shared with third parties | तीसरे पक्ष के साथ साझा | ಮೂರನೇ ಪಕ್ಷಗಳೊಂದಿಗೆ ಹಂಚಲಾಗುತ್ತದೆ |
+| retention_days | {days, plural, =1{kept for 1 day} other{kept for {days} days}} | {days, plural, other{{days} दिन रखा जाएगा}} | {days, plural, other{{days} ದಿನಗಳ ಕಾಲ ಇರಿಸಲಾಗುತ್ತದೆ}} |
+| retention_months | {months, plural, =1{kept for 1 month} other{kept for {months} months}} | {months, plural, other{{months} महीने रखा जाएगा}} | {months, plural, other{{months} ತಿಂಗಳು ಇರಿಸಲಾಗುತ್ತದೆ}} |
+| expiry_label | Consent lasts | सहमति की अवधि | ಒಪ್ಪಿಗೆಯ ಅವಧಿ |
+| expiry_30d | 30 days | 30 दिन | 30 ದಿನಗಳು |
+| expiry_6m | 6 months | 6 महीने | 6 ತಿಂಗಳು |
+| expiry_1y | 1 year | 1 साल | 1 ವರ್ಷ |
+| purpose_switch_label | {purpose}, {company} | {purpose}, {company} | {purpose}, {company} |
+| receipt_expires | Valid until {date} | {date} तक मान्य | {date} ವರೆಗೆ ಮಾನ್ಯ |
+| receipt_tx | Ledger transaction | लेजर लेन-देन | ಲೆಡ್ಜರ್ ವಹಿವಾಟು |
+| done | Done | हो गया | ಮುಗಿಯಿತು |
+| error_generic | Something went wrong. Try again. | कुछ गड़बड़ हो गई। दोबारा कोशिश करें। | ಏನೋ ತಪ್ಪಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. |
+
 Have a native speaker check every Hindi and Kannada string, including purpose descriptions, before the demo.
 
 ## 7. Accessibility and quality floor

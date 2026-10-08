@@ -1,0 +1,128 @@
+{
+  "@@locale": "en",
+  "appName": "Sammati",
+  "@appName": {
+    "description": "Wordmark shown in the app bar"
+  },
+  "give_consent": "Give consent",
+  "withdraw": "Withdraw",
+  "withdrawn_blocked": "Withdrawn. {company} is blocked.",
+  "@withdrawn_blocked": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "allowed": "Allowed",
+  "blocked": "Blocked",
+  "scan_to_connect": "Scan to connect",
+  "withdraw_easy": "You can withdraw any purpose later, as easily as you gave it.",
+  "recorded": "Recorded on the ledger",
+  "nav_consents": "Consents",
+  "nav_activity": "Activity",
+  "nav_scan": "Scan",
+  "nav_rights": "Rights",
+  "nav_me": "Me",
+  "consents_empty": "No companies yet. Scan a QR code to connect your first one.",
+  "activity_empty": "No activity yet. Data access by companies will appear here.",
+  "rights_access": "See what a company holds",
+  "rights_erasure": "Ask a company to erase data",
+  "rights_grievance": "Raise a complaint",
+  "me_language": "Language",
+  "me_developer": "Developer settings",
+  "language_english": "English",
+  "language_hindi": "हिन्दी",
+  "language_kannada": "ಕನ್ನಡ",
+  "dev_core_url": "Core URL",
+  "dev_core_url_hint": "Address of the Sammati Core on your Wi-Fi, for example http://192.168.1.5:4000",
+  "dev_core_url_invalid": "Enter a full address starting with http:// or https://",
+  "dev_save": "Save",
+  "dev_saved": "Saved",
+  "scan_placeholder": "Camera scanning arrives with the scan screen.",
+  "language_title": "Choose your language",
+  "onb_continue": "Continue",
+  "onb_next": "Next",
+  "onb_1": "See every company that has your consent",
+  "onb_2": "Say yes to a purpose, not to everything",
+  "onb_3": "Withdraw in one tap",
+  "wallet_create_title": "Secure with fingerprint or PIN",
+  "wallet_create_body": "Your consents are signed on this phone. Only you can approve them.",
+  "wallet_create_button": "Create wallet",
+  "wallet_no_lock": "Set a screen lock on this phone, then try again.",
+  "wallet_auth_failed": "Could not confirm it is you. Try again.",
+  "wallet_create_failed": "Could not create the wallet. Try again.",
+  "auth_reason_create": "Confirm to create your wallet",
+  "auth_reason_sign": "Confirm to approve this",
+  "me_wallet_address": "Wallet address",
+  "copied": "Copied",
+  "scan_hint": "Point the camera at the company's QR code.",
+  "scan_torch": "Torch",
+  "scan_camera_denied": "Allow camera access to scan QR codes.",
+  "scan_invalid_qr": "This is not a Sammati QR code.",
+  "error_unreachable": "Could not reach Sammati. Check Wi-Fi.",
+  "request_gone": "This request is no longer valid. Ask the company for a new QR code.",
+  "notice_mismatch": "This notice could not be verified, so nothing was signed. Ask the company for a new QR code.",
+  "grant_failed": "Could not record this. Try again.",
+  "retry": "Try again",
+  "asking_for_purposes": "{count, plural, =1{Asking for 1 purpose} other{Asking for {count} purposes}}",
+  "@asking_for_purposes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "give_consent_count": "Give consent ({count})",
+  "@give_consent_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "needed_for_service": "Needed for the service",
+  "shares_third_party": "Shared with third parties",
+  "retention_days": "{days, plural, =1{kept for 1 day} other{kept for {days} days}}",
+  "@retention_days": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "retention_months": "{months, plural, =1{kept for 1 month} other{kept for {months} months}}",
+  "@retention_months": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "expiry_label": "Consent lasts",
+  "expiry_30d": "30 days",
+  "expiry_6m": "6 months",
+  "expiry_1y": "1 year",
+  "purpose_switch_label": "{purpose}, {company}",
+  "@purpose_switch_label": {
+    "placeholders": {
+      "purpose": {
+        "type": "String"
+      },
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "receipt_expires": "Valid until {date}",
+  "@receipt_expires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "receipt_tx": "Ledger transaction",
+  "done": "Done",
+  "error_generic": "Something went wrong. Try again."
+}
