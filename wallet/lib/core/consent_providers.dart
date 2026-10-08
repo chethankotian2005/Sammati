@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'consent_flow.dart';
 import 'core_api.dart';
 import 'notice.dart';
+import 'withdraw_flow.dart';
 import 'wallet_providers.dart';
 
 /// Builds a client for a Core base URL. Overridden in tests.
@@ -12,6 +13,12 @@ final coreApiFactoryProvider = Provider<CoreApi Function(String baseUrl)>((ref) 
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 final consentFlowProvider = Provider<ConsentFlow>((ref) => ConsentFlow(
+      wallet: ref.watch(walletServiceProvider),
+      apiFor: ref.watch(coreApiFactoryProvider),
+      clock: ref.watch(clockProvider),
+    ));
+
+final withdrawFlowProvider = Provider<WithdrawFlow>((ref) => WithdrawFlow(
       wallet: ref.watch(walletServiceProvider),
       apiFor: ref.watch(coreApiFactoryProvider),
       clock: ref.watch(clockProvider),

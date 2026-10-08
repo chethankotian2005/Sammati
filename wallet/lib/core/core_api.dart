@@ -4,7 +4,11 @@
 
 import 'package:dio/dio.dart';
 
+import 'activity.dart';
+import 'consents.dart';
 import 'notice.dart';
+import 'proof.dart';
+import 'rights.dart';
 
 enum CoreFailure { unreachable, notFound, rejected, server }
 
@@ -66,6 +70,27 @@ abstract interface class CoreApi {
 
   /// [request] is the GrantConsent message (eip712.dart GrantConsent.toJson()).
   Future<TxResult> grant(Map<String, Object> request, String signature);
+
+  /// [request] is the WithdrawConsent message (eip712.dart WithdrawConsent.toJson()).
+  Future<TxResult> withdraw(Map<String, Object> request, String signature);
+
+  Future<ConsentsSnapshot> getConsents(String principal);
+
+  /// Newest first. Rows Core sends that the wallet cannot read are skipped, not fatal.
+  Future<List<ActivityItem>> getActivity(String principal, {int limit = 100});
+
+  /// `GET /v1/proof/consent/:txHash` (trd.md §6.1).
+  Future<ConsentProof> getConsentProof(String txHash);
+
+  /// `GET /v1/proof/access/:entryId` (trd.md §6.1).
+  Future<AccessProof> getAccessProof(String entryId);
+
+  /// `GET /v1/principals/:addr/cascade/:purposeId` (trd.md §6.1 — all acks for one purpose).
+  Future<List<CascadeAckRow>> getCascadeAcks(String principal, String purposeId);
+
+  Future<List<RightsRequestRow>> getRights(String principal);
+  
+  Future<void> submitRightsRequest(String principal, String fiduciary, String type, String note);
 }
 
 class DioCoreApi implements CoreApi {
@@ -96,15 +121,102 @@ class DioCoreApi implements CoreApi {
   }
 
   @override
-  Future<TxResult> grant(Map<String, Object> request, String signature) async {
+  Future<TxResult> grant(Map<String, Object> request, String signature) =>
+      _postSigned('/v1/consents/grant', request, signature);
+
+  @override
+  Future<TxResult> withdraw(Map<String, Object> request, String signature) =>
+      _postSigned('/v1/consents/withdraw', request, signature);
+
+  @override
+  Future<ConsentsSnapshot> getConsents(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/consents',
+        ));
+    try {
+      return ConsentsSnapshot.fromJson(json);
+    } on Object {
+      throw const CoreException(CoreFailure.server, message: 'Malformed consents');
+    }
+  }
+
+  @override
+  Future<List<ActivityItem>> getActivity(String principal, {int limit = 100}) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/activity',
+          queryParameters: {'limit': limit},
+        ));
+    final items = json['items'];
+    if (items is! List) throw const CoreException(CoreFailure.server, message: 'Malformed activity');
+    return [for (final row in items) ?ActivityItem.tryParseRow(row)];
+  }
+
+  @override
+  Future<ConsentProof> getConsentProof(String txHash) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/proof/consent/${Uri.encodeComponent(txHash)}',
+        ));
+    try {
+      return ConsentProof.fromJson(json);
+    } on Object {
+      throw const CoreException(CoreFailure.server, message: 'Malformed consent proof');
+    }
+  }
+
+  @override
+  Future<AccessProof> getAccessProof(String entryId) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/proof/access/${Uri.encodeComponent(entryId)}',
+        ));
+    try {
+      return AccessProof.fromJson(json);
+    } on Object {
+      throw const CoreException(CoreFailure.server, message: 'Malformed access proof');
+    }
+  }
+
+  @override
+  Future<List<CascadeAckRow>> getCascadeAcks(String principal, String purposeId) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/cascade/${Uri.encodeComponent(purposeId)}',
+        ));
+    final rows = json['acks'];
+    if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed cascade acks');
+    return [for (final r in rows) if (CascadeAckRow.tryParse(r) case final row?) row];
+  }
+
+  @override
+  Future<List<RightsRequestRow>> getRights(String principal) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/principals/${Uri.encodeComponent(principal)}/rights',
+        ));
+    final rows = json['rights'];
+    if (rows is! List) throw const CoreException(CoreFailure.server, message: 'Malformed rights response');
+    return [for (final r in rows) if (RightsRequestRow.tryParse(r) case final row?) row];
+  }
+
+  @override
+  Future<void> submitRightsRequest(String principal, String fiduciary, String type, String note) async {
+    await _send(() => _dio.post<Map<String, dynamic>>(
+          '/v1/rights',
+          data: {
+            'principal': principal,
+            'fiduciary': fiduciary,
+            'type': type,
+            'note': note,
+          },
+        ));
+  }
+
+  Future<TxResult> _postSigned(String path, Map<String, Object> request, String signature) async {
     final json = await _send(() => _dio.post<Map<String, dynamic>>(
-          '/v1/consents/grant',
+          path,
           data: {'request': request, 'signature': signature},
         ));
     final txHash = json['txHash'];
     final status = json['status'];
     if (txHash is! String || status is! String) {
-      throw const CoreException(CoreFailure.server, message: 'Malformed grant response');
+      throw const CoreException(CoreFailure.server, message: 'Malformed transaction response');
     }
     return TxResult(txHash: txHash, status: status);
   }

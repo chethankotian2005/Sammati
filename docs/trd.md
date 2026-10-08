@@ -156,7 +156,7 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 | GET | `/v1/requests/:requestId?principal=0x..` | Wallet fetches notice: fiduciary, purposes (localised text), noticeHash, typed-data template, nonce (the principal's current on-chain nonce; `"0"` if `principal` omitted) |
 | POST | `/v1/consents/grant` | Body `{ request: GrantConsent, signature }` returns `{ txHash, status }` |
 | POST | `/v1/consents/withdraw` | Body `{ request: WithdrawConsent, signature }` returns `{ txHash, status }` |
-| GET | `/v1/principals/:addr/consents` | All consents grouped by fiduciary |
+| GET | `/v1/principals/:addr/consents` | All consents grouped by fiduciary, plus `nonce` (the principal's current on-chain nonce, decimal string) and `domain` (the EIP-712 domain). The wallet needs both to sign a withdraw, which has no request to read them from |
 | GET | `/v1/principals/:addr/activity?limit=` | Access feed |
 | GET | `/v1/principals/:addr/cascade/:purposeId` | Processor acknowledgements |
 | GET | `/v1/proof/consent/:txHash` | Event data, ledger head, explorer link |

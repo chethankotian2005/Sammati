@@ -513,6 +513,155 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Try again.'**
   String get error_generic;
+
+  /// No description provided for @consents_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'{companies, plural, =1{1 company · {active} active} other{{companies} companies · {active} active}}'**
+  String consents_summary(int companies, int active);
+
+  /// No description provided for @status_active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get status_active;
+
+  /// No description provided for @status_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get status_expired;
+
+  /// No description provided for @status_withdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawn'**
+  String get status_withdrawn;
+
+  /// No description provided for @expired_ago.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =0{Expired today, give consent again} =1{Expired 1 day ago, give consent again} other{Expired {days} days ago, give consent again}}'**
+  String expired_ago(int days);
+
+  /// No description provided for @expires_in_days.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{Expires in 1 day} other{Expires in {days} days}}'**
+  String expires_in_days(int days);
+
+  /// No description provided for @expires_in_months.
+  ///
+  /// In en, this message translates to:
+  /// **'{months, plural, =1{Expires in 1 month} other{Expires in {months} months}}'**
+  String expires_in_months(int months);
+
+  /// No description provided for @offline_banner.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Showing last known consents.'**
+  String get offline_banner;
+
+  /// No description provided for @withdraw_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop {company} using your data for {purpose}? They will be blocked right away.'**
+  String withdraw_confirm(String company, String purpose);
+
+  /// No description provided for @keep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get keep;
+
+  /// No description provided for @auth_reason_withdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to withdraw consent'**
+  String get auth_reason_withdraw;
+
+  /// No description provided for @filter_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get filter_all;
+
+  /// No description provided for @reason_consent_withdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent withdrawn'**
+  String get reason_consent_withdrawn;
+
+  /// No description provided for @reason_consent_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent expired'**
+  String get reason_consent_expired;
+
+  /// No description provided for @reason_no_consent.
+  ///
+  /// In en, this message translates to:
+  /// **'No consent given'**
+  String get reason_no_consent;
+
+  /// No description provided for @reason_ledger_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check consent, so blocked'**
+  String get reason_ledger_unavailable;
+
+  /// No description provided for @reason_no_principal.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not tell whose data this was'**
+  String get reason_no_principal;
+
+  /// No description provided for @time_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get time_now;
+
+  /// No description provided for @time_seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} s ago'**
+  String time_seconds(int n);
+
+  /// No description provided for @time_minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} min ago'**
+  String time_minutes(int n);
+
+  /// No description provided for @time_hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} h ago'**
+  String time_hours(int n);
+
+  /// No description provided for @time_days.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} d ago'**
+  String time_days(int n);
+
+  /// No description provided for @activity_row_label.
+  ///
+  /// In en, this message translates to:
+  /// **'{purpose}, {company}, {decision}, {time}'**
+  String activity_row_label(
+    String purpose,
+    String company,
+    String decision,
+    String time,
+  );
+
+  /// No description provided for @offline_activity_banner.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Showing last known activity.'**
+  String get offline_activity_banner;
 }
 
 class _AppLocalizationsDelegate

@@ -47,6 +47,10 @@ dependencies:
   local_auth: ^3.0.1
   mobile_scanner: ^7.4.2
   dio: ^5.11.1
+  web_socket_channel: ^3.0.3
+  url_launcher: ^6.3.0
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +62,19 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/icon.jpg"
+
+flutter_native_splash:
+  color: "#16173F"
+  image: "assets/icon.jpg"
+  android: true
+  ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

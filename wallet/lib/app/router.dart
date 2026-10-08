@@ -9,6 +9,7 @@ import '../features/consent/notice_screen.dart';
 import '../features/consent/receipt_data.dart';
 import '../features/consent/receipt_screen.dart';
 import '../features/consents/consents_screen.dart';
+import '../features/consents/pass_detail_screen.dart';
 import '../features/me/dev_settings_screen.dart';
 import '../features/me/me_screen.dart';
 import '../features/onboarding/create_wallet_screen.dart';
@@ -30,6 +31,8 @@ abstract final class Routes {
   static const me = '/me';
   static const devSettings = '/dev-settings';
   static const scan = '/scan';
+  static const pass = '/pass/:fiduciary';
+  static String passFor(String fiduciary) => '/pass/$fiduciary';
   static const consentNotice = '/consent';
   static const receipt = '/receipt';
 
@@ -88,6 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (_, state) => state.extra is ReceiptData ? null : Routes.consents,
         builder: (_, state) => ReceiptScreen(receipt: state.extra! as ReceiptData),
       ),
+      GoRoute(path: Routes.pass, builder: (_, state) => PassDetailScreen(fiduciary: state.pathParameters['fiduciary']!)),
       GoRoute(path: Routes.devSettings, builder: (_, _) => const DevSettingsScreen()),
     ],
   );

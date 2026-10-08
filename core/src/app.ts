@@ -6,6 +6,7 @@ import { auditRoutes } from "./routes/audit";
 import { companyRoutes } from "./routes/company";
 import { consentRoutes } from "./routes/consent";
 import { demoRoutes } from "./routes/demo";
+import { rightsRoutes } from "./routes/rights";
 import { now } from "./store";
 
 // Browsers (the web console, Auditor and Stage view) call Core cross-origin.
@@ -34,7 +35,7 @@ export function createApp(ctx: Ctx): Express {
       time: now(),
     } satisfies HealthResponse);
   });
-  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx));
+  app.use("/v1", consentRoutes(ctx), companyRoutes(ctx), auditRoutes(ctx), demoRoutes(ctx), rightsRoutes(ctx));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

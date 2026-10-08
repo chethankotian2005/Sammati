@@ -149,6 +149,10 @@ export interface FiduciaryConsents {
 
 export interface PrincipalConsentsResponse {
   principal: Hex;
+  /** Current on-chain nonce (decimal string): what a WithdrawConsent from this principal must carry. */
+  nonce: string;
+  /** EIP-712 domain to sign a WithdrawConsent under (the notice carries the same one for grants). */
+  domain: Eip712Domain;
   fiduciaries: FiduciaryConsents[];
 }
 

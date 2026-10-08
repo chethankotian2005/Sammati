@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sammati/core/activity_controller.dart';
 import 'package:sammati/core/consent_providers.dart';
+import 'package:sammati/core/consents_controller.dart';
 import 'package:sammati/core/preferences.dart';
 import 'package:sammati/core/wallet_providers.dart';
 import 'package:sammati/core/wallet_service.dart';
@@ -31,11 +33,14 @@ Future<FakeCoreApi> pumpApp(
   bool withWallet = true,
   FakePresence? presence,
   FakeCoreApi? core,
+  FakeLiveEvents? live,
+  Stream<DateTime>? ticks,
 }) async {
   SharedPreferences.setMockInitialValues(stored);
   final prefs = await SharedPreferences.getInstance();
   final fakePresence = presence ?? FakePresence();
   final fakeCore = core ?? FakeCoreApi();
+  final fakeLive = live ?? FakeLiveEvents();
   final service = WalletService(vault: FakeVault(), presence: fakePresence);
   if (withWallet) {
     // The wallet exists before the scenario starts, even if the scenario is "user declines biometrics".
@@ -51,7 +56,10 @@ Future<FakeCoreApi> pumpApp(
       walletServiceProvider.overrideWithValue(service),
       scannerViewBuilderProvider.overrideWithValue(fakeScannerView),
       coreApiFactoryProvider.overrideWithValue((_) => fakeCore),
+      liveEventsFactoryProvider.overrideWithValue((_, _) => fakeLive),
       clockProvider.overrideWithValue(fixedNow),
+      // A real 1 s timer would keep pumpAndSettle from ever settling.
+      clockTickProvider.overrideWith((ref) => ticks ?? const Stream<DateTime>.empty()),
     ],
     child: const SammatiApp(),
   ));

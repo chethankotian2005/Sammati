@@ -148,4 +148,119 @@ void main() {
       await expectCoreFailure(_apiWith(adapter).grant({}, '0xsig'), CoreFailure.rejected, code: 'DEADLINE_PASSED');
     });
   });
+
+  group('getConsents', () {
+    final body = {
+      'principal': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      'nonce': '4',
+      'domain': {'name': 'Sammati', 'version': '1', 'chainId': 31337, 'verifyingContract': verifyingContract},
+      'fiduciaries': [
+        {
+          'fiduciary': {'address': fiduciaryAddress, 'name': 'QuickLoan', 'sector': 'Fintech lending', 'color': '#2F5BEA'},
+          'consents': [
+            {
+              'purposeId': creditCheckId,
+              'code': 'credit_check',
+              'title': {'en': 'Credit check', 'hi': 'h', 'kn': 'k'},
+              'status': 'Active',
+              'grantedAt': 1,
+              'expiresAt': 1790000000,
+              'updatedAt': 1,
+              'noticeHash': '0x',
+              'lastTx': '0xaa',
+              'required': false,
+            },
+          ],
+        },
+      ],
+    };
+
+    test('reads the consents of the principal, with nonce and domain (trd.md §6.1)', () async {
+      final adapter = _CannedAdapter(body: body);
+      final snapshot = await _apiWith(adapter).getConsents('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+
+      expect(adapter.last!.method, 'GET');
+      expect(adapter.last!.path, '/v1/principals/0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266/consents');
+      expect(snapshot.nonce, '4');
+      expect(snapshot.domain.chainId, 31337);
+      expect(snapshot.companies.single.consents.single.code, 'credit_check');
+    });
+
+    test('a reply without a nonce is a server failure, not a withdrawal signed with a guess', () async {
+      final adapter = _CannedAdapter(body: {...body}..remove('nonce'));
+      await expectCoreFailure(_apiWith(adapter).getConsents('0xabc'), CoreFailure.server);
+    });
+
+    test('no response is unreachable', () async {
+      final adapter = _CannedAdapter(error: (o) => DioException.connectionError(requestOptions: o, reason: 'down'));
+      await expectCoreFailure(_apiWith(adapter).getConsents('0xabc'), CoreFailure.unreachable);
+    });
+  });
+
+  group('withdraw', () {
+    test('posts {request, signature} to /v1/consents/withdraw', () async {
+      final adapter = _CannedAdapter(body: {'txHash': '0xdef', 'status': 'confirmed'});
+      final tx = await _apiWith(adapter).withdraw({'nonce': '2'}, '0xsig');
+
+      expect(adapter.last!.method, 'POST');
+      expect(adapter.last!.path, '/v1/consents/withdraw');
+      expect(jsonDecode(adapter.lastBody!), {
+        'request': {'nonce': '2'},
+        'signature': '0xsig',
+      });
+      expect(tx.txHash, '0xdef');
+    });
+
+    test('a wrong nonce is "rejected" with BAD_NONCE', () async {
+      final adapter = _CannedAdapter(status: 409, body: {
+        'error': {'code': 'BAD_NONCE', 'message': 'Expected nonce 3, got 2'},
+      });
+      await expectCoreFailure(_apiWith(adapter).withdraw({}, '0xsig'), CoreFailure.rejected, code: 'BAD_NONCE');
+    });
+  });
+
+  group('getActivity', () {
+    Map<String, dynamic> row(String id, {String decision = 'ALLOWED'}) => {
+          'id': id,
+          'seq': 1,
+          'fiduciary': fiduciaryAddress,
+          'fiduciaryName': 'QuickLoan',
+          'purposeCode': 'credit_check',
+          'decision': decision,
+          'reason': decision == 'ALLOWED' ? 'OK' : 'CONSENT_WITHDRAWN',
+          'endpoint': 'GET /x',
+          'at': 1760000000,
+          'anchored': false,
+        };
+
+    test('reads the feed, asking for a limit', () async {
+      final adapter = _CannedAdapter(body: {
+        'principal': '0xabc',
+        'items': [row('a'), row('b', decision: 'BLOCKED')],
+      });
+      final items = await _apiWith(adapter).getActivity('0xabc', limit: 50);
+
+      expect(adapter.last!.path, '/v1/principals/0xabc/activity');
+      expect(adapter.last!.queryParameters['limit'], 50);
+      expect(items.map((i) => i.id), ['a', 'b']);
+      expect(items.last.reason, 'CONSENT_WITHDRAWN');
+    });
+
+    test('skips a row it cannot read instead of failing the whole feed', () async {
+      final adapter = _CannedAdapter(body: {
+        'items': [row('a'), {'id': 'broken'}, row('c')],
+      });
+      expect((await _apiWith(adapter).getActivity('0xabc')).map((i) => i.id), ['a', 'c']);
+    });
+
+    test('a reply with no items is a server failure', () async {
+      final adapter = _CannedAdapter(body: {'hello': 'world'});
+      await expectCoreFailure(_apiWith(adapter).getActivity('0xabc'), CoreFailure.server);
+    });
+
+    test('no response is unreachable', () async {
+      final adapter = _CannedAdapter(error: (o) => DioException.connectionError(requestOptions: o, reason: 'down'));
+      await expectCoreFailure(_apiWith(adapter).getActivity('0xabc'), CoreFailure.unreachable);
+    });
+  });
 }

@@ -138,7 +138,11 @@ describe("golden path against the stub", () => {
     });
     expect(fired.json.decision).toBe("ALLOWED");
 
-    const w = { principal: DEMO_PRINCIPAL, fiduciary: f.address, purposeId: marketing, nonce: "1", deadline: FAR };
+    // The wallet has no request to read a nonce from, so the consents response carries it.
+    const { json: consentsAfterGrant } = await call<PrincipalConsentsResponse>("GET", `/v1/principals/${DEMO_PRINCIPAL}/consents`);
+    expect(consentsAfterGrant.nonce).toBe("1");
+
+    const w = { principal: DEMO_PRINCIPAL, fiduciary: f.address, purposeId: marketing, nonce: consentsAfterGrant.nonce, deadline: FAR };
     const withdrawn = await call("POST", "/v1/consents/withdraw", {
       request: w,
       signature: KEY.sign(eip712Digest(withdrawTypedData(domain, w))).serialized,
@@ -227,6 +231,8 @@ describe("remaining routes", () => {
   it("returns the seeded consents with the typed shape", async () => {
     const { json } = await call<PrincipalConsentsResponse>("GET", `/v1/principals/${DEMO_PRINCIPAL}/consents`);
     expect(json.fiduciaries.map((x) => x.fiduciary.name)).toEqual(["QuickLoan", "MediCare+", "FoodRush"]);
+    expect(json.nonce).toMatch(/^\d+$/);
+    expect(json.domain).toMatchObject({ name: "Sammati", version: "1", chainId: 31337 });
   });
 
   it("guards demo controls with DEMO_MODE", async () => {

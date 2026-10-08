@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../../core/consent_flow.dart';
 import '../../core/consent_providers.dart';
+import '../../core/consents_controller.dart';
 import '../../core/core_api.dart';
 import '../../core/notice.dart';
 import '../../core/preferences.dart';
@@ -58,6 +61,7 @@ class _NoticeScreenState extends ConsumerState<NoticeScreen> {
       for (final g in granted) {
         _recorded[g.purposeId] = g;
       }
+      await _adoptCore();
       if (mounted) _showReceipt(notice);
     } on WalletException {
       _fail(_SubmitError.authFailed);
@@ -71,6 +75,13 @@ class _NoticeScreenState extends ConsumerState<NoticeScreen> {
     } on CoreException catch (e) {
       _fail(e.failure == CoreFailure.unreachable ? _SubmitError.unreachable : _SubmitError.failed);
     }
+  }
+
+  /// Home reads from the Core the user just consented through, which is the one in the QR
+  /// code, whatever dev settings held before. Without this the new consent would never show up.
+  Future<void> _adoptCore() async {
+    await ref.read(coreUrlProvider.notifier).set(widget.payload.core);
+    unawaited(ref.read(consentsProvider.notifier).refresh());
   }
 
   void _fail(_SubmitError error) {
