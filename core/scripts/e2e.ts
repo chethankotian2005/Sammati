@@ -6,7 +6,7 @@
 // Uses a running `pnpm demo:up` if there is one (and resets it first); otherwise starts the stack
 // itself and stops it afterwards. Exits non-zero, naming the step, if anything is not as expected.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { createWriteStream, existsSync, readFileSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -236,8 +236,12 @@ async function main(): Promise<void> {
   // A new person every run: nothing cached or recorded about them anywhere.
   const user = Wallet.createRandom();
   const events: WsEvent[] = [];
+  const eventTimes: number[] = []; // when each frame arrived, for the Data Flow Inspector's recording
   const socket = new WebSocket(CORE.replace(/^http/, "ws") + "/ws");
-  socket.on("message", (raw) => events.push(JSON.parse(raw.toString()) as WsEvent));
+  socket.on("message", (raw) => {
+    events.push(JSON.parse(raw.toString()) as WsEvent);
+    eventTimes.push(Date.now());
+  });
   await new Promise<void>((resolveOpen, rejectOpen) => {
     socket.once("open", () => resolveOpen());
     socket.once("error", rejectOpen);
@@ -379,6 +383,8 @@ async function main(): Promise<void> {
     };
 
     const profile = { handle: "" as `0x${string}`, ciphertextHash: "" as `0x${string}` };
+    /** What the Data Flow Inspector's replay answers its staff buttons with (trd.md §6.9): the two real reads. */
+    const recorded: { vaultRow: unknown; staffView: { status: number; body: unknown } | null } = { vaultRow: null, staffView: null };
 
     await step("user gives credit_check consent; the wallet seals the demo profile and the Processor stores ciphertext only", async () => {
       const message = { principal: user.address, fiduciary: FID, purposeId: CREDIT_ID, expiresAt: inAnHour() + 86_400, noticeHash: notice.noticeHash, nonce: String(nonce++), deadline: inAnHour() };
@@ -414,6 +420,7 @@ async function main(): Promise<void> {
         4000,
       );
       expectEqual(held, { handle: profile.handle, ciphertextHash: profile.ciphertextHash, status: "stored" } satisfies VaultView, "what QuickLoan holds");
+      recorded.staffView = { status: 200, body: held };
 
       // The same, as the console's simulator sees it through Core.
       const fired = await fire("credit_check");
@@ -424,6 +431,7 @@ async function main(): Promise<void> {
       // And the vault itself: ciphertext and metadata, whoever asks.
       const vaulted = (await raw("GET", `${PROCESSOR}/v1/vault/${profile.handle}`)).json;
       expectEqual([vaulted.status, vaulted.purposeCode], ["stored", "credit_check"], "vault entry");
+      recorded.vaultRow = vaulted;
       check(typeof vaulted.envelope?.ciphertext === "string", "the vault should return the ciphertext");
     });
 
@@ -567,6 +575,31 @@ async function main(): Promise<void> {
       }
       if (how === "reused") console.log("    (the stack was already running: its console output was not captured, so it was not searched)");
     });
+
+    const recordTo = process.env.E2E_RECORD_FLOW;
+    if (recordTo) {
+      await step(`record the flow for the Data Flow Inspector's replay (${recordTo})`, async () => {
+        const kept = events
+          .map((event, i) => ({ event, at: eventTimes[i]! }))
+          .filter(({ event }) => /^(vault|processor)\./.test(event.event));
+        check(kept.length >= 8 && recorded.staffView && recorded.vaultRow, "the run did not produce a complete flow to record");
+        const first = kept[0]!.at;
+        const file = {
+          v: 1,
+          recordedAt: new Date().toISOString(),
+          note: "Recorded from a real `pnpm e2e` run: real events, the real ciphertext row, QuickLoan's real admin answer.",
+          events: kept.map(({ event, at }) => ({ t: at - first, event })),
+          vaultRow: recorded.vaultRow,
+          staffView: recorded.staffView,
+        };
+        const text = JSON.stringify(file, null, 2) + "\n";
+        // The recording is played in a browser, so it gets the same search as everything else this run produced.
+        if (text.includes(PLAINTEXT) || text.includes(DEMO_PROFILE.incomeBand)) fail("the recording contains the demo profile");
+        const target = resolve(repoRoot, recordTo);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, text);
+      });
+    }
   } finally {
     socket.close();
   }

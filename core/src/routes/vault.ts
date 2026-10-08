@@ -67,6 +67,7 @@ export function parseVaultEvent(body: unknown): VaultEvent {
     purposeCode,
     handle: lowerHex32(body.handle, "handle"),
     at: int(body.at, "at"),
+    atMs: int(body.atMs, "atMs"),
   };
   for (const field of VAULT_EVENT_FIELDS[name as VaultEventName]) {
     if (!(field in body)) bad(field);

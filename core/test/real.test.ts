@@ -352,6 +352,30 @@ describe("real mode: /v1/demo/fire goes through the company's gateway", () => {
     expect(rows.slice(-3).map((r) => r.decision)).toEqual(["ALLOWED", "BLOCKED", "ALLOWED"]);
   });
 
+  it("the presenter's demo withdraw signs for the demo customer, takes effect at once, and refuses anyone else", async () => {
+    expect((await fire("marketing")).json.decision).toBe("ALLOWED");
+    const body = { principal: PRINCIPAL, fiduciary: QUICKLOAN.address, purposeCode: "marketing" };
+
+    const withdrawn = await api<{ txHash: string; status: string }>("POST", "/v1/demo/withdraw", body);
+    expect(withdrawn.status).toBe(200);
+    expect(withdrawn.json).toMatchObject({ status: "confirmed", txHash: expect.stringMatching(/^0x[0-9a-f]{64}$/) });
+    expect(await state(MARKETING)).toMatchObject({ valid: false, status: "Withdrawn", reason: "CONSENT_WITHDRAWN" });
+    expect((await fire("marketing")).json).toMatchObject({ decision: "BLOCKED", reason: "CONSENT_WITHDRAWN" });
+
+    // withdrawing what is already withdrawn is the contract's refusal, passed on
+    const again = await api<{ error: { code: string } }>("POST", "/v1/demo/withdraw", body);
+    expect([again.status, again.json.error.code]).toEqual([409, "NOT_ACTIVE"]);
+
+    // a customer whose key Core does not hold is a real wallet: only its phone can withdraw
+    const stranger = await api<{ error: { code: string } }>("POST", "/v1/demo/withdraw", { ...body, principal: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" });
+    expect([stranger.status, stranger.json.error.code]).toEqual([403, "NOT_A_DEMO_PRINCIPAL"]);
+    expect((await api("POST", "/v1/demo/withdraw", { ...body, purposeCode: "nope" })).status).toBe(404);
+
+    // leave the ledger as the tests after this one expect it
+    const n = await notice("req_demo_quickloan");
+    expect((await api("POST", "/v1/consents/grant", await signGrant(n, MARKETING, n.nonce))).status).toBe(200);
+  });
+
   it("answers 502 when the company's backend is not running", async () => {
     const real = config.companyUrls[QUICKLOAN.address.toLowerCase()];
     config.companyUrls[QUICKLOAN.address.toLowerCase()] = "http://127.0.0.1:1";

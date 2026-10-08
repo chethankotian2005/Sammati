@@ -1,5 +1,5 @@
 import { Router, type Request, type RequestHandler, type Response } from "express";
-import { isAddress, isHexString } from "ethers";
+import { Wallet, isAddress, isHexString } from "ethers";
 import type {
   AccessProofResponse,
   AccessReason,
@@ -29,7 +29,7 @@ import type {
   VerifyResponse,
   WithdrawResponse,
 } from "@sammati/shared";
-import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, LOAN_DECISION_ENDPOINT, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, buildDomain, noticeHash } from "@sammati/shared";
+import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, LOAN_DECISION_ENDPOINT, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, WITHDRAW_CONSENT_TYPE, buildDomain, noticeHash, withdrawTypedData } from "@sammati/shared";
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
 import { buildNotice, noticeInput } from "../notice";
 import { now } from "../store";
@@ -299,6 +299,25 @@ export function realRoutes(core: RealCore): Router {
   }));
 
   // Anchors pending log entries now instead of at the next timer tick: for rehearsals and the e2e script.
+  // The presenter's "Withdraw and re-run": withdraws for a customer whose key Core holds (the demo principal). A real
+  // wallet's key never leaves its phone, so for anyone else this refuses and the page waits for the phone instead.
+  r.post("/demo/withdraw", handle(async (req, res) => {
+    const o = requireBody(req.body);
+    const f = repo.fiduciary(requireString(o, "fiduciary"));
+    const purpose = repo.purpose(f, requireString(o, "purposeCode"));
+    const principal = address(requireString(o, "principal"), "principal");
+    const key = config.demoPrincipalKeys[principal.toLowerCase()];
+    if (!key) throw new HttpError(403, "NOT_A_DEMO_PRINCIPAL", "Core holds no key for this customer: withdraw on their phone");
+
+    const nonce = await onChain(() => chain.registry.nonces(principal));
+    const message = { principal, fiduciary: f.address, purposeId: purpose.id, nonce: String(nonce), deadline: now() + 300 };
+    const typed = withdrawTypedData(domain(), message);
+    const signature = await new Wallet(key).signTypedData(typed.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, typed.message);
+    const receipt = await relayer.send("withdrawConsent", [message, signature]);
+    await settle(receipt);
+    res.json({ txHash: receipt.hash, status: "confirmed" } satisfies WithdrawResponse);
+  }));
+
   r.post("/demo/anchor", handle(async (req, res) => {
     const body = (req.body ?? {}) as Partial<DemoAnchorBody>;
     const fiduciary = typeof body.fiduciary === "string" ? repo.fiduciary(body.fiduciary).address : undefined;

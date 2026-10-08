@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_RELAYER_KEY, EXPLORERS, PROCESSOR_PORT, SEED_FIDUCIARIES, type Deployment } from "@sammati/shared";
+import { DEMO_PRINCIPAL, DEMO_PRINCIPAL_KEY, DEMO_RELAYER_KEY, EXPLORERS, PROCESSOR_PORT, SEED_FIDUCIARIES, type Deployment } from "@sammati/shared";
 
 export interface Config {
   port: number;
@@ -34,6 +34,8 @@ export interface Config {
   processorKeys: Record<string, string>;
   indexerIntervalMs: number;
   reconcileIntervalMs: number;
+  /** Customers whose key Core holds (lower-case address -> key), so the presenter can withdraw for them (trd.md §6.4). Never a real wallet's. */
+  demoPrincipalKeys: Record<string, string>;
   /** Where the wallet finds the Sammati Processor (trd.md §6.1). Core only points at it. */
   processorUrl: string;
   /** Shared secret the Processor sends with the events it reports: a disclosed demo secret (trd.md §10). */
@@ -60,6 +62,17 @@ function parseRange(value: string | undefined, fallback: [number, number]): [num
   return Number.isFinite(min) && Number.isFinite(max) && min! >= 0 && max! >= min! ? [min!, max!] : fallback;
 }
 
+/** `{ "0xaddress": "0xkey" }` -> keys by lower-case address; null when unset or unusable (the default applies). */
+function parseKeys(value: string | undefined): Record<string, string> | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Record<string, string>;
+    return Object.fromEntries(Object.entries(parsed).map(([a, k]) => [a.toLowerCase(), k]));
+  } catch {
+    return null;
+  }
+}
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = Number(env.PORT ?? 4000);
   return {
@@ -81,6 +94,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     processorKeys: Object.fromEntries(SEED_FIDUCIARIES.flatMap((f) => f.processors.map((p) => [p.address.toLowerCase(), p.demoKey]))),
     indexerIntervalMs: Number(env.INDEXER_INTERVAL_MS ?? 1000),
     reconcileIntervalMs: Number(env.RECONCILE_INTERVAL_MS ?? 30_000),
+    demoPrincipalKeys: parseKeys(env.DEMO_PRINCIPAL_KEYS) ?? { [DEMO_PRINCIPAL.toLowerCase()]: DEMO_PRINCIPAL_KEY },
     processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
     processorEventKey: env.PROCESSOR_EVENT_KEY ?? "demo-processor-events",
   };

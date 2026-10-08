@@ -157,5 +157,11 @@ export const SIMULATOR_CUSTOMER_ID = "1";
 export const DEMO_RELAYER_KEY = "0xfbe32bfa0c2ff2102e9a5f0cc05b7d469749f75ee21bdca151642f85525b2ecf";
 export const DEMO_RELAYER_ADDRESS = "0xf448D3bbB6B8F2d1780215F8a1137B896d69Be60";
 
+/**
+ * Hardhat account #0's public test key, the demo principal's. Core holds it so the presenter's "Withdraw and re-run"
+ * can withdraw for the demo customer without a phone (trd.md §6.4): a disclosed demo shortcut, like the company keys.
+ */
+export const DEMO_PRINCIPAL_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
 /** Hardhat account #0; the real phone generates its own key (drd.md §5). */
 export const DEMO_PRINCIPAL = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";

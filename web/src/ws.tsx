@@ -41,6 +41,8 @@ type AnyListener = Listener<WsEvent>;
 export interface WsContextValue {
   /** Subscribe to a typed WS event. Returns an unsubscribe function. */
   on<E extends WsEvent>(name: E["event"], cb: Listener<E>): () => void;
+  /** Every frame Core sends, whatever its type, parsed but untyped. For checks that must see everything. */
+  onAny(cb: (frame: unknown) => void): () => void;
   /** Current connection status (WebSocket.CONNECTING / OPEN / CLOSED). */
   readyState: number;
 }
@@ -53,6 +55,7 @@ class ReconnectingWsClient {
   private ws: WebSocket | null = null;
   private topics: WsTopic[] = [];
   private listeners = new Map<WsEventName, Set<AnyListener>>();
+  private anyListeners = new Set<(frame: unknown) => void>();
   private retryMs = 500;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private destroyed = false;
@@ -87,6 +90,7 @@ class ReconnectingWsClient {
       } catch {
         return; // malformed frame, ignore
       }
+      for (const cb of this.anyListeners) cb(parsed);
       const evt = parsed as WsEvent;
       const subs = this.listeners.get(evt.event);
       if (subs) {
@@ -115,6 +119,13 @@ class ReconnectingWsClient {
     this.listeners.get(name)!.add(cb as AnyListener);
     return () => {
       this.listeners.get(name)?.delete(cb as AnyListener);
+    };
+  }
+
+  onAny(cb: (frame: unknown) => void): () => void {
+    this.anyListeners.add(cb);
+    return () => {
+      this.anyListeners.delete(cb);
     };
   }
 
@@ -171,7 +182,9 @@ export function WsProvider({ topics, children }: WsProviderProps): React.ReactEl
     [],
   );
 
-  const value: WsContextValue = { on, readyState };
+  const onAny = useCallback((cb: (frame: unknown) => void) => clientRef.current?.onAny(cb) ?? (() => undefined), []);
+
+  const value: WsContextValue = { on, onAny, readyState };
 
   return (
     <WsContext.Provider value={value}>
@@ -200,6 +213,14 @@ function useWsEvent<E extends WsEvent>(
   useEffect(() => {
     return ctx.on<E>(name, (evt) => cbRef.current(evt));
   }, [ctx, name]);
+}
+
+/** Fires for every frame Core sends, including acknowledgements, before any typed listener. */
+export function useAnyWsFrame(cb: (frame: unknown) => void): void {
+  const ctx = useWsContext();
+  const cbRef = useRef(cb);
+  cbRef.current = cb;
+  useEffect(() => ctx.onAny((frame) => cbRef.current(frame)), [ctx]);
 }
 
 const VAULT_EVENT_NAMES: readonly VaultEventName[] = ["vault.encrypted", "vault.stored", "processor.requested", "processor.decrypting", "processor.decided", "vault.erased"];

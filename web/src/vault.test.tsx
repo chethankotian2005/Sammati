@@ -13,7 +13,7 @@ const FID = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const H1 = `0x${"ab".repeat(32)}` as const;
 const H2 = `0x${"ef".repeat(32)}` as const;
 const HASH = `0x${"cd".repeat(32)}` as const;
-const base = (handle: `0x${string}`, at: number) => ({ principal: PRINCIPAL, fiduciary: FID, purposeCode: "credit_check", handle, at });
+const base = (handle: `0x${string}`, at: number) => ({ principal: PRINCIPAL, fiduciary: FID, purposeCode: "credit_check", handle, at, atMs: at * 1000 });
 
 const encrypted = (handle = H1, at = 1760000000): VaultEvent => ({ event: "vault.encrypted", ...base(handle, at), ciphertextHash: HASH, sizeBytes: 300 });
 const stored = (handle = H1, at = 1760000001): VaultEvent => ({ event: "vault.stored", ...base(handle, at), ciphertextHash: HASH, sizeBytes: 300 });

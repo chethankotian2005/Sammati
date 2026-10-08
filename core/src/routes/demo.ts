@@ -66,5 +66,10 @@ export function demoRoutes(ctx: Ctx): Router {
     res.json({ decision: row.decision, reason: row.reason, entryId: row.id, ...(result ? { result } : {}) } satisfies DemoFireResponse);
   });
 
+  // Needs a chain to sign against; the stub has none (trd.md §6.4).
+  r.post("/demo/withdraw", () => {
+    throw new HttpError(501, "NOT_IMPLEMENTED", "Withdrawing for the demo customer needs real mode");
+  });
+
   return r;
 }

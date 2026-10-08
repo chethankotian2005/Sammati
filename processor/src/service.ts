@@ -109,7 +109,8 @@ export class ProcessorService {
   }
 
   private base(row: Pick<VaultRow, "principal" | "fiduciary" | "purposeCode" | "handle">) {
-    return { principal: row.principal, fiduciary: row.fiduciary, purposeCode: row.purposeCode, handle: row.handle, at: this.seconds() };
+    const now = this.clock();
+    return { principal: row.principal, fiduciary: row.fiduciary, purposeCode: row.purposeCode, handle: row.handle, at: Math.floor(now / 1000), atMs: now };
   }
 
   // --- submit (V-02) ---

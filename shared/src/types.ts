@@ -568,6 +568,8 @@ interface VaultEventBase {
   purposeCode: string;
   handle: Hex;
   at: UnixSeconds;
+  /** The same instant in milliseconds (the Data Flow Inspector times its steps with it). */
+  atMs: number;
 }
 export interface VaultEncryptedEvent extends VaultEventBase {
   event: "vault.encrypted";

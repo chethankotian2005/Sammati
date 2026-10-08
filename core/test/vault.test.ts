@@ -26,7 +26,7 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise((r) => server.close(r)));
 
-const base = { principal: PRINCIPAL.toLowerCase(), fiduciary: FIDUCIARY.toLowerCase(), purposeCode: "credit_check", handle: HANDLE, at: 1760000000 };
+const base = { principal: PRINCIPAL.toLowerCase(), fiduciary: FIDUCIARY.toLowerCase(), purposeCode: "credit_check", handle: HANDLE, at: 1760000000, atMs: 1760000000123 };
 const post = (body: unknown, key: string | null = KEY) =>
   fetch(`${url}/events/vault`, { method: "POST", headers: { "content-type": "application/json", ...(key ? { "x-sammati-processor-key": key } : {}) }, body: JSON.stringify(body) });
 
@@ -67,7 +67,7 @@ describe("POST /v1/events/vault", () => {
     published.length = 0;
     await post({ event: "vault.stored", ...base, ...valid["vault.stored"], plaintext: "ABCDE1234F", envelope: { ciphertext: "0x00" }, pan: "ABCDE1234F" });
     expect(JSON.stringify(published)).not.toContain("ABCDE1234F");
-    expect(Object.keys(published[0]!).sort()).toEqual(["at", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes"]);
+    expect(Object.keys(published[0]!).sort()).toEqual(["at", "atMs", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes"]);
   });
 
   it.each([
@@ -78,6 +78,7 @@ describe("POST /v1/events/vault", () => {
     ["free text as a decision code", { event: "processor.decided", ...base, ...valid["processor.decided"], reasonCodes: ["PAN is ABCDE1234F"] }],
     ["an unknown erase cause", { event: "vault.erased", ...base, cause: "because" }],
     ["a bad purpose code", { event: "vault.erased", ...base, cause: "withdrawn", purposeCode: "ABCDE1234F" }],
+    ["a missing millisecond time", { event: "vault.erased", ...base, cause: "withdrawn", atMs: undefined }],
     ["a bad address", { event: "vault.erased", ...base, cause: "withdrawn", principal: "asha" }],
   ])("rejects %s", async (_name, body) => {
     published.length = 0;
