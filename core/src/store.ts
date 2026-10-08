@@ -19,6 +19,7 @@ import {
   type LedgerEventType,
   type LedgerEventView,
   type PrincipalConsentsResponse,
+  type RightsRequest,
   type ReasonCode,
   type Status,
   type StoredAccessLogEntry,
@@ -54,17 +55,6 @@ export interface StoredRequest {
   purposeIds: Hex[];
   customerAlias: string;
   createdAt: number;
-}
-
-export interface RightsRequest {
-  id: string;
-  principal: Hex;
-  fiduciary: Hex;
-  type: "access" | "erasure" | "grievance";
-  note: string;
-  status: "open" | "in_progress" | "resolved";
-  createdAt: number;
-  updatedAt: number;
 }
 
 const DEMO_REQUEST_ID = "req_demo_quickloan";

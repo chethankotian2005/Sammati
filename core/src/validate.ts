@@ -2,9 +2,11 @@
 import { getAddress, isAddress, isHexString } from "ethers";
 import {
   REASON_CODES,
+  RIGHTS_TYPES,
   type GrantConsent,
   type Hex,
   type LocalizedText,
+  type RightsType,
   type StoredAccessLogEntry,
   type WithdrawConsent,
 } from "@sammati/shared";
@@ -77,5 +79,18 @@ export function parseLogEntry(raw: unknown): StoredAccessLogEntry {
     prevHash: requireString(o, "prevHash"),
     hash: requireString(o, "hash"),
     batchIndex: null,
+  };
+}
+
+export function parseRightsBody(raw: unknown): { principal: Hex; fiduciary: Hex; type: RightsType; note: string } {
+  const o = requireBody(raw);
+  const type = requireString(o, "type");
+  if (!(RIGHTS_TYPES as readonly string[]).includes(type)) throw badRequest(`"type" must be ${RIGHTS_TYPES.join(", ")}`);
+  if (o.note !== undefined && typeof o.note !== "string") throw badRequest('"note" must be a string');
+  return {
+    principal: address(requireString(o, "principal"), "principal"),
+    fiduciary: address(requireString(o, "fiduciary"), "fiduciary"),
+    type: type as RightsType,
+    note: (o.note as string | undefined) ?? "",
   };
 }

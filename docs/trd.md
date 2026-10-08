@@ -174,6 +174,8 @@ Base: `http://<lan-ip>:4000`. JSON everywhere. Errors: `{ "error": { "code": "..
 | POST | `/v1/consents/withdraw` | Body `{ request: WithdrawConsent, signature }` returns `{ txHash, status }` |
 | GET | `/v1/principals/:addr/consents` | All consents grouped by fiduciary, plus `nonce` (the principal's current on-chain nonce, decimal string) and `domain` (the EIP-712 domain). The wallet needs both to sign a withdraw, which has no request to read them from |
 | GET | `/v1/principals/:addr/activity?limit=` | Access feed |
+| POST | `/v1/rights` | Data-rights request (W-10, `prd.md`). Body `{ principal, fiduciary, type: "access" \| "erasure" \| "grievance", note? }`; returns 201 and the record `{ id, principal, fiduciary, type, note, status: "open", createdAt, updatedAt }`. 400 for an unknown `type`, a malformed address or a non-text `note`; 404 `FIDUCIARY_NOT_FOUND` for a company that does not exist. Stored in `rights_requests` (`drd.md` §3); a status record only, it never touches the chain |
+| GET | `/v1/principals/:addr/rights` | `{ principal, rights: [record + fiduciaryName] }`, oldest first. `status` moves `open` → `in_progress` → `resolved` (nothing advances it yet) |
 | GET | `/v1/principals/:addr/cascade/:purposeId` | Processor acknowledgements |
 | GET | `/v1/proof/consent/:txHash` | Event data, ledger head, explorer link |
 | GET | `/v1/proof/access/:entryId` | Entry, Merkle path, anchor tx |
@@ -188,6 +190,7 @@ Multi-purpose grants: the contract needs consecutive nonces, so the wallet signs
 | GET | `/v1/fiduciaries/:fid/purposes` | List registered purposes |
 | POST | `/v1/fiduciaries/:fid/purposes` | Register purpose (writes chain) |
 | POST | `/v1/fiduciaries/:fid/processors` | Register downstream processor |
+| GET | `/v1/fiduciaries/:fid/purposes` | The company's purposes: `{ fiduciary, purposes: NoticePurpose[] }` (id, code, localised title and description, data categories, retention, sharing flag, `required`) |
 | GET | `/v1/fiduciaries/:fid/consents` | Console table |
 | GET | `/v1/fiduciaries/:fid/access?limit=` | Console feed and history, newest first (the SDK reads `limit=1` to resume `seq`/`prevHash`) |
 | POST | `/v1/gateway/log` | SDK posts each decision entry |

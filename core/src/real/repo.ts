@@ -23,6 +23,10 @@ import {
   type LedgerEventView,
   type LocalizedText,
   type PrincipalConsentsResponse,
+  type RightsRequest,
+  type RightsRequestView,
+  type RightsStatus,
+  type RightsType,
   type Status,
   type StoredAccessLogEntry,
 } from "@sammati/shared";
@@ -658,6 +662,41 @@ export class Repo {
 
   setIntegrity(fiduciary: Hex, state: IntegrityState): void {
     this.setState(`integrity:${fiduciary}`, state);
+  }
+
+  // --- data rights (drd.md §3 rights_requests) ---
+
+  createRightsRequest(principal: Hex, fiduciary: Hex, type: RightsType, note: string): RightsRequest {
+    const request: RightsRequest = {
+      id: `rights_${randomUUID().slice(0, 8)}`,
+      principal,
+      fiduciary,
+      type,
+      note,
+      status: "open",
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    this.db
+      .prepare("INSERT INTO rights_requests (id, principal, fiduciary, type, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(request.id, principal, fiduciary, type, note, request.status, request.createdAt, request.updatedAt);
+    return request;
+  }
+
+  /** Oldest first, like the stub. */
+  rightsFor(principal: Hex): RightsRequestView[] {
+    const rows = this.db.prepare("SELECT * FROM rights_requests WHERE principal = ? ORDER BY created_at, rowid").all(principal) as Row[];
+    return rows.map((r) => ({
+      id: r.id as string,
+      principal: r.principal as Hex,
+      fiduciary: r.fiduciary as Hex,
+      fiduciaryName: this.fiduciary(r.fiduciary as string).name,
+      type: r.type as RightsType,
+      note: (r.note as string | null) ?? "",
+      status: r.status as RightsStatus,
+      createdAt: r.created_at as number,
+      updatedAt: r.updated_at as number,
+    }));
   }
 
   /** Anything worth wiping? Only used to decide whether a wipe is worth announcing. */

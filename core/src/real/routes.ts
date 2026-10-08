@@ -17,12 +17,14 @@ import type {
   DemoResetResponse,
   ExportResponse,
   FiduciaryAccessResponse,
+  FiduciaryPurposesResponse,
   FiduciaryConsentsResponse,
   GatewayLogResponse,
   GrantResponse,
   Hex,
   LedgerEventType,
   PrincipalConsentsResponse,
+  RightsResponse,
   TamperResponse,
   VerifyResponse,
   WithdrawResponse,
@@ -31,7 +33,7 @@ import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, REASON_CODES, SEED_FIDUCIARIES, SIM
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
 import { buildNotice, noticeInput } from "../notice";
 import { now } from "../store";
-import { address, bytes32, parseGrant, parseLogEntry, parseWithdraw } from "../validate";
+import { address, bytes32, parseGrant, parseLogEntry, parseRightsBody, parseWithdraw } from "../validate";
 import { accessProof, report, scorecard, tamper, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
@@ -181,7 +183,25 @@ export function realRoutes(core: RealCore): Router {
     res.json(accessProof(core, param(req, "entryId")) satisfies AccessProofResponse);
   }));
 
+  // --- data rights (W-10): status records, never on chain ---
+
+  r.post("/rights", handle((req, res) => {
+    const { principal, fiduciary, type, note } = parseRightsBody(req.body);
+    const company = repo.fiduciary(fiduciary); // 404 FIDUCIARY_NOT_FOUND for a company that does not exist
+    res.status(201).json(repo.createRightsRequest(principal, company.address, type, note));
+  }));
+
+  r.get("/principals/:addr/rights", handle((req, res) => {
+    const principal = addr(param(req, "addr"));
+    res.json({ principal, rights: repo.rightsFor(principal) } satisfies RightsResponse);
+  }));
+
   // --- 6.2 company and gateway ---
+
+  r.get("/fiduciaries/:fid/purposes", handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    res.json({ fiduciary: f.address, purposes: repo.purposesOf(f.address) } satisfies FiduciaryPurposesResponse);
+  }));
 
   r.get("/fiduciaries/:fid/consents", handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));

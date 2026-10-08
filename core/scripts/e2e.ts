@@ -11,6 +11,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Wallet } from "ethers";
+import { clockSkew, rpc } from "../../scripts/chain.mjs";
+import { describeQrUrl } from "../../scripts/lan.mjs";
 import { WebSocket } from "ws";
 import {
   GRANT_CONSENT_TYPE,
@@ -23,16 +25,26 @@ import {
   type DemoAnchorResponse,
   type DemoFireResponse,
   type FiduciaryAccessResponse,
+  type FiduciaryPurposesResponse,
   type GrantResponse,
   type HealthResponse,
   type PrincipalConsentsResponse,
   type RequestNotice,
+  type RightsRequest,
+  type RightsResponse,
   type StoredAccessLogEntry,
   type TamperResponse,
   type VerifyResponse,
   type WithdrawResponse,
   type WsEvent,
 } from "@sammati/shared";
+
+// The stack this script may start reads the repo-root .env (CORE_PUBLIC_URL, ...), so the checks below must too.
+try {
+  process.loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), "../../.env"));
+} catch {
+  // no .env
+}
 
 const CORE = process.env.E2E_CORE_URL ?? "http://localhost:4000";
 const BUDGET_MS = Number(process.env.E2E_BUDGET_MS ?? 30_000);
@@ -210,10 +222,22 @@ async function main(): Promise<void> {
   socket.send(JSON.stringify({ sub: [`principal:${user.address}`, `fiduciary:${FID}`, "auditor"] }));
 
   try {
+    await step("the world starts clean: empty log, nothing consented, chain clock on the wall clock", async () => {
+      expectEqual((await call<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${FID}/access?limit=500`)).items, [], "QuickLoan's access log");
+      expectEqual((await call<{ rows: unknown[] }>("GET", `/v1/fiduciaries/${FID}/consents`)).rows, [], "QuickLoan's consent table");
+      await rpc("evm_mine"); // a block stamped now, so the chain's clock can be read without waiting for the next one
+      const skew = await clockSkew();
+      check(Math.abs(skew) < 2, `the chain clock is ${skew.toFixed(1)} s from the wall clock (should be within 2 s after a reset)`);
+    });
     const request = await step("company creates a consent request (the QR code)", async () => {
       const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes: [GRANTED], customerAlias: "E2E customer" });
       expectEqual(created.qrPayload.fiduciary, FID, "QR payload names the company");
       check(created.requestId.startsWith("req_"), "request id looks wrong");
+      // The phone fetches the notice from this address, so it must be the one demo:up printed, not "localhost".
+      if (how === "started" && !process.env.CORE_PUBLIC_URL) {
+        const expected = describeQrUrl({ port: new URL(CORE).port || "4000", env: {} });
+        expectEqual(created.qrPayload.core, expected.url, "the address in the QR code");
+      }
       return created;
     });
 
@@ -257,6 +281,14 @@ async function main(): Promise<void> {
       expectEqual(consents.fiduciaries[0]?.consents.map((c) => [c.code, c.status]), [[GRANTED, "Active"]], "the wallet's consent list");
     });
 
+    await step("the console lists the company's purposes; the wallet files a data-rights request and sees it", async () => {
+      const purposes = await call<FiduciaryPurposesResponse>("GET", `/v1/fiduciaries/${FID}/purposes`);
+      expectEqual(purposes.purposes.map((p) => p.code), ["credit_check", "marketing", "bureau_share"], "QuickLoan's purposes");
+      const filed = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "erasure", note: "e2e" });
+      expectEqual([filed.status, filed.json.status], [201, "open"], "filing a rights request");
+      const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
+      expectEqual(mine.rights.map((r) => [r.id, r.fiduciaryName, r.type]), [[filed.json.id, "QuickLoan", "erasure"]], "the wallet's rights list");
+    });
     const fire = (purposeCode: string) => call<DemoFireResponse>("POST", "/v1/demo/fire", { fiduciary: FID, purposeCode, principal: user.address });
     const entries: { label: string; id: string; expected: string }[] = [];
     const record = (label: string, fired: DemoFireResponse, expected: string) => {

@@ -214,6 +214,40 @@ export interface AccessProofResponse {
   explorerUrl: string | null;
 }
 
+// --- Data rights (W-10; trd.md §6.1) ---
+
+export const RIGHTS_TYPES = ["access", "erasure", "grievance"] as const;
+export type RightsType = (typeof RIGHTS_TYPES)[number];
+export type RightsStatus = "open" | "in_progress" | "resolved";
+
+/** A data principal's request to a company: tracked as a status record, it never touches the chain. */
+export interface RightsRequest {
+  id: string;
+  principal: Hex;
+  fiduciary: Hex;
+  type: RightsType;
+  note: string;
+  status: RightsStatus;
+  createdAt: UnixSeconds;
+  updatedAt: UnixSeconds;
+}
+
+export interface CreateRightsRequestBody {
+  principal: Hex;
+  fiduciary: Hex;
+  type: RightsType;
+  note?: string;
+}
+
+export interface RightsRequestView extends RightsRequest {
+  fiduciaryName: string;
+}
+
+export interface RightsResponse {
+  principal: Hex;
+  rights: RightsRequestView[];
+}
+
 // --- 6.2 Company and gateway ---
 
 export interface RegisterPurposeBody {
