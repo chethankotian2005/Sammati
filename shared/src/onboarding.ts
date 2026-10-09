@@ -256,5 +256,5 @@ export function validateApplication(raw: unknown): ApplicationCheck {
     }
     processors.push({ name: pname, purposeCode: p.purposeCode });
   }
-  return { ok: true, value: { name, sector, contactEmail, purposes, processors } };
+  return { ok: true, value: { name, sector, contactEmail, ...(password === undefined ? {} : { password }), purposes, processors } };
 }

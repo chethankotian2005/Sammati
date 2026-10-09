@@ -355,6 +355,21 @@ export class Onboarding {
     this.undelivered.set(app.id, apiKey);
   }
 
+  /** Lets a person sign in to this company's console: for a company approved without a console login. */
+  setOperator(fiduciary: string, raw: unknown): void {
+    const body = raw as { email?: unknown; password?: unknown } | null;
+    const email = typeof body?.email === "string" ? body.email.trim() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) throw badRequest("email must look like an email address");
+    if (password.length < 8) throw badRequest("password must be at least 8 characters");
+    const f = this.repo.fiduciary(fiduciary);
+    const hash = createHash("sha256").update(password, "utf8").digest("hex");
+    this.db.transaction(() => {
+      this.db.prepare("INSERT INTO console_operators (email, password_hash, created_at) VALUES (?, ?, ?) ON CONFLICT (email) DO UPDATE SET password_hash = excluded.password_hash").run(email, hash, now());
+      this.db.prepare("INSERT OR IGNORE INTO fiduciary_operators (fiduciary, operator_email) VALUES (?, ?)").run(f.address, email);
+    })();
+  }
+
   isTester(principal: string): boolean {
     const p = lc(principal);
     if (this.config.sandboxTestPrincipals.includes(p)) return true;

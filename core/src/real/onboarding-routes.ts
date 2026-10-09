@@ -169,6 +169,11 @@ export function onboardingRoutes(core: RealCore): Router {
     res.json({ ok: true });
   }));
 
+  r.post("/regulator/fiduciaries/:fid/operator", regulator, handle((req, res) => {
+    onboarding.setOperator(param(req, "fid"), req.body);
+    res.json({ ok: true });
+  }));
+
   r.get("/regulator/test-principals", regulator, handle((_req, res) => {
     res.json({ principals: onboarding.testers() } satisfies TestPrincipalsResponse);
   }));

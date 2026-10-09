@@ -151,6 +151,20 @@ describe("the logins production enforces", () => {
     expect((await api("POST", company("/requests"), body, { authorization: `Bearer ${token}` })).status).toBe(201);
   });
 
+  it("the regulator can give an approved company a console login, and only the regulator", async () => {
+    const operator = { email: "new.operator@quickloan.example", password: "a fresh password" };
+    const path = `/v1/regulator/fiduciaries/${QL.address}/operator`;
+    expect((await api("POST", path, operator)).status).toBe(401);
+    expect((await api("POST", path, { ...operator, password: "short" }, { [REGULATOR_KEY_HEADER]: REGULATOR })).status).toBe(400);
+    expect((await api("POST", path, { ...operator, email: "not-an-email" }, { [REGULATOR_KEY_HEADER]: REGULATOR })).status).toBe(400);
+    expect((await api("POST", `/v1/regulator/fiduciaries/0x000000000000000000000000000000000000dEaD/operator`, operator, { [REGULATOR_KEY_HEADER]: REGULATOR })).status).toBe(404);
+    expect((await api("POST", path, operator, { [REGULATOR_KEY_HEADER]: REGULATOR })).json).toEqual({ ok: true });
+    const login = await api("POST", "/v1/console/login", operator);
+    expect(login.status).toBe(200);
+    expect(login.json.fiduciaries.map((f: { address: string }) => f.address)).toEqual([QL.address]);
+    expect(JSON.stringify(login.json)).not.toContain(operator.password);
+  });
+
   it("sign-in is rate limited", async () => {
     let last = 0;
     for (let i = 0; i < 12; i++) last = (await api("POST", "/v1/console/login", { email, password: "wrong" })).status;
