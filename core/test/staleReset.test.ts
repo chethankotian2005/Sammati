@@ -36,7 +36,8 @@ function close(core: RealCore): void {
 /** Appends `n` entries to QuickLoan's log exactly as the gateway would (hash-chained from the stored head). */
 function writeLog(core: RealCore, n: number): void {
   for (let i = 0; i < n; i++) {
-    const { seq, prevHash } = core.repo.nextLogPosition(QL);
+    const { seq, head } = core.repo.nextLogPosition(QL);
+    const prevHash = head?.hash ?? null;
     const entry: AccessLogEntry = {
       at: Math.floor(Date.now() / 1000),
       decision: i % 2 ? "BLOCKED" : "ALLOWED",
