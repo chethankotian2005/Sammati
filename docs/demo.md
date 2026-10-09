@@ -59,6 +59,7 @@ The system runs on Render, Vercel and Polygon Amoy (`trd.md` §10.1, runbook in 
 
 If the venue network blocks the cloud, or Render is down, run `pnpm demo:up` on the laptop as in the checklist below and, on the phone, open **Me > Developer settings** and set the Core address to the laptop's (`http://<lan-ip>:4000`); the same APK works. Setting it back to the cloud URL returns to the hosted system. The two stacks are separate worlds (different chains and databases): a consent made on one is not on the other, so choose one before the room fills and do not switch in the middle of a story. `DEV_TOOLS=true pnpm dev:tamper` works on the local stack only.
 
+**Local checklist**
 - [ ] Laptop on charger, `pnpm demo:up` running; QuickLoan registered, approved and started (above); the Processor answers: `curl http://<lan-ip>:4200/health` says `simulated-enclave`
 - [ ] Phone on the same hotspot; the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (set `PUBLIC_CORE_URL` if the laptop has two networks); the phone's Core address in Me > Developer settings matches
 - [ ] The phone has an account, a Sammati ID, and (if QuickLoan is in the sandbox) is a regulator-added test customer

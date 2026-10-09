@@ -142,11 +142,11 @@ If time runs short, cut from the bottom, never from the top. The order the featu
 
 ### Production deployment (Render, Vercel, APK): status
 - [x] Specs first (`spec: production deployment`): trd §10.1 to §10.9, architecture §9, drd §6 persistence, demo cloud setup and local fallback, README, release checklist.
-- [ ] Core and Processor: `PORT` on `0.0.0.0`, trust proxy, `/healthz` and `/readyz`, SIGTERM shutdown, production config validation, CORS allowlist, WebSocket keep-alive, headers.
-- [ ] Persistence and restart safety: `DB_PATH`, `VAULT_PATH`, idempotent migrations, `PROCESSOR_KEY` required and never generated, no wipe in production, restart test.
-- [ ] RPC friendliness: poll interval, backoff, receipt polling, per-network fees, cache from the relayer's receipt.
-- [ ] Public hosting security: Auditor and console logins enforced, `/join` rate limit, `dev:tamper` inline-only, route surface test.
-- [ ] `render.yaml`, `web/vercel.json`, `wallet-apk.yml`, `keepalive.yml`, `docs/deploy-guide.md`, `pnpm e2e:remote`.
+- [x] Core and Processor: `PORT` on `0.0.0.0`, trust proxy, `/healthz` and `/readyz`, SIGTERM shutdown, production config validation, CORS allowlist, WebSocket keep-alive, headers; QuickLoan and the company site likewise.
+- [x] Persistence and restart safety: `DB_PATH`, `VAULT_PATH`, idempotent migrations, `PROCESSOR_KEY` required and never generated, no wipe in production, restart test (`core/test/restart.test.ts`).
+- [x] RPC friendliness: poll interval, backoff, receipt polling, per-network fees, cache from the relayer's receipt (`core/test/hosted.test.ts`).
+- [x] Public hosting security: Auditor and console logins enforced (Core and web), `/join` and sign-in rate limits, `dev:tamper` inline-only, route surface test.
+- [x] `render.yaml`, `web/vercel.json`, `wallet-apk.yml`, `keepalive.yml`, `docs/deploy-guide.md`, `pnpm e2e:remote` (run against a production-mode local Core and Processor from an empty disk: 11 steps passed).
 - [ ] Run once on real Render, Vercel and GitHub accounts (nothing of that can be checked from this repository).
 
 ### Git workflow
