@@ -2,7 +2,7 @@
 // Processor's erasure and a processor's acknowledgement tell the wallet. A notification is data, not prose; the wallet
 // writes the sentence in the customer's language, and nothing here is personal data.
 import { randomUUID } from "node:crypto";
-import type { Hex, NotificationAction, NotificationItem, NotificationPatchBody, NotificationType, NotificationsResponse, VaultEvent, WsEvent } from "@sammati/shared";
+import type { Hex, NotificationAction, NotificationItem, NotificationPatchBody, NotificationType, NotificationsResponse, VaultEvent, WsEvent, RightsType } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError, badRequest } from "../errors";
 import { now } from "../clock";
@@ -70,7 +70,7 @@ export class Notifications {
   }
 
   /** A company changed the status of a customer's rights request, or replied to a grievance. */
-  onRightsUpdated(r: { id: string; principal: Hex; fiduciary: Hex; type: "access" | "erasure" | "grievance"; status: "open" | "in_progress" | "resolved"; reply: string | null; updatedAt: number }): void {
+  onRightsUpdated(r: { id: string; principal: Hex; fiduciary: Hex; type: RightsType; status: "open" | "in_progress" | "resolved"; reply: string | null; updatedAt: number }): void {
     this.raise({
       type: "rights.updated",
       key: `rights:${r.id}:${r.status}:${r.updatedAt}`,
