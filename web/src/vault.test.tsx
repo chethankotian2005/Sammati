@@ -15,11 +15,11 @@ const HASH = `0x${"cd".repeat(32)}` as const;
 const base = (handle: `0x${string}`, at: number) => ({ principal: PRINCIPAL, fiduciary: FID, purposeCode: "credit_check", handle, at, atMs: at * 1000 });
 
 const encrypted = (handle = H1, at = 1760000000): VaultEvent => ({ event: "vault.encrypted", ...base(handle, at), ciphertextHash: HASH, sizeBytes: 300 });
-const stored = (handle = H1, at = 1760000001): VaultEvent => ({ event: "vault.stored", ...base(handle, at), ciphertextHash: HASH, sizeBytes: 300 });
+const stored = (handle = H1, at = 1760000001): VaultEvent => ({ event: "vault.stored", ...base(handle, at), ciphertextHash: HASH, sizeBytes: 300, version: 1 });
 const requested = (at = 1760000002): VaultEvent => ({ event: "processor.requested", ...base(H1, at), action: "loan_decision", requestedAt: at * 1000 });
 const decrypting = (at = 1760000002): VaultEvent => ({ event: "processor.decrypting", ...base(H1, at), decryptingAt: at * 1000 });
-const approved = (at = 1760000003): VaultEvent => ({ event: "processor.decided", ...base(H1, at), decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: "e1", durationMs: 9 });
-const blocked = (at = 1760000009): VaultEvent => ({ event: "processor.decided", ...base(H1, at), decision: "blocked", limit: null, reasonCodes: ["CONSENT_WITHDRAWN"], entryId: "e2", durationMs: 4 });
+const approved = (at = 1760000003): VaultEvent => ({ event: "processor.decided", ...base(H1, at), decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: "e1", durationMs: 9, rateBps: 1400, dataCategories: [] });
+const blocked = (at = 1760000009): VaultEvent => ({ event: "processor.decided", ...base(H1, at), decision: "blocked", limit: null, reasonCodes: ["CONSENT_WITHDRAWN"], entryId: "e2", durationMs: 4, rateBps: null, dataCategories: [] });
 const erased = (handle = H1, cause: "withdrawn" | "superseded" = "withdrawn", at = 1760000010): VaultEvent => ({ event: "vault.erased", ...base(handle, at), cause });
 
 describe("what the company holds", () => {

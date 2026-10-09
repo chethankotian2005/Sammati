@@ -12,6 +12,7 @@
     "deploy:amoy": "pnpm --filter @sammati/contracts run deploy:amoy",
     "seed": "pnpm --filter @sammati/contracts run seed:local",
     "e2e": "pnpm --filter @sammati/core run e2e",
+    "e2e:remote": "pnpm --filter @sammati/core run e2e:remote",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

@@ -24,7 +24,7 @@ describe("pnpm demo:up", () => {
   });
 
   it("gives Core the QR address it printed, and clears the previous run's database first", () => {
-    expect(demoUp).toContain("CORE_PUBLIC_URL: qr.url");
+    expect(demoUp).toContain("PUBLIC_CORE_URL: qr.url");
     expect(demoUp).toContain("console.log(qr.banner)");
     expect(demoUp.indexOf("rmSync(")).toBeLessThan(demoUp.indexOf("concurrently("));
   });
@@ -71,5 +71,18 @@ describe("the dev tools (trd.md §6.4)", () => {
     const off = spawnSync(process.execPath, cli, { cwd: resolve(root, "core"), env: { PATH: process.env.PATH ?? "" }, encoding: "utf8", timeout: 30_000 });
     expect(off.status).toBe(1);
     expect(off.stderr).toContain("DEV_TOOLS=true");
+  });
+
+  it("dev:tamper needs DEV_TOOLS on the command itself: a value that comes from .env does not count, and production always refuses", () => {
+    const source = readFileSync(resolve(root, "core/scripts/dev-tamper.ts"), "utf8");
+    const captured = source.indexOf("const inline = process.env.DEV_TOOLS");
+    expect(captured, "dev-tamper.ts must read DEV_TOOLS before loading .env").toBeGreaterThan(-1);
+    expect(captured).toBeLessThan(source.indexOf("loadDotEnv();"));
+    expect(source).toContain('inline !== "true"');
+
+    const cli = ["--import", "tsx", resolve(root, "core/scripts/dev-tamper.ts"), "--", "quickloan", "1"];
+    const prod = spawnSync(process.execPath, cli, { cwd: resolve(root, "core"), env: { PATH: process.env.PATH ?? "", DEV_TOOLS: "true", NODE_ENV: "production" }, encoding: "utf8", timeout: 30_000 });
+    expect(prod.status).toBe(1);
+    expect(prod.stderr).toContain("NODE_ENV=production");
   });
 });

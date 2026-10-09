@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import { healthz, securityHeaders } from "@sammati/shared/src/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -18,6 +19,8 @@ export interface AppOptions {
   /** The company's own address and API key (the Processor calls the webhook with the key). */
   fiduciary: string;
   apiKey: string;
+  /** NODE_ENV=production: cookies are Secure and responses carry HSTS (trd.md §10.6). */
+  production?: boolean;
   now?: () => number;
 }
 
@@ -53,7 +56,11 @@ export function createApp(o: AppOptions): Express {
   const { db, sammati, loanPurpose } = o;
   const now = o.now ?? (() => Math.floor(Date.now() / 1000));
   const app = express();
+  app.set("trust proxy", 1);
   app.disable("x-powered-by");
+  // The pages carry their own inline style and script, so only framing, plugins and <base> are locked down.
+  app.use(securityHeaders({ production: o.production ?? false, csp: "frame-ancestors 'none'; object-src 'none'; base-uri 'none'" }));
+  app.get("/healthz", healthz); // first route: answers at once and touches nothing (trd.md §10.3)
   app.use(express.json({ limit: "8kb" }));
   app.use(express.urlencoded({ extended: false, limit: "8kb" }));
 
@@ -61,7 +68,7 @@ export function createApp(o: AppOptions): Express {
   const startSession = (res: Response, kind: "user" | "staff", username: string): void => {
     const token = randomBytes(24).toString("base64url");
     db.prepare("INSERT INTO sessions (token, kind, username, expires_at) VALUES (?, ?, ?, ?)").run(token, kind, username, now() + SESSION_SECONDS);
-    res.setHeader("Set-Cookie", `ql_${kind}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_SECONDS}`);
+    res.setHeader("Set-Cookie", `ql_${kind}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_SECONDS}${o.production ? "; Secure" : ""}`);
   };
   const sessionOf = (req: Request, kind: "user" | "staff"): string | null => {
     const token = cookies(req)[`ql_${kind}`];

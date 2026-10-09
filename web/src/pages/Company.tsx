@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useParams } from "react-router-dom";
+import { LOGIN_REQUIRED } from "../core";
+import { storedConsoleToken } from "../session";
 import {
   type ConsentRow,
   type NoticePurpose,
@@ -31,10 +33,13 @@ import { ConsentsSection } from "./company/ConsentsSection";
 import { ExpiringConsents } from "./company/ExpiringConsents";
 import { ProcessorsSection } from "./company/ProcessorsSection";
 import { EvidenceSection } from "./company/EvidenceSection";
+import { RightsInboxSection } from "./company/RightsInboxSection";
 
 export function Company(): ReactNode {
   const { id } = useParams<{ id: string }>();
   const directory = useDirectory();
+  // A hosted console is for signed-in operators; Core refuses its reads without the token anyway (trd.md §10.8).
+  if (LOGIN_REQUIRED && !storedConsoleToken()) return <Navigate to="/console/login" replace />;
   const company = directory.bySlug(id);
   if (directory.status === "loading") return <CenteredNote>Loading companies…</CenteredNote>;
   if (directory.status === "error") return <CenteredNote>Cannot load the companies. Is Core running?</CenteredNote>;
@@ -232,6 +237,10 @@ function CompanyConsole({ company }: { company: FiduciaryInfo }): ReactNode {
 
       {activeSection === "evidence" && (
         <EvidenceSection company={company} />
+      )}
+
+      {activeSection === "rights-inbox" && (
+        <RightsInboxSection company={company} />
       )}
     </ConsoleLayout>
   );

@@ -1,6 +1,6 @@
 // Routes for company onboarding and API-key authentication (trd.md §6.2a, §6.12).
 import { Router, type Request, type RequestHandler, type Response } from "express";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import {
   API_KEY_HEADER,
   REGULATOR_KEY_HEADER,
@@ -14,6 +14,7 @@ import {
 } from "@sammati/shared";
 import { HttpError, requireBody } from "../errors";
 import type { RealCore } from "./core";
+import { RollingLimiter } from "./onboarding";
 import type { FiduciaryRow } from "./repo";
 
 const handle =
@@ -38,6 +39,7 @@ export function companyKey(core: RealCore, required: boolean): RequestHandler {
       const key = req.header(API_KEY_HEADER);
       if (!key) {
         if (required) throw new HttpError(401, "INVALID_API_KEY", UNKNOWN_KEY);
+        if (core.config.requireOperatorAuth) operatorOwns(core, req);
         return next();
       }
       const company = core.repo.fiduciaryForKey(key);
@@ -51,6 +53,17 @@ export function companyKey(core: RealCore, required: boolean): RequestHandler {
   };
 }
 
+/** A signed-in console operator who runs this company (the route's :fid). Throws 401 or 403 otherwise. */
+export function operatorOwns(core: RealCore, req: Request): void {
+  const auth = req.header("Authorization");
+  const operator = auth?.startsWith("Bearer ") ? core.repo.consoleMe(auth.substring(7)) : null;
+  if (!operator) throw new HttpError(401, "UNAUTHORIZED", "Sign in to the company console, or send the company's API key");
+  const fid = String(req.params.fid ?? "").toLowerCase();
+  if (!operator.fiduciaries.some((f) => f.address.toLowerCase() === fid || f.slug === fid)) throw new HttpError(403, "FIDUCIARY_MISMATCH", "Access denied to this company");
+}
+
+const digest = (value: string): Buffer => createHash("sha256").update(value, "utf8").digest();
+
 /** The company the key proved, if any. */
 export const authenticated = (res: Response): FiduciaryRow | undefined => res.locals.company as FiduciaryRow | undefined;
 
@@ -62,18 +75,23 @@ export function mustOwn(res: Response, fiduciary: string): void {
   }
 }
 
-function regulatorOnly(core: RealCore): RequestHandler {
+/** The regulator's access code (a shared secret, trd.md §6.12): registrations, and in production the Auditor too. */
+export function regulatorOnly(core: RealCore): RequestHandler {
   return (req, _res, next) => {
-    if (req.header(REGULATOR_KEY_HEADER) !== core.config.regulatorKey) {
+    if (!timingSafeEqual(digest(req.header(REGULATOR_KEY_HEADER) ?? ""), digest(core.config.regulatorKey))) {
       return next(new HttpError(401, "UNAUTHORIZED", "Regulator access code required"));
     }
     next();
   };
 }
 
+const LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
+
 export function onboardingRoutes(core: RealCore): Router {
   const { repo, onboarding } = core;
   const r = Router();
+  const logins = new RollingLimiter();
 
   // --- directory (R-04) ---
 
@@ -100,6 +118,11 @@ export function onboardingRoutes(core: RealCore): Router {
 
   // --- console operators (C-10) ---
   r.post("/console/login", handle((req, res) => {
+    const wait = logins.take(req.ip ?? "unknown", LOGIN_ATTEMPTS, LOGIN_WINDOW_MS);
+    if (wait > 0) {
+      res.setHeader("Retry-After", String(wait));
+      throw new HttpError(429, "RATE_LIMITED", `Too many sign-in attempts. Try again in ${Math.ceil(wait / 60)} minutes.`);
+    }
     const body = requireBody(req.body);
     const email = typeof body.email === "string" ? body.email : "";
     const password = typeof body.password === "string" ? body.password : "";

@@ -388,7 +388,7 @@ describe("what a fresh Processor knows (X-01)", () => {
   it("refuses to start with DEV_TOOLS=true beside NODE_ENV=production", () => {
     expect(() => readConfig({ DEV_TOOLS: "true", NODE_ENV: "production" })).toThrow(/DEV_TOOLS/);
     expect(() => readConfig({ DEV_TOOLS: "true" })).not.toThrow();
-    expect(() => readConfig({ NODE_ENV: "production" })).not.toThrow();
+    expect(() => readConfig({ NODE_ENV: "production" })).toThrow(/Missing or unusable environment variables/); // production needs its settings (trd.md §10.2)
   });
 
   it("lets a company register where to be told about stored and erased entries, only with its own key", async () => {

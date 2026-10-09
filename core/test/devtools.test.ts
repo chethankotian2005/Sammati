@@ -71,7 +71,7 @@ describe("DEV_TOOLS", () => {
   it("fails startup beside NODE_ENV=production", () => {
     expect(() => readConfig({ DEV_TOOLS: "true", NODE_ENV: "production" })).toThrow(/NODE_ENV=production/);
     expect(() => devToolsOn({ DEV_TOOLS: "true", NODE_ENV: "production" })).toThrow();
-    expect(() => readConfig({ NODE_ENV: "production" })).not.toThrow();
+    expect(() => readConfig({ NODE_ENV: "production" })).toThrow(/Missing or unusable environment variables/); // production needs its settings (trd.md §10.2)
   });
 });
 

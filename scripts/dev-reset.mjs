@@ -18,7 +18,7 @@ requireDevTools("dev:reset");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const files = [
   ["Core's database", resolve(root, "core", process.env.DB_PATH ?? "./data/sammati.sqlite")],
-  ["the Processor's vault", resolve(root, "processor", process.env.PROCESSOR_DB_PATH ?? "./data/processor.sqlite")],
+  ["the Processor's vault", resolve(root, "processor", process.env.VAULT_PATH ?? "./data/processor.sqlite")],
 ];
 
 for (const [what, file] of files) {

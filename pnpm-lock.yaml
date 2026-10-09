@@ -67,6 +67,28 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
 
+  companies/template:
+    dependencies:
+      '@sammati/gateway':
+        specifier: workspace:*
+        version: link:../../gateway
+      '@sammati/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      express:
+        specifier: 4.21.2
+        version: 4.21.2
+    devDependencies:
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+
   contracts:
     dependencies:
       '@openzeppelin/contracts':

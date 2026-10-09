@@ -102,9 +102,42 @@ function Progress({ view }: { view: JourneyView }): ReactNode {
     case "awaiting-scan":
       return (
         <div className="flex flex-col items-center gap-4 rounded-pass border border-line bg-paper p-5">
-          <div className="rounded-pass border-2 border-line bg-white p-4">
-            <QRCodeSVG value={state.request?.qrPayload ?? ""} size={240} level="M" />
+          <div className="rounded-pass border-2 border-line bg-white p-4 relative group">
+            <QRCodeSVG id="portal-qr-svg" value={state.request?.qrPayload ?? ""} size={240} level="M" />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/70">
+              <button
+                type="button"
+                onClick={() => {
+                  const svg = document.querySelector("#portal-qr-svg");
+                  if (svg) {
+                    const svgData = new XMLSerializer().serializeToString(svg);
+                    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "sammati-qr.svg";
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+                className="bg-ink text-paper px-4 py-2 rounded-full font-bold shadow-lg text-sm"
+              >
+                Download QR
+              </button>
+            </div>
           </div>
+          {import.meta.env.DEV && (
+            <div className="w-full max-w-sm">
+              <p className="text-xs text-mute font-bold mb-1">Developer payload (Copy this into the Wallet Web App):</p>
+              <textarea 
+                readOnly 
+                className="w-full text-xs font-mono p-2 bg-gray-100 rounded border border-line" 
+                rows={3} 
+                value={state.request?.qrPayload ?? ""} 
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              />
+            </div>
+          )}
           <p className="text-lg font-bold">Waiting for you to approve in the Sammati app...</p>
           <StatusChip variant={view.online ? "pending" : "unverified"} label={view.online ? "Waiting" : "Live status offline"} />
           <p className="text-sm text-mute">Untick the box to cancel.</p>
@@ -239,7 +272,35 @@ function Application({ view }: { view: JourneyView }): ReactNode {
         <button type="button" className={primary} disabled={!canApply} onClick={() => void journey.apply()}>
           {state.applying ? "Applying…" : state.stage === "decided" ? "Apply again" : "Apply"}
         </button>
+        <button type="button" className="text-base text-ink underline" onClick={() => journey.cancelApplication()}>
+          Go back to home
+        </button>
         {!canApply && hint && <span className="text-base text-mute">{hint}</span>}
+      </div>
+    </div>
+  );
+}
+
+function Home({ view }: { view: JourneyView }): ReactNode {
+  return (
+    <div className={`${card} space-y-5 text-center py-10`} aria-labelledby="home">
+      <h2 id="home" className="text-2xl font-extrabold">
+        Welcome to QuickLoan
+      </h2>
+      {view.state.notice && (
+        <p role="alert" className="font-bold text-block">
+          ✕ {view.state.notice}
+        </p>
+      )}
+      <p className="text-base text-mute">Manage your account and apply for new loans.</p>
+      <div className="pt-4">
+        <button
+          type="button"
+          onClick={() => view.journey.startApplication()}
+          className="min-h-[48px] rounded-pill bg-ink px-6 font-bold text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          Apply for a loan
+        </button>
       </div>
     </div>
   );
@@ -268,7 +329,13 @@ function Portal(): ReactNode {
         </div>
       </header>
       <div className="mx-auto max-w-[640px] space-y-4 p-4">
-        {state.stage === "logged-out" ? <Login view={view} /> : <Application view={view} />}
+        {state.stage === "logged-out" ? (
+          <Login view={view} />
+        ) : state.stage === "home" ? (
+          <Home view={view} />
+        ) : (
+          <Application view={view} />
+        )}
         {state.stage === "error" && (
           <div role="alert" className="space-y-3 rounded-pass border-2 border-block/40 bg-block/10 p-5">
             <p className="flex items-center gap-2 text-lg font-extrabold text-block">

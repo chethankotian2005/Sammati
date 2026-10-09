@@ -57,7 +57,7 @@ export function JoinStatus(): ReactNode {
   const [status, setStatus] = useState<RegistrationStatusResponse | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [purposeCode, setPurposeCode] = useState("<your purpose code>");
-  const [processorUrl, setProcessorUrl] = useState("http://localhost:4200");
+  const [processorUrl, setProcessorUrl] = useState("https://<the Processor's address>");
 
   // Follow the application until it is decided; then one more read has already delivered the key.
   useEffect(() => {

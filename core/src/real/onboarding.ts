@@ -264,9 +264,9 @@ export class Onboarding {
         .run(company.address, app.name, app.sector, DEFAULT_COMPANY_COLOR, registeredTx, app.slug, sandbox ? 1 : 0);
       this.insertDirectory(company.address, app, processors);
       this.db.prepare("INSERT INTO fiduciary_credentials (fiduciary, api_key_hash, issued_at) VALUES (?, ?, ?)").run(company.address, hashApiKey(apiKey), decidedAt);
-      if (r.password_hash && app.contactEmail) {
-        this.db.prepare("INSERT OR IGNORE INTO console_operators (email, password_hash, created_at) VALUES (?, ?, ?)").run(app.contactEmail, r.password_hash, decidedAt);
-        this.db.prepare("INSERT INTO fiduciary_operators (fiduciary, operator_email) VALUES (?, ?)").run(company.address, app.contactEmail);
+      if (r.password_hash && r.contact_email) {
+        this.db.prepare("INSERT OR IGNORE INTO console_operators (email, password_hash, created_at) VALUES (?, ?, ?)").run(r.contact_email, r.password_hash, decidedAt);
+        this.db.prepare("INSERT INTO fiduciary_operators (fiduciary, operator_email) VALUES (?, ?)").run(company.address, r.contact_email);
       }
       this.db
         .prepare("UPDATE fiduciary_applications SET status = 'approved', note = ?, contact_email = NULL, sandbox = ?, decided_at = ? WHERE id = ?")

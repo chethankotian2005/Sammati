@@ -118,6 +118,11 @@ export class Vault {
     return this.db.prepare("UPDATE vault SET ciphertext = NULL, erased_at = ?, erase_cause = ? WHERE handle = ? AND erased_at IS NULL").run(at, cause, handle).changes > 0;
   }
 
+  /** The database answers (GET /readyz). */
+  ping(): void {
+    this.db.prepare("SELECT 1").get();
+  }
+
   close(): void {
     this.db.close();
   }

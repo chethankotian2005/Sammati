@@ -20,29 +20,16 @@ import {
   setSandbox,
 } from "../../api";
 import { useDirectory } from "../../directory";
+import { savedRegulatorCode, saveRegulatorCode } from "../../regulator";
 import { HashLabel, SandboxBadge, StatusChip } from "../../ui";
 
-const CODE_KEY = "sammati.regulatorCode";
 const CHECKS = ["Purposes are specific", "Retention is justified", "Sharing is disclosed"] as const;
 const FILTERS: ApplicationStatus[] = ["pending", "approved", "rejected"];
 const CHIP = { pending: "pending", approved: "verified", rejected: "blocked" } as const;
 const WORD = { pending: "Pending", approved: "Approved", rejected: "Rejected" } as const;
 
-// The code lives for this tab only; storage can be blocked, and then the code is simply asked for again.
-const remembered = (): string => {
-  try {
-    return sessionStorage.getItem(CODE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-};
-const remember = (code: string): void => {
-  try {
-    sessionStorage.setItem(CODE_KEY, code);
-  } catch {
-    // ignore
-  }
-};
+const remembered = savedRegulatorCode;
+const remember = saveRegulatorCode;
 
 const when = (t: number): string => new Date(t * 1000).toLocaleString();
 

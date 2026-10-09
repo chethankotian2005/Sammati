@@ -5,6 +5,9 @@ import Database from "better-sqlite3";
 import { devToolsOn, loadDotEnv, readConfig } from "../src/config";
 import { tamperRow } from "../src/dev/tamper";
 
+// Read before the .env file is loaded: DEV_TOOLS must be set on this one command, and a value left in .env does not count
+// (a deployment that copied its .env must not have an edit-the-log tool switched on by it, trd.md §10.8).
+const inline = process.env.DEV_TOOLS;
 loadDotEnv();
 const args = process.argv.slice(2).filter((a) => a !== "--");
 
@@ -14,7 +17,8 @@ function fail(message: string): never {
 }
 
 try {
-  if (!devToolsOn(process.env)) fail("dev:tamper changes a stored log on purpose, so it needs DEV_TOOLS=true.");
+  if (inline !== "true") fail("dev:tamper changes a stored log on purpose, so it needs DEV_TOOLS=true set on this command itself (DEV_TOOLS=true pnpm dev:tamper -- <fiduciary> <seq>); a value in .env does not count.");
+  devToolsOn({ ...process.env, DEV_TOOLS: inline }); // throws beside NODE_ENV=production
 } catch (err) {
   fail(err instanceof Error ? err.message : String(err));
 }

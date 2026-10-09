@@ -4,8 +4,10 @@
  * identity from the registration (FIDUCIARY, SAMMATI_API_KEY). It holds no customer data and no payloads.
  */
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import express, { type Request, type Response } from "express";
 import { sammati } from "@sammati/gateway";
+import { checkProductionEnv, closeServer, DEFAULT_HOST, healthz, isProduction, listen, securityHeaders, shutdownOnSignal } from "@sammati/shared/src/server";
 
 interface Site {
   name: string;
@@ -24,6 +26,12 @@ function required(name: string): string {
   }
   return v;
 }
+try {
+  checkProductionEnv("Company site", process.env, [{ name: "SITE" }, { name: "CORE_URL", https: true }, { name: "FIDUCIARY" }, { name: "SAMMATI_API_KEY" }]);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+}
 const site = JSON.parse(readFileSync(required("SITE"), "utf8")) as Site;
 const fiduciary = required("FIDUCIARY");
 const port = Number(process.env.PORT ?? site.port);
@@ -33,6 +41,10 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", 
 const principalFrom = (req: Request): string | undefined => req.header("x-sammati-principal") ?? (req.query.principal as string | undefined);
 
 const app = express();
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use(securityHeaders({ production: isProduction(process.env), csp: "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" }));
+app.get("/healthz", healthz); // first route: answers at once and touches nothing (trd.md §10.3)
 app.get("/health", (_req, res) => void res.json({ ok: true, fiduciary }));
 
 // Every registered purpose is guarded the same way: the SDK asks the ledger first, answers 451 with a reason, and logs.
@@ -54,4 +66,10 @@ h1{margin:0 0 8px;font-size:36px}li{margin:12px 0}.t{font-size:13px;font-weight:
 <footer>${esc(site.name)} · ${esc(site.sector)} · Consent by Sammati</footer></body></html>`);
 });
 
-app.listen(port, () => console.log(`[${site.name}] http://localhost:${port} (company ${fiduciary})`));
+const server = createServer(app);
+shutdownOnSignal(async () => {
+  await closeServer(server);
+  gate.close();
+});
+await listen(server, port, DEFAULT_HOST);
+console.log(`[${site.name}] listening on ${DEFAULT_HOST}:${port} (company ${fiduciary})`);

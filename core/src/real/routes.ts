@@ -31,7 +31,7 @@ import { address, bytes32, parseGrant, parseLogEntry, parseRightsBody, parseWith
 import { accessProof, report, scorecard, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
-import { companyKey, mustOwn } from "./onboarding-routes";
+import { companyKey, mustOwn, regulatorOnly } from "./onboarding-routes";
 import { addr, NOTICE_VERSION } from "./repo";
 
 const DEFAULT_ACTIVITY_LIMIT = 50;
@@ -236,24 +236,29 @@ export function realRoutes(core: RealCore): Router {
     res.json({ rights: repo.fiduciaryRights(param(req, "fid")) });
   }));
 
-  r.get("/fiduciaries/:fid/purposes", consoleAuth, handle((req, res) => {
+  r.get("/fiduciaries/:fid/purposes", handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, purposes: repo.purposesOf(f.address) } satisfies FiduciaryPurposesResponse);
   }));
 
-  r.get("/fiduciaries/:fid/processors", consoleAuth, handle((req, res) => {
+  r.get("/fiduciaries/:fid/processors", handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, processors: repo.processorsOfFiduciary(f.address) } satisfies FiduciaryProcessorsResponse);
   }));
 
-  r.get("/fiduciaries/:fid/consents", consoleAuth, handle((req, res) => {
+  // In production the list of a company's customers is for its own operators and servers, and the Auditor is the regulator's (trd.md §10.8).
+  const ifLoginRequired = (guard: RequestHandler): RequestHandler => (config.requireOperatorAuth ? guard : (_req, _res, next) => next());
+  const operatorsOnly = ifLoginRequired(consoleAuth);
+  const auditorOnly = ifLoginRequired(regulatorOnly(core));
+
+  r.get("/fiduciaries/:fid/consents", operatorsOnly, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, rows: repo.consentRows(f) } satisfies FiduciaryConsentsResponse);
   }));
 
   const accessLimit = (q: unknown, fallback: number): number => Math.max(1, Math.min(500, Number(q ?? fallback) || fallback));
 
-  r.get("/fiduciaries/:fid/access", consoleAuth, handle((req, res) => {
+  r.get("/fiduciaries/:fid/access", operatorsOnly, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, items: repo.accessFor(f.address, accessLimit(req.query.limit, DEFAULT_ACCESS_LIMIT)) } satisfies FiduciaryAccessResponse);
   }));
@@ -304,7 +309,7 @@ export function realRoutes(core: RealCore): Router {
 
   // --- 6.3 auditor ---
 
-  r.get("/audit/ledger", handle((req, res) => {
+  r.get("/audit/ledger", auditorOnly, handle((req, res) => {
     const { fid, principal, type } = req.query;
     for (const [name, v] of [["fid", fid], ["principal", principal]] as const) {
       if (v !== undefined && (typeof v !== "string" || !isAddress(v))) throw badRequest(`"${name}" must be an address`);
@@ -321,15 +326,15 @@ export function realRoutes(core: RealCore): Router {
     } satisfies AuditLedgerResponse);
   }));
 
-  r.get("/audit/fiduciaries", handle((_req, res) => {
+  r.get("/audit/fiduciaries", auditorOnly, handle((_req, res) => {
     res.json({ fiduciaries: repo.fiduciaries().map((f) => scorecard(core, f.address)) } satisfies AuditFiduciariesResponse);
   }));
 
-  r.post("/audit/verify/:fid", handle(async (req, res) => {
+  r.post("/audit/verify/:fid", auditorOnly, handle(async (req, res) => {
     res.json((await verifyFiduciary(core, repo.fiduciary(param(req, "fid")).address)) satisfies VerifyResponse);
   }));
 
-  r.get("/audit/report/:fid", handle(async (req, res) => {
+  r.get("/audit/report/:fid", auditorOnly, handle(async (req, res) => {
     res.json((await report(core, repo.fiduciary(param(req, "fid")).address)) satisfies AuditReportResponse);
   }));
   // --- not built yet in real mode (trd.md §6.6) ---

@@ -1,9 +1,34 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LOCAL_ADMIN_KEY, LOCAL_RELAYER_KEY, PROCESSOR_PORT, type Deployment } from "@sammati/shared";
+import { checkProductionEnv, DEFAULT_HOST, isProduction, parseOrigins } from "@sammati/shared/src/server";
+
+/** Fee policy for every transaction Core sends (trd.md §10.7). Null fields: let the node suggest. */
+export interface GasConfig {
+  priorityFeeGwei: number | null;
+  maxFeeGwei: number | null;
+  /** Multiplies the gas estimate, so a slightly different state at mining time does not run out of gas. */
+  limitMultiplier: number;
+}
 
 export interface Config {
+  /** NODE_ENV=production: required variables are checked at start, nothing is wiped, logins are enforced (trd.md §10). */
+  production: boolean;
   port: number;
+  host: string;
+  /** Browser origins allowed to call Core, or ["*"] outside production (trd.md §10.6). */
+  corsOrigins: string[];
+  /** The consent list, the access log and the Auditor need a login (trd.md §10.8). */
+  requireOperatorAuth: boolean;
+  /** A database that describes another chain is wiped (local reset); production refuses instead (trd.md §10.7). */
+  wipeOnChainChange: boolean;
+  /** How often a relayed transaction is polled for its receipt. */
+  receiptPollMs: number;
+  /** Most blocks one eth_getLogs asks for. */
+  logChunkBlocks: number;
+  /** The indexer and the chain connection back off up to this long after failures. */
+  rpcBackoffMaxMs: number;
+  gas: GasConfig;
   /** DEV_TOOLS=true: the two command-line scripts of trd.md §6.4 may run. Nothing in a running service reads it. */
   devTools: boolean;
   /** Base URL the wallet reaches Core on; goes into the QR code (use the LAN IP on stage). */
@@ -93,12 +118,49 @@ function parseSeconds(value: string | undefined, fallback: number[]): number[] {
   return list.length > 0 && list.every((n) => Number.isFinite(n) && n > 0) ? [...new Set(list)].sort((a, b) => b - a) : fallback;
 }
 
+const DEMO_REGULATOR_KEY = "demo-regulator-key";
+const DEMO_EVENT_KEY = "local-processor-events";
+
+/** What Core cannot run without in production: no localhost, no Hardhat key, no published default secret. */
+export function checkProductionConfig(env: NodeJS.ProcessEnv): void {
+  checkProductionEnv("Core", env, [
+    { name: "PUBLIC_CORE_URL", https: true },
+    { name: "PROCESSOR_PUBLIC_URL", https: true },
+    { name: "CHAIN_RPC" },
+    { name: "CHAIN_NETWORK" },
+    { name: "RELAYER_KEY", forbidden: [LOCAL_RELAYER_KEY] },
+    { name: "ADMIN_KEY", forbidden: [LOCAL_ADMIN_KEY] },
+    { name: "REGULATOR_KEY", forbidden: [DEMO_REGULATOR_KEY] },
+    { name: "PROCESSOR_EVENT_KEY", forbidden: [DEMO_EVENT_KEY] },
+    { name: "CORS_ORIGINS" },
+    { name: "DB_PATH" },
+  ]);
+  if (isProduction(env) && parseOrigins(env.CORS_ORIGINS).includes("*")) throw new Error("Core cannot start in production. CORS_ORIGINS must list exact origins, not *");
+}
+
+function optionalGwei(value: string | undefined): number | null {
+  const n = Number(value);
+  return value && Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const devTools = devToolsOn(env); // first: it names the more specific mistake
+  checkProductionConfig(env);
+  const production = isProduction(env);
   const port = Number(env.PORT ?? 4000);
   return {
+    production,
     port,
-    devTools: devToolsOn(env),
-    publicUrl: env.CORE_PUBLIC_URL ?? `http://localhost:${port}`,
+    host: DEFAULT_HOST,
+    corsOrigins: production ? parseOrigins(env.CORS_ORIGINS) : ["*"],
+    requireOperatorAuth: production,
+    wipeOnChainChange: !production,
+    receiptPollMs: Number(env.RECEIPT_POLL_MS ?? 250),
+    logChunkBlocks: Number(env.LOG_CHUNK_BLOCKS ?? 2000),
+    rpcBackoffMaxMs: Number(env.RPC_BACKOFF_MAX_MS ?? 60_000),
+    gas: { priorityFeeGwei: optionalGwei(env.GAS_PRIORITY_FEE_GWEI), maxFeeGwei: optionalGwei(env.GAS_MAX_FEE_GWEI), limitMultiplier: Number(env.GAS_LIMIT_MULTIPLIER ?? 1.2) },
+    devTools,
+    publicUrl: env.PUBLIC_CORE_URL ?? `http://localhost:${port}`,
     explorerUrl: env.CHAIN_EXPLORER_URL || null,
     chainRpc: env.CHAIN_RPC ?? "http://127.0.0.1:8545",
     chainNetwork: env.CHAIN_NETWORK ?? "localhost",
@@ -114,8 +176,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     identityFreshnessSeconds: Number(env.IDENTITY_FRESHNESS_SECONDS ?? 900),
     handleChecksPerMinute: Number(env.HANDLE_CHECKS_PER_MINUTE ?? 30),
     processorUrl: env.PROCESSOR_PUBLIC_URL ?? `http://localhost:${PROCESSOR_PORT}`,
-    processorEventKey: env.PROCESSOR_EVENT_KEY ?? "local-processor-events",
-    regulatorKey: env.REGULATOR_KEY ?? "demo-regulator-key",
+    processorEventKey: env.PROCESSOR_EVENT_KEY ?? DEMO_EVENT_KEY,
+    regulatorKey: env.REGULATOR_KEY ?? DEMO_REGULATOR_KEY,
     adminKey: env.ADMIN_KEY ?? LOCAL_ADMIN_KEY,
     registrationFundingEth: env.REGISTRATION_FUNDING_ETH ?? "1",
     registrationsPerHour: Number(env.REGISTRATIONS_PER_HOUR ?? 5),

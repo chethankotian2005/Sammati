@@ -195,3 +195,13 @@ describe("what QuickLoan holds and serves", () => {
     for (const value of KNOWN) expect(everything, value).not.toContain(value);
   });
 });
+
+describe("hosting (trd.md §10.3, §10.6)", () => {
+  it("/healthz answers ok at once, with the security headers", async () => {
+    const res = await fetch(base + "/healthz");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("ok");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+});

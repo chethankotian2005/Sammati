@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { getAddress } from "ethers";
 import {
   DEFAULT_COMPANY_COLOR,
@@ -741,7 +741,7 @@ export class Repo {
   consoleLogin(email: string, passwordHash: string): { token: string, operatorEmail: string, fiduciaries: Array<{ address: string, slug: string }> } | null {
     const op = this.db.prepare("SELECT email FROM console_operators WHERE email = ? AND password_hash = ?").get(email, passwordHash) as { email: string } | undefined;
     if (!op) return null;
-    const token = require("node:crypto").randomBytes(32).toString("base64url");
+    const token = randomBytes(32).toString("base64url");
     const expiresAt = Math.floor(Date.now() / 1000) + 86400; // 24 hours
     this.db.prepare("INSERT INTO console_sessions (token, operator_email, expires_at) VALUES (?, ?, ?)").run(token, email, expiresAt);
     const me = this.consoleMe(token);

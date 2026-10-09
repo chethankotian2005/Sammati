@@ -23,9 +23,9 @@ if (dbPath !== ":memory:") {
 }
 
 // The vault belongs to the chain that is about to be replaced, like Core's database.
-for (const suffix of ["", "-wal", "-shm"]) rmSync(resolve(repoRoot, "processor", (process.env.PROCESSOR_DB_PATH ?? "./data/processor.sqlite") + suffix), { force: true });
+for (const suffix of ["", "-wal", "-shm"]) rmSync(resolve(repoRoot, "processor", (process.env.VAULT_PATH ?? "./data/processor.sqlite") + suffix), { force: true });
 
-// An explicit CORE_PUBLIC_URL (environment or .env) wins over detection: the real environment is read first.
+// An explicit PUBLIC_CORE_URL (environment or .env) wins over detection: the real environment is read first.
 try {
   process.loadEnvFile(resolve(repoRoot, ".env"));
 } catch {
@@ -42,7 +42,7 @@ console.log(`The wallet will find the Sammati Processor (simulated enclave) on $
 console.log(`A new company joins at http://localhost:5173/join; the regulator approves it under Auditor > Registrations
 (access code: ${process.env.REGULATOR_KEY?.trim() || "demo-regulator-key"}, a shared secret). Guide: docs/integration.md
 `);
-const coreEnv = { CORE_PUBLIC_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
+const coreEnv = { PUBLIC_CORE_URL: qr.url, PROCESSOR_PUBLIC_URL: processorUrl };
 
 const filter = (pkg, script = "dev") => `pnpm --filter @sammati/${pkg} ${script}`;
 

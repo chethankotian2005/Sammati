@@ -131,6 +131,8 @@ describe("no plaintext anywhere (V-05)", () => {
     }
     expect(routes.sort()).toEqual([
       "GET /health",
+      "GET /healthz",
+      "GET /readyz",
       "GET /v1/processor/pubkey",
       "GET /v1/vault/:handle",
       "POST /v1/processor/callback",

@@ -1,0 +1,64 @@
+name: Wallet APK
+
+# Builds the Android wallet against the hosted Core (docs/deploy-guide.md §5). The Core URL is baked in as the app's
+# default (--dart-define=CORE_URL); Me > Developer settings can still point the same APK at a laptop for the local
+# fallback (docs/demo.md §4). Only a public URL goes into the build: no secret is ever part of the wallet.
+#
+# The APK is signed with the debug key unless a release keystore is added (not done here): it installs by side-loading,
+# which is enough for a demo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      core_url:
+        description: "Core's public https URL (defaults to the CORE_URL repository variable)"
+        required: false
+  push:
+    tags: ["wallet-v*"]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: wallet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide the Core URL
+        id: core
+        env:
+          INPUT_URL: ${{ github.event.inputs.core_url }}
+          VAR_URL: ${{ vars.CORE_URL }}
+        run: |
+          url="${INPUT_URL:-$VAR_URL}"
+          url="${url%/}"
+          case "$url" in
+            https://*) ;;
+            *) echo "Set the CORE_URL repository variable (or the core_url input) to Core's public https:// URL."; exit 1 ;;
+          esac
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # analyze and test run in ci.yml on every push; this workflow only has to produce the APK.
+      - run: flutter pub get
+
+      - name: Build the release APK
+        run: flutter build apk --release --dart-define=CORE_URL=${{ steps.core.outputs.url }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sammati-wallet-apk
+          path: wallet/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30

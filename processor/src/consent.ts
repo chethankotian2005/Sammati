@@ -33,6 +33,7 @@ interface RegistryReads {
 
 export class ChainConsentReader implements ConsentReader {
   private registry: RegistryReads | null = null;
+  private provider: JsonRpcProvider | null = null;
 
   constructor(private readonly config: ProcessorConfig) {}
 
@@ -44,9 +45,21 @@ export class ChainConsentReader implements ConsentReader {
     // cacheTimeout -1: ethers would otherwise reuse an identical answer for 250 ms, i.e. read "still consented"
     // just after a withdrawal.
     const provider = new JsonRpcProvider(this.config.chainRpc, network, { staticNetwork: network, cacheTimeout: -1 });
+    this.provider = provider;
     const abi = JSON.parse(readFileSync(resolve(sharedDir, "abi", "ConsentRegistry.json"), "utf8")) as InterfaceAbi;
     this.registry = new Contract(deployment.consentRegistry, abi, provider) as unknown as RegistryReads;
     return this.registry;
+  }
+
+  /** The chain answers (GET /readyz). The reason never carries the RPC URL, which may hold a key. */
+  async ping(): Promise<void> {
+    try {
+      this.connect();
+      if (!this.provider) throw new Error("no deployment");
+      await this.provider.getBlockNumber();
+    } catch {
+      throw new Error("the chain did not answer");
+    }
   }
 
   async check(principal: string, fiduciary: string, purposeCode: string): Promise<ConsentVerdict> {

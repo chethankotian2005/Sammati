@@ -19,6 +19,7 @@ import {
 import { useAnchorPosted, useConsentUpdated, useTamperAlert } from "../ws";
 import { useDirectory } from "../directory";
 import { RegistrationsSection } from "./auditor/RegistrationsSection";
+import { RegulatorGate } from "./auditor/RegulatorGate";
 
 import { ScorecardsSection } from "./auditor/ScorecardsSection";
 import { LedgerExplorerSection } from "./auditor/LedgerExplorerSection";
@@ -26,6 +27,14 @@ import { VerifyModal } from "./auditor/VerifyModal";
 import { ReportModal } from "./auditor/ReportModal";
 
 export function Auditor(): ReactNode {
+  return (
+    <RegulatorGate>
+      <AuditorConsole />
+    </RegulatorGate>
+  );
+}
+
+function AuditorConsole(): ReactNode {
   const [activeTab, setActiveTab] = useState<"scorecards" | "ledger" | "registrations">("scorecards");
   const firstCompany = useDirectory().fiduciaries[0];
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);

@@ -6,8 +6,11 @@ import { CORE_URL } from "../core";
 import { useAnyWsFrame, useWsReadyState } from "../ws";
 import { Journey, type JourneyDeps, type JourneyState, type PortalCompany } from "./journey";
 
-/** Where the company's own backend is (the sample lender listens on 4310). */
-export const LENDER_URL: string = import.meta.env.VITE_LENDER_URL ?? "http://localhost:4310";
+/**
+ * Where the company's own backend is (the sample lender listens on 4310). A hosted build has none unless
+ * VITE_LENDER_URL says so, and then the customer portal says it is not available (trd.md §10.2).
+ */
+export const LENDER_URL: string = import.meta.env.VITE_LENDER_URL ?? (import.meta.env.PROD ? "" : "http://localhost:4310");
 
 async function json(res: Response): Promise<unknown> {
   const text = await res.text();

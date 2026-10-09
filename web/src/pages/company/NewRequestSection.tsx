@@ -198,13 +198,35 @@ function QrRequestPanel({
           {requestData ? (
             <div className="flex flex-col items-center space-y-5 w-full">
               {/* QR Container */}
-              <div className="rounded-pass border-2 border-line bg-white p-5 shadow-inner">
+              <div className="rounded-pass border-2 border-line bg-white p-5 shadow-inner relative group">
                 <QRCodeSVG
+                  id="company-qr-svg"
                   value={qrPayloadString}
                   size={220}
                   level="M"
                   includeMargin={false}
                 />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/70">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const svg = document.querySelector("#company-qr-svg");
+                      if (svg) {
+                        const svgData = new XMLSerializer().serializeToString(svg);
+                        const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = "sammati-qr.svg";
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
+                    className="bg-ink text-paper px-4 py-2 rounded-full font-bold shadow-lg text-sm"
+                  >
+                    Download QR
+                  </button>
+                </div>
               </div>
 
               {/* Status pill / card */}
