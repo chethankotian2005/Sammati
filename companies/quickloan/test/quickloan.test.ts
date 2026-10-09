@@ -61,6 +61,7 @@ beforeAll(async () => {
     staff: { user: "staff", password: "staff-pass" },
     fiduciary: FID,
     apiKey: KEY,
+    portalOrigins: ["https://web.test"],
   });
   // record everything QuickLoan sends, for the search at the end
   const wrapped = express();
@@ -203,5 +204,41 @@ describe("hosting (trd.md §10.3, §10.6)", () => {
     expect(await res.text()).toBe("ok");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+});
+
+describe("the portal API for the web (trd.md §6.14)", () => {
+  const ORIGIN = "https://web.test";
+  const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) =>
+    fetch(base + path, { method, headers: { origin: ORIGIN, ...(body ? { "content-type": "application/json" } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
+
+  it("creates a consent request for a customer id with the company's key, for the listed origin only", async () => {
+    const ok = await call("POST", "/portal/requests", { purposes: ["credit_check"], customerAlias: "asha01" });
+    expect(ok.status).toBe(201);
+    expect(await ok.json()).toMatchObject({ requestId: "req_abc12345" });
+    expect(ok.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+    const stranger = await fetch(base + "/portal/requests", { method: "POST", headers: { origin: "https://evil.test", "content-type": "application/json" }, body: JSON.stringify({ purposes: ["credit_check"], customerAlias: "x" }) });
+    expect(stranger.headers.get("access-control-allow-origin")).toBeNull();
+    expect((await call("POST", "/portal/requests", { purposes: [], customerAlias: "asha01" })).status).toBe(400);
+  });
+
+  it("returns only the consent rows of the customer id asked for, never the whole list", async () => {
+    rows = [
+      { principal: PRINCIPAL, customerAlias: "asha01", purposeCode: "credit_check", status: "Active", expiresAt: 4_000_000_000 },
+      { principal: "0x" + "12".repeat(20), customerAlias: "someone_else", purposeCode: "credit_check", status: "Active", expiresAt: 4_000_000_000 },
+    ];
+    const res = await call("GET", "/portal/consents?alias=asha01");
+    const body = (await res.json()) as { rows: Array<{ customerAlias: string }> };
+    expect(body.rows.map((r) => r.customerAlias)).toEqual(["asha01"]);
+    expect((await call("GET", "/portal/consents")).status).toBe(400);
+  });
+
+  it("applies for the customer behind the principal header: a decision from the Processor, 409 before details are sent, 451 without a principal", async () => {
+    expect((await call("POST", "/customers/asha01/apply", {})).status).toBe(451);
+    expect((await call("POST", "/customers/asha01/apply", {}, { "x-sammati-principal": PRINCIPAL })).status).toBe(409);
+    openDb(join(dir, "quickloan.sqlite")).prepare("INSERT OR REPLACE INTO vault (principal, handle, ciphertext_hash, status) VALUES (?, ?, ?, 'stored')").run(PRINCIPAL.toLowerCase(), HANDLE, HASH);
+    const ok = await call("POST", "/customers/asha01/apply", { amount: 200000, tenureMonths: 24 }, { "x-sammati-principal": PRINCIPAL });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] });
   });
 });

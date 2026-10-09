@@ -22,11 +22,13 @@ async function json(res: Response): Promise<unknown> {
 }
 
 /** The browser's side of the three calls, for one company. */
-export function makeBrowserDeps(company: PortalCompany, lenderUrl: string = LENDER_URL): JourneyDeps {
+export function makeBrowserDeps(company: PortalCompany, lenderUrl: string = LENDER_URL, viaCompany: boolean = import.meta.env.PROD): JourneyDeps {
+  // Hosted: Core refuses these two calls without the company's key, so the company's own backend makes them (trd.md §6.14).
+  const requestsUrl = viaCompany ? `${lenderUrl}/portal/requests` : `${CORE_URL}/v1/fiduciaries/${company.address}/requests`;
   return {
   company,
   async createRequest(alias, purposes) {
-    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${company.address}/requests`, {
+    const res = await fetch(requestsUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ purposes, customerAlias: alias }),
@@ -35,8 +37,9 @@ export function makeBrowserDeps(company: PortalCompany, lenderUrl: string = LEND
     if (!res.ok || !body?.requestId) throw new Error(body?.error?.message ?? `Sammati answered ${res.status}`);
     return { requestId: body.requestId, qrPayload: body.qrPayload };
   },
-  async consentRows() {
-    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${company.address}/consents`);
+  async consentRows(alias) {
+    const url = viaCompany ? `${lenderUrl}/portal/consents?alias=${encodeURIComponent(alias ?? "")}` : `${CORE_URL}/v1/fiduciaries/${company.address}/consents`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Sammati answered ${res.status}`);
     return ((await json(res)) as FiduciaryConsentsResponse).rows;
   },

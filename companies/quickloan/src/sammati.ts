@@ -70,10 +70,10 @@ export class Sammati {
   }
 
   /** The Processor decides from the handle; QuickLoan sends no personal data and gets none back. */
-  async evaluate(handle: string, purposeCode: string): Promise<Decision> {
+  async evaluate(handle: string, purposeCode: string, application?: { amount?: number; tenureMonths?: number }): Promise<Decision> {
     return this.call(`${this.o.processorUrl}/v1/processor/evaluate`, {
       method: "POST",
-      body: JSON.stringify({ handle, fiduciary: this.o.fiduciary, purposeCode, action: "loan_decision" }),
+      body: JSON.stringify({ handle, fiduciary: this.o.fiduciary, purposeCode, action: "loan_decision", ...(application ? { application } : {}) }),
     });
   }
 

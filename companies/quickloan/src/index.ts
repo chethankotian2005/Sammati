@@ -6,7 +6,7 @@
  */
 import { createServer } from "node:http";
 import { PROCESSOR_PORT } from "@sammati/shared";
-import { checkProductionEnv, closeServer, DEFAULT_HOST, isProduction, listen, shutdownOnSignal } from "@sammati/shared/src/server";
+import { checkProductionEnv, closeServer, DEFAULT_HOST, isProduction, listen, parseOrigins, shutdownOnSignal } from "@sammati/shared/src/server";
 import { createApp } from "./app";
 import { openDb } from "./db";
 import { Sammati } from "./sammati";
@@ -57,6 +57,7 @@ const app = createApp({
   fiduciary,
   apiKey,
   production,
+  portalOrigins: parseOrigins(process.env.PORTAL_ORIGINS),
 });
 
 const server = createServer(app);

@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
-import { healthz, securityHeaders } from "@sammati/shared/src/server";
+import { cors, healthz, securityHeaders } from "@sammati/shared/src/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -21,6 +21,8 @@ export interface AppOptions {
   apiKey: string;
   /** NODE_ENV=production: cookies are Secure and responses carry HSTS (trd.md §10.6). */
   production?: boolean;
+  /** Web origins that may use the portal API (trd.md §6.14). None by default. */
+  portalOrigins?: string[];
   now?: () => number;
 }
 
@@ -268,6 +270,49 @@ export function createApp(o: AppOptions): Express {
     res.status(202).json({ ok: true });
   });
   app.get("/health", (_req, res) => void res.json({ ok: true }));
+
+  // --- the web's customer portal (trd.md §6.14): the company's key stays here, the browser never holds it ---
+  app.use(["/portal", "/customers"], cors(o.portalOrigins ?? [], { headers: "content-type,x-sammati-principal", methods: "GET,POST,OPTIONS" }));
+
+  app.post("/portal/requests", async (req, res) => {
+    const alias = typeof req.body.customerAlias === "string" ? req.body.customerAlias.trim() : "";
+    const purposes: unknown = req.body.purposes;
+    if (!alias || alias.length > 40 || !Array.isArray(purposes) || purposes.length === 0 || purposes.length > 20 || !purposes.every((p) => typeof p === "string")) {
+      return void res.status(400).json({ error: { code: "BAD_REQUEST", message: "Send a customer id and the purposes to ask for." } });
+    }
+    try {
+      res.status(201).json(await sammati.createRequest(alias, purposes as string[]));
+    } catch (e) {
+      res.status(502).json({ error: { code: "SAMMATI_UNAVAILABLE", message: e instanceof SammatiError ? e.message : "Sammati could not be reached." } });
+    }
+  });
+
+  /** Only the rows of the customer id that was typed in: never the company's whole customer list. */
+  app.get("/portal/consents", async (req, res) => {
+    const alias = typeof req.query.alias === "string" ? req.query.alias : "";
+    if (!alias || alias.length > 40) return void res.status(400).json({ error: { code: "BAD_REQUEST", message: "Send the customer id as ?alias=." } });
+    try {
+      const rows = (await sammati.consentRows()).filter((r) => r.customerAlias === alias).map(({ principal, customerAlias, purposeCode, status, expiresAt }) => ({ principal, customerAlias, purposeCode, status, expiresAt }));
+      res.json({ rows });
+    } catch {
+      res.status(503).json({ error: { code: "LEDGER_UNAVAILABLE", message: "Sammati could not be reached." } });
+    }
+  });
+
+  app.post("/customers/:alias/apply", async (req, res) => {
+    const principal = String(req.header("x-sammati-principal") ?? "").toLowerCase();
+    if (!ADDRESS.test(principal)) return void res.status(451).json({ code: "NO_PRINCIPAL", message: "The request did not identify a data principal." });
+    const held = db.prepare("SELECT handle, status FROM vault WHERE principal = ?").get(principal) as { handle: string; status: string } | undefined;
+    if (!held || held.status !== "stored") return void res.status(409).json({ error: { code: "NO_SUBMISSION", message: "This customer has not sent their details yet" } });
+    const { amount, tenureMonths } = (req.body ?? {}) as { amount?: number; tenureMonths?: number };
+    try {
+      // The Processor re-reads consent from the chain and refuses (451) a withdrawn or missing one.
+      res.json(await sammati.evaluate(held.handle, loanPurpose, amount === undefined && tenureMonths === undefined ? undefined : { amount, tenureMonths }));
+    } catch (e) {
+      if (e instanceof SammatiError && e.status === 451) return void res.status(451).json({ code: e.code, message: e.message });
+      res.status(502).json({ error: { code: "PROCESSOR_UNREACHABLE", message: "The decision service did not answer" } });
+    }
+  });
 
   // --- Q-04: back-office ---
   const staffOnly = (req: Request, res: Response, next: NextFunction): void => {
