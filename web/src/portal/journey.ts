@@ -23,7 +23,7 @@ export interface PortalCompany {
 const PAN_SHAPE = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/;
 const MAX_ALIAS = 40;
 
-export type Stage = "logged-out" | "form" | "awaiting-scan" | "consent-received" | "data-submitted" | "decided" | "withdrawn" | "error";
+export type Stage = "logged-out" | "home" | "form" | "awaiting-scan" | "consent-received" | "data-submitted" | "decided" | "withdrawn" | "error";
 
 export interface Decision {
   decision: "approved" | "declined";
@@ -146,8 +146,13 @@ export class Journey {
       this.set({ notice: checked.message });
       return false;
     }
-    this.set({ ...initialJourney, stage: "form", alias: checked.alias });
+    this.set({ ...initialJourney, stage: "home", alias: checked.alias });
     return true;
+  }
+
+  startApplication(): void {
+    if (this.current.stage !== "home") return;
+    this.set({ stage: "form" });
   }
 
   signOut(): void {
@@ -217,6 +222,12 @@ export class Journey {
     this.set({ stage: this.current.resumeStage ?? "form", error: null, resumeStage: null });
   }
 
+  cancelApplication(): void {
+    if (this.current.stage === "logged-out" || this.current.stage === "home") return;
+    this.epoch++;
+    this.set({ stage: "home", request: null, notice: null, error: null });
+  }
+
   // --- what happens elsewhere, from the live socket ---
 
   async onFrame(frame: unknown): Promise<void> {
@@ -276,8 +287,9 @@ export class Journey {
     }
 
     if (!this.forMe(e)) return;
-    if (e.status === "Withdrawn" && (DATA_STAGES.includes(s.stage) || s.stage === "error")) {
-      this.set({ stage: "withdrawn", decision: null, applying: false });
+    if (e.status === "Withdrawn" && (DATA_STAGES.includes(s.stage) || s.stage === "error" || s.stage === "withdrawn" || s.stage === "home")) {
+      this.epoch++;
+      this.set({ stage: "home", request: null, vault: null, decision: null, notice: "Your data consent was withdrawn." });
     } else if (e.status === "Active" && s.stage === "withdrawn") {
       // Consent given again, e.g. by scanning a new code: the details must be sent again too.
       this.set({ stage: "consent-received", txHash: typeof e.txHash === "string" ? e.txHash : s.txHash, vault: null, decision: null });

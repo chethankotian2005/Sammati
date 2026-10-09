@@ -22,7 +22,7 @@ import { WebSocket } from "ws";
 import { API_KEY_HEADER, REGULATOR_KEY_HEADER, GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, noticeHash, purposeIdOf, type ApplicationInput, type CascadeResponse, type FiduciariesResponse, type Hex, type CreateRequestResponse, type FiduciaryAccessResponse, type FiduciaryConsentsResponse, type FiduciaryPurposesResponse, type GrantResponse, type ExpiringResponse, type HealthResponse, type InboxResponse, type NotificationEvent, type NotificationItem, type NotificationsResponse, type PrincipalConsentsResponse, type RequestNotice, type RightsRequest, type RightsResponse, type StoredAccessLogEntry, type TargetedRequestResponse, type TargetedRequestsResponse, type VaultView, type VerifyResponse, type WithdrawResponse, type WsEvent } from "@sammati/shared";
 
 import { TEST_PROFILE, TEST_COMPANIES } from "@sammati/test-fixtures";
-// The stack this script may start reads the repo-root .env (CORE_PUBLIC_URL, ...), so the checks below must too.
+// The stack this script may start reads the repo-root .env (PUBLIC_CORE_URL, ...), so the checks below must too.
 try {
   process.loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), "../../.env"));
 } catch {
@@ -199,7 +199,7 @@ async function startStack(): Promise<void> {
     env: {
       ...process.env,
       DB_PATH: stack.dbFile,
-      PROCESSOR_DB_PATH: stack.vaultFile,
+      VAULT_PATH: stack.vaultFile,
       // Seconds, not days, so reminders, expiry and erasure fit in the run (trd.md §6.12); anything set in the environment wins.
       EXPIRY_THRESHOLDS_SECONDS: process.env.EXPIRY_THRESHOLDS_SECONDS ?? "5,2",
       EXPIRY_TICK_MS: process.env.EXPIRY_TICK_MS ?? "500",
@@ -320,7 +320,7 @@ async function main(): Promise<void> {
       expectEqual(created.qrPayload.fiduciary, FID, "QR payload names the company");
       check(created.requestId.startsWith("req_"), "request id looks wrong");
       // The phone fetches the notice from this address, so it must be the one demo:up printed, not "localhost".
-      if (!process.env.CORE_PUBLIC_URL) {
+      if (!process.env.PUBLIC_CORE_URL) {
         const expected = describeQrUrl({ port: new URL(CORE).port || "4000", env: {} });
         expectEqual(created.qrPayload.core, expected.url, "the address in the QR code");
       }
@@ -649,7 +649,9 @@ async function main(): Promise<void> {
 
       check(!journey.login(PLAINTEXT), "the login accepted a PAN as a name");
       check(journey.login(portalName), "the login refused an ordinary name");
-      expectEqual(journey.state.stage, "form", "stage after sign-in");
+      expectEqual(journey.state.stage, "home", "stage after sign-in");
+      journey.startApplication();
+      expectEqual(journey.state.stage, "form", "stage after startApplication");
       expectEqual(journey.state.optional, [], "nothing is pre-ticked");
 
       await journey.tick();
@@ -714,8 +716,9 @@ async function main(): Promise<void> {
       const message = { principal: shopper.address, fiduciary: FID, purposeId: CREDIT_ID, nonce: n.nonce, deadline: inAnHour() };
       const signature = await shopper.signTypedData(n.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, message);
       expectEqual((await call<WithdrawResponse>("POST", "/v1/consents/withdraw", { request: message, signature })).status, "confirmed", "withdraw status");
-      await portalStage("withdrawn", "the portal to show \"Consent withdrawn\"");
+      await portalStage("home", "the portal to return home after withdrawal");
       expectEqual(portalUser.journey!.state.decision, null, "the old decision is gone");
+      expectEqual(portalUser.journey!.state.notice, "Your data consent was withdrawn.", "the withdrawal message");
 
       // the page will not even try; and QuickLoan's backend refuses if asked anyway
       const before = entries.length;
@@ -728,7 +731,7 @@ async function main(): Promise<void> {
       entries.push({ label: "portal apply after withdrawal", id: entryId!, expected: "BLOCKED" });
 
       await until("the portal to learn the details were erased", async () => (portalUser.journey!.state.dataErased ? true : undefined), 4000);
-      expectEqual(portalUser.journey!.state.stage, "withdrawn", "the page stays on withdrawn");
+      expectEqual(portalUser.journey!.state.stage, "home", "the page stays on home");
       portalUser.feed!.close();
     });
 
