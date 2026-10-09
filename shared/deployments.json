@@ -1,4 +1,18 @@
 {
+  "amoy": {
+    "chainId": 80002,
+    "admin": "0x09Ec4DE64F78a0463E36240DC34c67bEdE8c70f8",
+    "consentRegistry": "0xEd4C59001c1A77EeA42570E7792816c7011C398F",
+    "accessAnchor": "0x61E9184C408e7C254cfaB31f04C794e100b1ec60",
+    "startBlock": 49686706,
+    "explorerUrl": "https://amoy.polygonscan.com",
+    "links": {
+      "consentRegistry": "https://amoy.polygonscan.com/address/0xEd4C59001c1A77EeA42570E7792816c7011C398F",
+      "accessAnchor": "https://amoy.polygonscan.com/address/0x61E9184C408e7C254cfaB31f04C794e100b1ec60",
+      "consentRegistryDeployTx": "https://amoy.polygonscan.com/tx/0x0264a3d01cba2387191e345f6abdf6dece0b3011b3c7be4f5f0d97f9f4162083",
+      "accessAnchorDeployTx": "https://amoy.polygonscan.com/tx/0x4cd371464c1db32724c606fbafd8fcc9fede2b66684aa865e00d419b05928aac"
+    }
+  },
   "localhost": {
     "chainId": 31337,
     "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
