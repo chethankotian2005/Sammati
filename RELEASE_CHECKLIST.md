@@ -2,6 +2,15 @@
 
 Run this the day of the demo, in this order. Tick nothing you did not see happen. Anything that fails goes on the failure plan in `docs/demo.md` §5.
 
+## 0. Cloud deployment (before the day, `docs/deploy-guide.md`)
+- [ ] The Render blueprint is applied, every secret in `render.yaml` (`sync: false`) is set, disks are attached, and each service's `/healthz` says `ok`
+- [ ] `PROCESSOR_KEY` is backed up outside Render; disk snapshots exist for Core and the Processor
+- [ ] The Vercel build has `VITE_CORE_URL`, and the site's origin is in Core's and the Processor's `CORS_ORIGINS`
+- [ ] The wallet APK from the `wallet-apk` workflow installs on the real phone and its Developer settings show the cloud Core URL
+- [ ] `pnpm e2e:remote` passes; the `keepalive` workflow is enabled
+- [ ] Relayer and admin hold Amoy test MATIC (check on the explorer)
+- [ ] Not checkable from the repository alone, so tick only after you saw it: blueprint apply, disk attach, health-check promotion, the Vercel build, the APK workflow run (`deploy-guide.md` §7)
+
 ## 1. On the laptop (10 minutes)
 - [ ] `git status` clean, on the commit you will present; `git tag demo-ready`
 - [ ] `pnpm install`, then `pnpm -r typecheck`, `pnpm -r test`, `pnpm lint` all pass

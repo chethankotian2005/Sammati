@@ -43,6 +43,7 @@ pnpm install
 pnpm demo:up        # chain, core, processor, web (starts empty; companies join via /join)
 pnpm dev:reset        # DEV_TOOLS=true: reset chain, DB and vault (CLI only)
 pnpm dev:tamper -- <fiduciary> <seq>   # DEV_TOOLS=true: edit one stored log row, then Verify in the Auditor
+pnpm e2e:remote     # public-API flow against deployed URLs (CORE_URL, PROCESSOR_URL, REGULATOR_KEY)
 pnpm e2e            # register → grant → allowed → withdraw → blocked → tamper → verify fails
 pnpm --filter contracts test
 flutter run         # in wallet/

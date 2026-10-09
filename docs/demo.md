@@ -44,8 +44,23 @@ Skip steps 7 and 9 first, then the optional extra companies. Never cut withdrawa
 - One person speaks, one drives the laptop (console, Auditor, terminal), one holds the phone.
 
 ## 4. Setup checklist
+### Stage setup with the cloud deployment (preferred)
+
+The system runs on Render, Vercel and Polygon Amoy (`trd.md` §10.1, runbook in `deploy-guide.md`), so the laptop needs only a browser and the phone only the APK. Do this the day before and again an hour before:
+- [ ] `pnpm e2e:remote` passes against the deployed URLs (it creates a throwaway company; do not run it right before going on)
+- [ ] `curl https://<core>/healthz`, `<processor>/healthz`, `<quickloan>/healthz` all say `ok`, and the first call after a quiet hour is not slow (open each once; Core can take a minute to wake if the keep-alive was off)
+- [ ] The phone has the APK built by the `wallet-apk` workflow, an account, a Sammati ID, and **Me > Developer settings** shows the cloud Core URL (the default of that build)
+- [ ] The QR code a company shows carries the cloud Core URL (`PUBLIC_CORE_URL`), not a laptop's
+- [ ] The relayer and the admin have test MATIC; the regulator access code is at hand; QuickLoan is registered and approved
+- [ ] The phone reaches Core on mobile data **and** on the venue Wi-Fi (try both)
+- [ ] Browser tabs: QuickLoan, QuickLoan `/staff`, a company console (signed in), the Auditor (access code entered), the Amoy explorer. The tamper step needs `DEV_TOOLS` on a local database, so in the cloud it is the recorded run, or it is played on the local fallback below
+
+### Local fallback (the old way, kept on purpose)
+
+If the venue network blocks the cloud, or Render is down, run `pnpm demo:up` on the laptop as in the checklist below and, on the phone, open **Me > Developer settings** and set the Core address to the laptop's (`http://<lan-ip>:4000`); the same APK works. Setting it back to the cloud URL returns to the hosted system. The two stacks are separate worlds (different chains and databases): a consent made on one is not on the other, so choose one before the room fills and do not switch in the middle of a story. `DEV_TOOLS=true pnpm dev:tamper` works on the local stack only.
+
 - [ ] Laptop on charger, `pnpm demo:up` running; QuickLoan registered, approved and started (above); the Processor answers: `curl http://<lan-ip>:4200/health` says `simulated-enclave`
-- [ ] Phone on the same hotspot; the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (set `CORE_PUBLIC_URL` if the laptop has two networks); the phone's Core address in Me > Developer settings matches
+- [ ] Phone on the same hotspot; the address `pnpm demo:up` prints in its banner is the laptop's address on that hotspot (set `PUBLIC_CORE_URL` if the laptop has two networks); the phone's Core address in Me > Developer settings matches
 - [ ] The phone has an account, a Sammati ID, and (if QuickLoan is in the sandbox) is a regulator-added test customer
 - [ ] Browser tabs: QuickLoan landing, QuickLoan `/staff`, a company console, Auditor, Amoy explorer; a terminal in the repo with `DEV_TOOLS=true`
 - [ ] Screen recording of the full walkthrough saved locally; spare phone with the APK; Amoy addresses and explorer links verified the same day

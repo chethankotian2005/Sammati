@@ -14,7 +14,7 @@ pnpm demo:up        # chain :8545 (contracts deployed, relayer funded), Core :40
 
 `demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, funds the relayer and starts Core, the Processor and the web app. **It starts empty**: no company, purpose, processor or customer is built in. A company joins at http://localhost:5173/join and the regulator approves it under Auditor > Registrations (access code `demo-regulator-key`); then follow `docs/integration.md` (`docs/prd.md` R-01 to R-04). Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Config is in `.env.example`, all optional.
 
-**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks the banner lists both: set `CORE_PUBLIC_URL` to the right one.
+**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks the banner lists both: set `PUBLIC_CORE_URL` to the right one.
 
 ### Developer tools (`DEV_TOOLS=true`)
 
@@ -56,6 +56,10 @@ Open http://localhost:4101: landing page and EMI calculator, `/signup` (username
 
 A company's customer page, run by the sample lender (`examples/lender`): sign in with a customer id, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
 
+### Deploy to the cloud (Render, Vercel, GitHub Actions)
+
+`render.yaml` (Core, Processor, QuickLoan, a second company site), `web/vercel.json`, `.github/workflows/wallet-apk.yml` and `keepalive.yml` host the same system without changing what it does: variables and endpoints in `docs/trd.md` §10, the step-by-step runbook and troubleshooting in `docs/deploy-guide.md`. Every service answers `GET /healthz` at once; production refuses to start with a missing secret; the Processor needs `PROCESSOR_KEY` and never generates one. `pnpm e2e:remote` runs the public-API flow against the deployed URLs (`CORE_URL`, `PROCESSOR_URL`, `REGULATOR_KEY`).
+
 ### Deploy to Polygon Amoy (public proof)
 
 The live demo runs on the local chain. For a public, checkable proof the same contracts can be deployed to Polygon's Amoy testnet.
@@ -91,7 +95,7 @@ Things to know:
 
 Useful for development:
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
-- Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
+- Set `PUBLIC_CORE_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
 
 Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `examples/` (C), specs in `docs/`.
 

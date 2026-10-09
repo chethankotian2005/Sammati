@@ -230,3 +230,40 @@ The two shortcuts that remain, said plainly: Core holds the keys of companies an
 | Processor down | The wallet's secure-send fails with a retry; the company's apply answers an error (502), never a decision from anywhere else. Vault rows survive a restart; the key does not unless `PROCESSOR_KEY` is set, so after a restart without it old ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again |
 | Ciphertext edited in storage | AES-GCM authentication fails; evaluate answers 422 `CIPHERTEXT_INVALID`, never a guess |
 | Core down | The Processor keeps working (it reads the chain itself); its log entries queue in the SDK and events are dropped with a warning, never blocking a response |
+
+## 9. Deployment view (production)
+
+```
+ Phone (Android APK, built by GitHub Actions)                Browser
+   │  https + wss, CORE_URL baked in at build time              │  https
+   │  (Developer settings can switch it to a laptop)            ▼
+   │                                                    Vercel: web/ (static SPA, vercel.json rewrite)
+   │                                                            │  https + wss, VITE_CORE_URL, CORS_ORIGINS allowlist
+   ▼                                                            ▼
+ Render (Singapore)
+   sammati-core        $PORT  /healthz  disk /var/data  DB_PATH       holds relayer key, admin key, company keys
+   sammati-processor   $PORT  /healthz  disk /var/data  VAULT_PATH    PROCESSOR_KEY from env (backed up elsewhere)
+   sammati-quickloan   $PORT  /healthz  disk /var/data  QUICKLOAN_DB   company API key
+   sammati-company2    $PORT  /healthz  (no disk)                     company API key
+      │            │
+      │ JSON-RPC (rate limited: backoff, receipt polling)      GitHub Actions
+      ▼            ▼                                              keepalive.yml  → GET /healthz (never /readyz)
+   Polygon Amoy: ConsentRegistry, AccessAnchor                   wallet-apk.yml → APK artifact
+```
+
+Rules of the view: only Core and the Processor hold secrets that matter; every service binds `$PORT` on `0.0.0.0` behind Render's TLS proxy (`trust proxy` is on, so rate limits see the client); each service with state has exactly one instance and one disk; the chain is the only shared state between services besides HTTP. `trd.md` §10 has the variables, endpoints and boot order; `deploy-guide.md` has the runbook.
+
+### 9.1 Failure modes of the hosted setup
+
+| Failure | Behaviour |
+|---|---|
+| Core restarts (deploy, crash, Render maintenance) | Answers 503 `STARTING` until its database and the chain are ready, while `/healthz` answers at once. The indexer resumes from `last_block`; no event is applied or announced twice; notifications and anchors are not repeated (`trd.md` §10.5). Wallets and the web reconnect their sockets and refetch what they missed. Gateways fall back to `consent-state`, which fails closed (`LEDGER_UNAVAILABLE`) while Core is away |
+| Processor restarts | Vault rows are on its disk and `PROCESSOR_KEY` is in its environment, so stored ciphertext stays readable. Evaluations while it is down answer 502 to the company; nothing is decided elsewhere |
+| Cold start (an instance that slept, or a fresh deploy) | The first request after sleep waits for the boot (the chain connect and the indexer's catch-up; install happened at build). Keep-alive prevents sleeping on instance types that sleep; Render's health check waits on `/healthz`, which does not depend on the chain |
+| RPC provider rate limit (HTTP 429) or outage | The indexer's poll fails and backs off exponentially, then resumes from the same block with nothing lost. Relayed grants and withdrawals fail with 503 `LEDGER_UNAVAILABLE` (the wallet shows a retry), and a gateway that cannot refresh consent fails closed once its cache is stale. No cached consent outlives the 5 s rule, and nothing is wiped (`trd.md` §10.7) |
+| The RPC returns a block that is not the saved one | Production never auto-wipes: Core exits at start with `CHAIN_MISMATCH`, or stops indexing while running, and says so. A person decides (`deploy-guide.md`) |
+| A disk is lost | Core: the chain is intact but the company and processor keys Core held are gone, so those companies must register again. Processor: ciphertext is gone, customers submit again. Disk snapshots are the backup |
+| `PROCESSOR_KEY` lost or changed | Every stored ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again. The key is kept outside Render for this reason (`drd.md` §6) |
+| Relayer out of test MATIC | Grants fail with a clear error; fund the relayer from a faucet (`deploy-guide.md`) |
+| Render's health check fails | The deploy is not promoted and the old instance keeps serving; the start-up log names the missing variable |
+
