@@ -4,24 +4,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  DEMO_PRINCIPAL,
-  SEED_FIDUCIARIES,
-  purposeIdOf,
-  type FiduciaryPurposesResponse,
-  type RightsRequest,
-  type RightsResponse,
-} from "@sammati/shared";
-import { createApp, createRealApp } from "../src/app";
-import { readConfig } from "../src/config";
-import { createRealCore, type RealCore } from "../src/real/core";
-import { StubStore } from "../src/store";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import { purposeIdOf, type FiduciaryPurposesResponse, type RightsRequest, type RightsResponse } from "@sammati/shared";
+import { createRealApp } from "../src/app";
+import type { RealCore } from "../src/real/core";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
-const [QUICKLOAN, MEDICARE] = SEED_FIDUCIARIES;
+import { TEST_CUSTOMER, TEST_COMPANIES } from "@sammati/test-fixtures";
+const [QUICKLOAN, MEDICARE] = TEST_COMPANIES;
 const QL = QUICKLOAN!.address;
 const MC = MEDICARE!.address;
-const ASHA = DEMO_PRINCIPAL;
+const ASHA = TEST_CUSTOMER;
 const OTHER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const UNKNOWN_COMPANY = "0x000000000000000000000000000000000000dEaD";
 
@@ -29,7 +21,6 @@ let chain: TestChain;
 let dir: string;
 let real: RealCore;
 const servers: Server[] = [];
-let stubUrl: string;
 let realUrl: string;
 
 async function serve(app: Parameters<typeof createServer>[1]): Promise<string> {
@@ -42,9 +33,7 @@ async function serve(app: Parameters<typeof createServer>[1]): Promise<string> {
 beforeAll(async () => {
   chain = await startTestChain();
   dir = mkdtempSync(join(tmpdir(), "sammati-rights-"));
-  const stubConfig = readConfig({});
-  stubUrl = await serve(createApp({ store: new StubStore(stubConfig), config: stubConfig, publish: () => {} }));
-  real = await createRealCore(realConfig(chain, { dbPath: join(dir, "core.sqlite") }), () => {}, () => {});
+  real = await createTestCore(realConfig(chain, { dbPath: join(dir, "core.sqlite") }), () => {}, () => {});
   realUrl = await serve(createRealApp(real));
 });
 
@@ -60,11 +49,8 @@ async function call<T = unknown>(base: string, method: string, path: string, bod
   return { status: res.status, json: (await res.json()) as T };
 }
 
-// Every behaviour below is asserted against both modes: the wallet is built against the stub and runs against the real one.
-describe.each([
-  ["stub", () => stubUrl],
-  ["real", () => realUrl],
-])("data rights, %s mode", (_mode, base) => {
+describe("data rights", () => {
+  const base = () => realUrl;
   const post = (body: unknown) => call<RightsRequest & { error?: { code: string } }>(base(), "POST", "/v1/rights", body);
   const list = (principal: string) => call<RightsResponse>(base(), "GET", `/v1/principals/${principal}/rights`);
 
@@ -133,10 +119,8 @@ describe.each([
   });
 });
 
-describe.each([
-  ["stub", () => stubUrl],
-  ["real", () => realUrl],
-])("a company's purposes, %s mode", (_mode, base) => {
+describe("a company's purposes", () => {
+  const base = () => realUrl;
   it("lists them with the ids, text and flags the console and the notice use", async () => {
     const { status, json } = await call<FiduciaryPurposesResponse>(base(), "GET", `/v1/fiduciaries/${QL}/purposes`);
     expect(status).toBe(200);
@@ -159,26 +143,20 @@ describe.each([
   });
 });
 
-describe("real mode specifics", () => {
-  it("serves exactly what the stub serves for a company's purposes", async () => {
-    const [fromStub, fromReal] = await Promise.all(
-      [stubUrl, realUrl].map(async (b) => (await call<FiduciaryPurposesResponse>(b, "GET", `/v1/fiduciaries/${MC}/purposes`)).json),
-    );
-    expect(fromReal).toEqual(fromStub);
-  });
+describe("persistence", () => {
 
-  it("keeps rights requests across a restart on the same chain, and drops them on a demo reset", async () => {
+  it("keeps rights requests across a restart on the same chain, and drops them when the chain is replaced", async () => {
     const dbPath = join(dir, "restart.sqlite");
-    const first = await createRealCore(realConfig(chain, { dbPath }), () => {}, () => {});
+    const first = await createTestCore(realConfig(chain, { dbPath }), () => {}, () => {});
     const url1 = await serve(createRealApp(first));
     await call(url1, "POST", "/v1/rights", { principal: ASHA, fiduciary: QL, type: "access", note: "persisted" });
     first.stop();
 
-    const second = await createRealCore(realConfig(chain, { dbPath }), () => {}, () => {});
+    const second = await createTestCore(realConfig(chain, { dbPath }), () => {}, () => {});
     const url2 = await serve(createRealApp(second));
     try {
       expect((await call<RightsResponse>(url2, "GET", `/v1/principals/${ASHA}/rights`)).json.rights.map((r) => r.note)).toEqual(["persisted"]);
-      await call(url2, "POST", "/v1/demo/reset");
+      await second.reset();
       expect((await call<RightsResponse>(url2, "GET", `/v1/principals/${ASHA}/rights`)).json.rights).toEqual([]);
     } finally {
       second.stop();

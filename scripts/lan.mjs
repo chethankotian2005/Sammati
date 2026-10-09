@@ -39,23 +39,23 @@ export function lanAddresses(interfaces = networkInterfaces()) {
 
 /**
  * The address the QR code gives the phone for Core, and the banner that says so. `localhost` would be the
- * phone itself, so unless CORE_PUBLIC_URL says otherwise this is the laptop's LAN address. A laptop can be on
+ * phone itself, so unless PUBLIC_CORE_URL says otherwise this is the laptop's LAN address. A laptop can be on
  * two networks (its Wi-Fi and the hotspot the phone joined), so every candidate is listed and the choice
  * can be overridden.
  */
 export function describeQrUrl({ port, env = process.env, interfaces = networkInterfaces() }) {
   const candidates = lanAddresses(interfaces);
-  const explicit = env.CORE_PUBLIC_URL?.trim();
+  const explicit = env.PUBLIC_CORE_URL?.trim();
   const source = explicit ? "env" : candidates.length ? "detected" : "none";
   const url = explicit || `http://${candidates[0]?.address ?? "localhost"}:${port}`;
 
   const lines = ["Wallet QR codes will point the phone at Core on:", "", `    ${url}`, ""];
-  if (source === "env") lines.push("(from CORE_PUBLIC_URL)");
+  if (source === "env") lines.push("(from PUBLIC_CORE_URL)");
   else if (source === "none") {
     lines.push("!! No LAN address found: this laptop is not on a network a phone can join.");
-    lines.push("!! The QR will say localhost and a phone cannot use it. Connect, or set CORE_PUBLIC_URL.");
+    lines.push("!! The QR will say localhost and a phone cannot use it. Connect, or set PUBLIC_CORE_URL.");
   } else {
-    lines.push(`(detected on ${candidates[0].name}; override with CORE_PUBLIC_URL)`);
+    lines.push(`(detected on ${candidates[0].name}; override with PUBLIC_CORE_URL)`);
     if (candidates.length > 1) {
       lines.push("Other addresses on this laptop:");
       for (const c of candidates.slice(1)) lines.push(`    http://${c.address}:${port}   (${c.name})`);

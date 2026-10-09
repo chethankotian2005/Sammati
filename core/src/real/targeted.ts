@@ -8,8 +8,9 @@ import { verifyMessage } from "ethers";
 import type { Hex, InboxRequest, TargetedRequestRow, TargetedStatus, WsEvent } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError, badRequest } from "../errors";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Db } from "./db";
+import { RollingLimiter } from "./onboarding";
 import type { FiduciaryRow, Repo } from "./repo";
 
 export const HANDLE_SUFFIX = "@sammati";
@@ -55,12 +56,13 @@ type Row = Record<string, unknown>;
 export class TargetedRequests {
   /** Send times per company, in ms, for the rolling rate limit. */
   private readonly sent = new Map<string, number[]>();
+  private readonly handleChecks = new RollingLimiter();
 
   constructor(
     private readonly db: Db,
     private readonly repo: Repo,
     private readonly publish: (event: WsEvent) => void,
-    private readonly config: Pick<Config, "targetedRatePerMinute" | "maxOpenRequestsPerUser" | "identityFreshnessSeconds">,
+    private readonly config: Pick<Config, "targetedRatePerMinute" | "maxOpenRequestsPerUser" | "identityFreshnessSeconds" | "handleChecksPerMinute">,
     private readonly clock: () => number = now,
     private readonly clockMs: () => number = Date.now,
     /** The sandbox rule (trd.md §6.12): may this company's request reach this customer? Said nothing about to the company. */
@@ -101,6 +103,25 @@ export class TargetedRequests {
       this.db.prepare("INSERT INTO identities (handle, principal, registered_at) VALUES (?, ?, ?)").run(handle, p, this.clock());
     })();
     return { handle, created: true };
+  }
+
+  /**
+   * Is this ID free? The wallet asks while someone chooses an ID (W-15). The answer is only yes or no: trying to
+   * register a taken ID already says as much (409), so this adds convenience and no new leak, and the per-client
+   * limit is its only control (trd.md §6.1). A wallet that already holds the ID is told it is available.
+   */
+  availability(handleRaw: unknown, principalRaw: unknown, clientId: string): { handle: string; available: boolean } {
+    const handle = normaliseHandle(handleRaw);
+    if (!handle) throw new HttpError(400, "BAD_HANDLE", "A Sammati ID is 3 to 30 letters, numbers, dots, underscores or dashes, then @sammati");
+    const wait = this.handleChecks.take(clientId, this.config.handleChecksPerMinute, RATE_WINDOW_MS);
+    if (wait > 0) {
+      const err = new HttpError(429, "RATE_LIMITED", `Too many checks. Try again in ${wait} seconds.`);
+      (err as HttpError & { retryAfter?: number }).retryAfter = wait;
+      throw err;
+    }
+    const owner = this.db.prepare("SELECT principal FROM identities WHERE handle = ?").get(handle) as { principal: string } | undefined;
+    const mine = typeof principalRaw === "string" && owner?.principal === lc(principalRaw);
+    return { handle, available: !owner || mine };
   }
 
   identityOf(principal: Hex): string | null {

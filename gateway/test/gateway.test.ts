@@ -4,14 +4,14 @@ import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZERO_HASH, hashEntry, purposeIdOf } from "@sammati/shared";
 import { ENTRY_ID_HEADER, sammati, type SammatiGate, type SammatiOptions } from "../src/index";
-import { FakeCore } from "./fakeCore";
+import { ScriptedCore } from "./scriptedCore";
 
 const FID = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const OTHER_FID = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
 const USER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 const CREDIT = purposeIdOf(FID, "credit_check");
 
-let core: FakeCore;
+let core: ScriptedCore;
 let gate: SammatiGate | undefined;
 let app: Server | undefined;
 let appUrl: string;
@@ -50,7 +50,7 @@ const consentEvent = (status: "Active" | "Withdrawn", over: Record<string, unkno
 });
 
 beforeEach(async () => {
-  core = await new FakeCore().start();
+  core = await new ScriptedCore().start();
 });
 
 afterEach(async () => {
@@ -246,7 +246,7 @@ describe("failing closed", () => {
     const res = await get(USER);
     expect(res.status).toBe(451);
     expect(await res.json()).toMatchObject({ code: "LEDGER_UNAVAILABLE" });
-    core = await new FakeCore().start(); // so afterEach has something to stop
+    core = await new ScriptedCore().start(); // so afterEach has something to stop
   });
 });
 

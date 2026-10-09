@@ -6,30 +6,18 @@ import { join } from "node:path";
 import { Contract, Wallet, id } from "ethers";
 import { WebSocket } from "ws";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  GRANT_CONSENT_TYPE,
-  SEED_FIDUCIARIES,
-  WITHDRAW_CONSENT_TYPE,
-  ZERO_HASH,
-  notificationDigest,
-  notificationSigner,
-  purposeIdOf,
-  signAck,
-  signNotification,
-  type CascadeNotification,
-  type CascadeResponse,
-  type WsEvent,
-} from "@sammati/shared";
+import { GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, ZERO_HASH, notificationDigest, notificationSigner, purposeIdOf, signAck, signNotification, type CascadeNotification, type CascadeResponse, type WsEvent } from "@sammati/shared";
 import { createRealApp } from "../src/app";
 import type { Config } from "../src/config";
-import { createRealCore, type RealCore } from "../src/real/core";
+import type { RealCore } from "../src/real/core";
 import { InProcessProcessor } from "../src/real/processors";
 import { WsHub } from "../src/ws";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
 const wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"); // Hardhat #0: the data principal
 const PRINCIPAL = wallet.address;
-const [QUICKLOAN, MEDICARE] = SEED_FIDUCIARIES;
+const [QUICKLOAN, MEDICARE] = TEST_COMPANIES;
 const QL = QUICKLOAN!.address;
 const MC = MEDICARE!.address;
 const AD_PARTNER = QUICKLOAN!.processors.find((p) => p.name === "AdPartnerQ")!; // marketing
@@ -93,7 +81,7 @@ beforeAll(async () => {
   config = realConfig(chain);
   server = createServer();
   hub = new WsHub(server);
-  core = await createRealCore(config, (e) => hub.publish(e), () => {});
+  core = await createTestCore(config, (e) => hub.publish(e), () => {});
   server.on("request", createRealApp(core));
   core.start();
   await new Promise<void>((r) => server.listen(0, r));
@@ -227,7 +215,7 @@ describe("catching up after a restart", () => {
     core.indexer.onWithdrawn = null;
     try {
       // Core 1 sees the withdrawal and tells the processor, which takes 30 s to answer; Core 1 stops first.
-      const first = await createRealCore(realConfig(chain, { dbPath, cascadeDelayMs: [30_000, 30_000] }), () => {}, () => {});
+      const first = await createTestCore(realConfig(chain, { dbPath, cascadeDelayMs: [30_000, 30_000] }), () => {}, () => {});
       opened.push(first);
       await first.indexer.syncOnce();
       await grant(QL, MARKETING);
@@ -240,7 +228,7 @@ describe("catching up after a restart", () => {
       first.stop();
 
       // Core 2 starts on the same database with a normal delay and picks the cascade up.
-      const second = await createRealCore(realConfig(chain, { dbPath, cascadeDelayMs: [20, 60] }), () => {}, () => {});
+      const second = await createTestCore(realConfig(chain, { dbPath, cascadeDelayMs: [20, 60] }), () => {}, () => {});
       opened.push(second);
       second.start();
       await vi.waitFor(async () => expect((await acksOnChain(MARKETING)).length).toBe(acksBefore + 1), { timeout: 10_000 });
@@ -301,8 +289,8 @@ describe("the processor stub and the signed messages", () => {
 });
 
 describe("a processor that misbehaves", () => {
-  const FR = SEED_FIDUCIARIES[2]!.address;
-  const AD_NETWORK = SEED_FIDUCIARIES[2]!.processors[0]!; // AdNetworkZ, ad_targeting
+  const FR = TEST_COMPANIES[2]!.address;
+  const AD_NETWORK = TEST_COMPANIES[2]!.processors[0]!; // AdNetworkZ, ad_targeting
   const AD_TARGETING = purposeIdOf(FR, "ad_targeting");
 
   /** A one-off engine standing in for the real one while a consent is withdrawn. */
@@ -310,7 +298,7 @@ describe("a processor that misbehaves", () => {
     const { CascadeEngine } = await import("../src/real/cascade");
     const warnings: string[] = [];
     const engine = new CascadeEngine(config, core.repo, core.chain, core.indexer, () => {}, (m) => warnings.push(m));
-    engine.resolveProcessor = (p) => resolve(config.processorKeys[p.address.toLowerCase()]!);
+    engine.resolveProcessor = (p) => resolve(core.repo.processorKey(p.address)!);
     const original = core.indexer.onWithdrawn;
     core.indexer.onWithdrawn = (w) => engine.onWithdrawn(w);
     try {
@@ -378,7 +366,7 @@ describe("a processor that misbehaves", () => {
   it("skips, with a warning, a processor Core holds no key for", async () => {
     const { CascadeEngine } = await import("../src/real/cascade");
     const warnings: string[] = [];
-    const engine = new CascadeEngine({ ...config, processorKeys: {} }, core.repo, core.chain, core.indexer, () => {}, (m) => warnings.push(m));
+    const engine = new CascadeEngine(config, Object.create(core.repo, { processorKey: { value: () => undefined } }) as typeof core.repo, core.chain, core.indexer, () => {}, (m) => warnings.push(m));
     engine.onWithdrawn({ principal: PRINCIPAL, fiduciary: QL, purposeId: MARKETING, txHash: ZERO_HASH, at: 1 });
     await engine.idle();
     expect(warnings.some((m) => m.includes("no way to reach AdPartnerQ"))).toBe(true);

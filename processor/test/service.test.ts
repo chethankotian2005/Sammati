@@ -6,7 +6,7 @@ import { submitMessage, handleOf } from "@sammati/shared/src/envelope";
 import { readConfig } from "../src/config";
 import { decideLoan } from "../src/rules";
 import { ApiFailure } from "../src/service";
-import { MC_KEY, MEDICARE, PAN, QL_KEY, QUICKLOAN, rig } from "./rig";
+import { MC_KEY, MEDICARE, PAN, QL_KEY, QUICKLOAN, rig, tamperStored } from "./rig";
 
 const fails = async (p: Promise<unknown>): Promise<ApiFailure> => {
   try {
@@ -41,7 +41,7 @@ describe("loan rules", () => {
     [{ pan: PAN, incomeBand: "9+ LPA", employment: "salaried" }, { decision: "approved", limit: 600000, reasonCodes: ["SCORE_FAIR", "SCORE_ASSUMED"] }],
     [{ pan: PAN, incomeBand: "6-9 LPA", employment: "salaried", score: "high" }, { decision: "declined", limit: null, reasonCodes: ["SCORE_LOW"] }],
   ])("%j", (profile, expected) => {
-    expect(decideLoan(profile)).toEqual(expected);
+    expect(decideLoan(profile).decision).toMatchObject(expected);
   });
 });
 
@@ -66,7 +66,7 @@ describe("submit (V-02)", () => {
     r.consent.allow(r.principal, QUICKLOAN, "credit_check");
     const body = await r.walletSubmission();
     const stranger = Wallet.createRandom();
-    const signature = await stranger.signMessage(submitMessage(handleOf(body.envelope), body.requestId));
+    const signature = await stranger.signMessage(submitMessage(handleOf(body.envelope), body.requestId, body.version));
     expect((await fails(r.service.submit({ ...body, signature }))).code).toBe("BAD_SIGNATURE");
     expect((await fails(r.service.submit({ ...body, signature: "0x1234" }))).code).toBe("BAD_SIGNATURE");
     expect((await fails(r.service.submit({ ...body, requestId: "another-request-id" }))).code).toBe("BAD_SIGNATURE");
@@ -133,8 +133,9 @@ describe("evaluate (V-03)", () => {
     r.events.length = 0;
     const result = await r.service.evaluate(QL_KEY, r.evaluateBody(handle));
 
-    expect(result).toEqual({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: r.logs[0]!.id });
-    expect(r.logs).toEqual([{ fiduciary: QUICKLOAN, id: result.entryId, purpose: "credit_check", principal: r.principal, decision: "ALLOWED", reason: "OK" }]);
+    expect(result).toEqual({ decision: "approved", limit: 300000, rateBps: 1400, reasonCodes: ["SCORE_FAIR"], entryId: r.logs[0]!.id });
+    // the usage record names the categories the rules read (PAN, income band) and the decision label only
+    expect(r.logs).toEqual([{ fiduciary: QUICKLOAN, id: result.entryId, purpose: "credit_check", principal: r.principal, decision: "ALLOWED", reason: "OK", dataCategories: ["financial.pan", "financial.income_band"], outcome: "approved" }]);
     expect(r.events.map((e) => e.event)).toEqual(["processor.requested", "processor.decrypting", "processor.decided"]);
     expect(r.events[2]).toMatchObject({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: result.entryId, handle });
     expect(JSON.stringify([result, r.events, r.logs])).not.toContain(PAN);
@@ -211,7 +212,7 @@ describe("evaluate (V-03)", () => {
   it("a tampered ciphertext is an error, never a guessed decision", async () => {
     const r = rig();
     const { handle } = await r.submitted();
-    expect(r.service.tamper(handle)).toBe(true);
+    expect(tamperStored(r.vault, handle)).toBe(true);
     r.events.length = 0;
     const failure = await fails(r.service.evaluate(QL_KEY, r.evaluateBody(handle)));
     expect([failure.status, failure.code]).toEqual([422, "CIPHERTEXT_INVALID"]);
@@ -370,9 +371,32 @@ describe("expiry grace period (N-03, trd.md §6.7)", () => {
     expect(r.vault.get(handle)!.ciphertext).not.toBeNull();
   });
 
-  it("reads the grace period from the environment: 7 days, or 60 seconds in fast mode", () => {
+  it("reads the grace period from the environment: 7 days unless told otherwise", () => {
     expect(readConfig({}).expiryGraceSeconds).toBe(604_800);
-    expect(readConfig({ DEMO_FAST_EXPIRY: "1" }).expiryGraceSeconds).toBe(60);
-    expect(readConfig({ DEMO_FAST_EXPIRY: "1", EXPIRY_ERASURE_GRACE_SECONDS: "5" }).expiryGraceSeconds).toBe(5);
+    expect(readConfig({ EXPIRY_ERASURE_GRACE_SECONDS: "5" }).expiryGraceSeconds).toBe(5);
+  });
+});
+
+describe("what a fresh Processor knows (X-01)", () => {
+  it("has no company, key or callback built in", () => {
+    const config = readConfig({});
+    expect(config.apiKeys.size).toBe(0);
+    expect(config.registeredKeys.size).toBe(0);
+    expect(config.callbacks).toEqual({});
+  });
+
+  it("refuses to start with DEV_TOOLS=true beside NODE_ENV=production", () => {
+    expect(() => readConfig({ DEV_TOOLS: "true", NODE_ENV: "production" })).toThrow(/DEV_TOOLS/);
+    expect(() => readConfig({ DEV_TOOLS: "true" })).not.toThrow();
+    expect(() => readConfig({ NODE_ENV: "production" })).toThrow(/Missing or unusable environment variables/); // production needs its settings (trd.md §10.2)
+  });
+
+  it("lets a company register where to be told about stored and erased entries, only with its own key", async () => {
+    const r = rig();
+    await expect(r.service.registerCallback("wrong", { url: "http://localhost:9/vault/events" })).rejects.toMatchObject({ status: 401 });
+    await expect(r.service.registerCallback(QL_KEY, { url: "ftp://x" })).rejects.toMatchObject({ status: 400 });
+    await r.service.registerCallback(QL_KEY, { url: "http://localhost:9/vault/events" });
+    expect(r.config.callbacks[QUICKLOAN]).toBe("http://localhost:9/vault/events");
+    expect(r.config.callbacks[MEDICARE]).not.toBe("http://localhost:9/vault/events");
   });
 });

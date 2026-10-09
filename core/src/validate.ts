@@ -1,7 +1,9 @@
-// Request-body parsers shared by the stub and real routes, so both modes accept and reject the same input.
+// Request-body parsers shared by the routes.
 import { getAddress, isAddress, isHexString } from "ethers";
 import {
   REASON_CODES,
+  isCategoryId,
+  normalizeCategories,
   RIGHTS_TYPES,
   type GrantConsent,
   type Hex,
@@ -65,7 +67,17 @@ export function parseLogEntry(raw: unknown): StoredAccessLogEntry {
   if (reason !== "OK" && !(REASON_CODES as readonly string[]).includes(reason)) {
     throw badRequest(`"reason" must be OK or one of ${REASON_CODES.join(", ")}`);
   }
+  // Format 2 (drd.md §4.1a): both keys or neither.
+  let usage: { dataCategories?: string[]; outcome?: string } = {};
+  if (o.outcome !== undefined || o.dataCategories !== undefined) {
+    if (typeof o.outcome !== "string" || o.outcome.length > 16) throw badRequest('"outcome" must be a short string');
+    const cats = o.dataCategories;
+    if (!Array.isArray(cats) || !cats.every((c) => typeof c === "string" && isCategoryId(c))) throw badRequest('"dataCategories" must be data category ids');
+    if (JSON.stringify(normalizeCategories(cats as string[])) !== JSON.stringify(cats)) throw badRequest('"dataCategories" must be unique and in registry order');
+    usage = { dataCategories: cats as string[], outcome: o.outcome };
+  }
   return {
+    ...usage,
     at: requireNumber(o, "at"),
     decision,
     endpoint: requireString(o, "endpoint"),

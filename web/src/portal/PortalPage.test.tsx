@@ -1,9 +1,11 @@
 // QuickLoan's customer page, driven through the screen the way one person would on stage (C-09): sign in, tick,
-// scan, share in the wallet, Apply, withdraw. The socket and the network are fakes; the page and its state machine
+// scan, share in the wallet, Apply, withdraw. The socket and the network are test doubles; the page and its state machine
 // are the real ones.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WsProvider } from "../ws";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { DirectoryProvider } from "../directory";
 import { PortalPage } from "./PortalPage";
 
 const QUICKLOAN = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
@@ -57,6 +59,12 @@ beforeEach(() => {
       const u = String(url);
       const method = init?.method ?? "GET";
       calls.push({ method, url: u, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (u.endsWith("/v1/fiduciaries")) return respond(200, { fiduciaries: [{ address: QUICKLOAN, slug: "quickloan", name: "QuickLoan", sector: "Lending", color: "#16173F", sandbox: false }] });
+      if (u.endsWith("/purposes")) return respond(200, { fiduciary: QUICKLOAN, purposes: [
+        { id: "0x01", code: "credit_check", description: { en: "Check your credit eligibility" }, sharesThirdParty: false },
+        { id: "0x02", code: "marketing", description: { en: "Send you loan offers" }, sharesThirdParty: true },
+        { id: "0x03", code: "bureau_share", description: { en: "Share repayment history with credit bureaus" }, sharesThirdParty: true },
+      ] });
       if (u.endsWith("/requests")) return respond(201, { requestId: "req_abc12345", qrPayload: { v: 1, requestId: "req_abc12345", fiduciary: QUICKLOAN, name: "QuickLoan" } });
       if (u.endsWith("/consents")) return respond(200, { fiduciary: QUICKLOAN, rows: [{ principal: ASHA, customerAlias: "Asha" }] });
       if (u.includes("/apply")) return respond(applyAnswer.status, applyAnswer.body);
@@ -72,13 +80,19 @@ afterEach(() => {
 function mount() {
   return render(
     <WsProvider topics={["auditor"]}>
-      <PortalPage />
+      <DirectoryProvider>
+        <MemoryRouter initialEntries={["/portal/quickloan"]}>
+          <Routes>
+            <Route path="/portal/:slug" element={<PortalPage />} />
+          </Routes>
+        </MemoryRouter>
+      </DirectoryProvider>
     </WsProvider>,
   );
 }
 
 const signIn = async (alias = "Asha") => {
-  fireEvent.change(screen.getByLabelText("Your customer name or ID"), { target: { value: alias } });
+  fireEvent.change(await screen.findByLabelText("Your customer ID"), { target: { value: alias } });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 };
 const mainBox = () => screen.getByRole("checkbox", { name: "Allow QuickLoan to use my data for loan purposes" }) as HTMLInputElement;
@@ -162,7 +176,7 @@ describe("the whole loop, in the order a person does it", () => {
     expect(card.textContent).toContain("Approved");
     expect(card.textContent).toContain("Limit 3,00,000");
     expect(card.textContent).toContain("SCORE_FAIR");
-    expect(calls.find((c) => c.url.includes("/apply"))).toMatchObject({ method: "POST", url: "http://localhost:4101/customers/Asha/apply" });
+    expect(calls.find((c) => c.url.includes("/apply"))).toMatchObject({ method: "POST", url: "http://localhost:4310/customers/Asha/apply" });
     expect(document.body.textContent).not.toMatch(/ABCDE1234F|6-9 LPA|salaried/);
 
     // 5. withdraw: the page changes at once and Apply is off

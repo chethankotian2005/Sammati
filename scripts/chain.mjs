@@ -1,4 +1,4 @@
-// Shared by bootstrap.mjs, demo-reset.mjs and demo-up.mjs: talk to the local Hardhat node and to Core,
+// Shared by bootstrap.mjs, dev-reset.mjs and demo-up.mjs: talk to the local Hardhat node,
 // and run package scripts.
 import { spawnSync } from "node:child_process";
 
@@ -61,35 +61,8 @@ export function runContracts(script) {
   if (r.status !== 0) throw new Error(`contracts ${script} failed`);
 }
 
-/** Deploy both contracts, then register the seed data and fund the relayer. */
-export function deployAndSeed() {
+/** Deploy both contracts, then fund the relayer. Registers no company (X-01). */
+export function deployAndFund() {
   runContracts("deploy:local");
   runContracts("seed:local");
-}
-
-/**
- * Wipes Core's database and re-reads the chain (POST /v1/demo/reset). Returns null on success, else a
- * short reason, because callers differ on whether Core being off is a problem.
- */
-export async function resetCore(core = CORE_URL) {
-  try {
-    const res = await fetch(`${core}/v1/demo/reset`, { method: "POST", signal: AbortSignal.timeout(30_000) });
-    return res.ok ? null : `Core answered ${res.status}: ${await res.text()}`;
-  } catch (err) {
-    return err instanceof Error ? err.message : String(err);
-  }
-}
-
-/**
- * Empties the Processor's vault (POST /v1/demo/reset): after a chain reset the consents behind stored ciphertext
- * no longer exist. Returns null on success, else a short reason; a stopped Processor is not an error for callers,
- * its own sweep would erase the stale rows anyway.
- */
-export async function resetProcessor(processor = PROCESSOR_URL) {
-  try {
-    const res = await fetch(`${processor}/v1/demo/reset`, { method: "POST", signal: AbortSignal.timeout(10_000) });
-    return res.ok ? null : `Processor answered ${res.status}`;
-  } catch (err) {
-    return err instanceof Error ? err.message : String(err);
-  }
 }

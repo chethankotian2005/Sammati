@@ -1,8 +1,7 @@
 import { Router, type Request, type RequestHandler, type Response } from "express";
-import { Wallet, isAddress, isHexString } from "ethers";
+import { isAddress, isHexString } from "ethers";
 import type {
   AccessProofResponse,
-  AccessReason,
   ActivityResponse,
   AuditFiduciariesResponse,
   AuditLedgerResponse,
@@ -10,11 +9,6 @@ import type {
   CascadeResponse,
   ConsentStateResponse,
   CreateRequestResponse,
-  Decision,
-  DemoAnchorBody,
-  DemoAnchorResponse,
-  DemoFireResponse,
-  DemoResetResponse,
   ExportResponse,
   FiduciaryAccessResponse,
   FiduciaryProcessorsResponse,
@@ -26,26 +20,23 @@ import type {
   LedgerEventType,
   PrincipalConsentsResponse,
   RightsResponse,
-  TamperResponse,
   VerifyResponse,
   WithdrawResponse,
 } from "@sammati/shared";
-import { ENTRY_ID_HEADER, GUARDED_ENDPOINTS, LOAN_DECISION_ENDPOINT, REASON_CODES, SEED_FIDUCIARIES, SIMULATOR_CUSTOMER_ID, WITHDRAW_CONSENT_TYPE, buildDomain, noticeHash, withdrawTypedData } from "@sammati/shared";
+import { buildDomain, noticeHash } from "@sammati/shared";
 import { HttpError, badRequest, requireBody, requireString } from "../errors";
 import { buildNotice, noticeInput } from "../notice";
-import { now } from "../store";
+import { now } from "../clock";
 import { address, bytes32, parseGrant, parseLogEntry, parseRightsBody, parseWithdraw } from "../validate";
-import { sanitiseResult } from "../routes/vault";
-import { accessProof, report, scorecard, tamper, verifyFiduciary } from "./audit";
+import { accessProof, report, scorecard, verifyFiduciary } from "./audit";
 import { toHttpError } from "./chain";
 import type { RealCore } from "./core";
-import { companyKey, mustOwn } from "./onboarding-routes";
+import { companyKey, mustOwn, regulatorOnly } from "./onboarding-routes";
 import { addr, NOTICE_VERSION } from "./repo";
 
 const DEFAULT_ACTIVITY_LIMIT = 50;
 const DEFAULT_ACCESS_LIMIT = 100;
 const LEDGER_TYPES: readonly LedgerEventType[] = ["granted", "withdrawn", "ack", "anchor", "purpose"];
-const COMPANY_TIMEOUT_MS = 5000;
 
 /** Express 4 does not catch rejected promises; this does. */
 const handle =
@@ -67,13 +58,6 @@ async function onChain<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Where a demo company's backend listens: an explicit override, else its seeded port on the company host. */
-function companyBaseUrl(config: RealCore["config"], fiduciary: Hex): string | null {
-  const override = config.companyUrls[fiduciary.toLowerCase()];
-  if (override) return override;
-  const seeded = SEED_FIDUCIARIES.find((f) => f.address.toLowerCase() === fiduciary.toLowerCase());
-  return seeded ? `http://${config.companyHost}:${seeded.port}` : null;
-}
 export function realRoutes(core: RealCore): Router {
   const { repo, chain, relayer, indexer, config } = core;
   const r = Router();
@@ -135,7 +119,7 @@ export function realRoutes(core: RealCore): Router {
       principal,
       nonce,
     });
-    res.json(config.demoFastExpiry ? { ...notice, fastExpiry: true } : notice);
+    res.json(notice);
   }));
 
   /** A sandbox company deals only with test customers (trd.md §6.12). Withdrawals are never refused. */
@@ -212,7 +196,45 @@ export function realRoutes(core: RealCore): Router {
     res.json({ principal, rights: repo.rightsFor(principal) } satisfies RightsResponse);
   }));
 
+  // A company moves a customer's rights request along; the customer is told in the wallet (W-10, N-05).
+  r.post("/fiduciaries/:fid/rights/:id", companyKey(core, true), handle((req, res) => {
+    const f = repo.fiduciary(param(req, "fid"));
+    mustOwn(res, f.address);
+    const body = requireBody(req.body);
+    const status = body.status;
+    if (status !== "in_progress" && status !== "resolved") throw badRequest('"status" must be "in_progress" or "resolved"');
+    // eslint-disable-next-line no-control-regex
+    const reply = typeof body.reply === "string" ? body.reply.replace(/[ -]/g, " ").trim().slice(0, 280) || null : null;
+    const updated = repo.updateRightsRequest(f.address, param(req, "id"), status, reply);
+    if (!updated) throw new HttpError(404, "RIGHTS_REQUEST_NOT_FOUND", "No such request for this company");
+    core.notifications.onRightsUpdated({ ...updated, reply });
+    res.json({ id: updated.id, status: updated.status, reply });
+  }));
+
   // --- 6.2 company and gateway ---
+
+  const consoleAuth = (req: Request, res: Response, next: import("express").NextFunction) => {
+    try {
+      const auth = req.header("Authorization");
+      const api = req.header("x-sammati-api-key");
+      const fid = req.params.fid ?? "";
+      let allowed = false;
+      if (auth && auth.startsWith("Bearer ")) {
+        const op = repo.consoleMe(auth.substring(7));
+        if (op && op.fiduciaries.some(f => f.address.toLowerCase() === fid.toLowerCase())) allowed = true;
+      }
+      if (api) {
+        const company = repo.fiduciaryForKey(api as string);
+        if (company && company.address.toLowerCase() === fid.toLowerCase()) allowed = true;
+      }
+      if (!allowed) throw new HttpError(403, "FIDUCIARY_MISMATCH", "Access denied to this company");
+      next();
+    } catch (e) { next(e); }
+  };
+
+  r.get("/fiduciaries/:fid/rights", consoleAuth, handle((req, res) => {
+    res.json({ rights: repo.fiduciaryRights(param(req, "fid")) });
+  }));
 
   r.get("/fiduciaries/:fid/purposes", handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
@@ -224,14 +246,19 @@ export function realRoutes(core: RealCore): Router {
     res.json({ fiduciary: f.address, processors: repo.processorsOfFiduciary(f.address) } satisfies FiduciaryProcessorsResponse);
   }));
 
-  r.get("/fiduciaries/:fid/consents", handle((req, res) => {
+  // In production the list of a company's customers is for its own operators and servers, and the Auditor is the regulator's (trd.md §10.8).
+  const ifLoginRequired = (guard: RequestHandler): RequestHandler => (config.requireOperatorAuth ? guard : (_req, _res, next) => next());
+  const operatorsOnly = ifLoginRequired(consoleAuth);
+  const auditorOnly = ifLoginRequired(regulatorOnly(core));
+
+  r.get("/fiduciaries/:fid/consents", operatorsOnly, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, rows: repo.consentRows(f) } satisfies FiduciaryConsentsResponse);
   }));
 
   const accessLimit = (q: unknown, fallback: number): number => Math.max(1, Math.min(500, Number(q ?? fallback) || fallback));
 
-  r.get("/fiduciaries/:fid/access", handle((req, res) => {
+  r.get("/fiduciaries/:fid/access", operatorsOnly, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({ fiduciary: f.address, items: repo.accessFor(f.address, accessLimit(req.query.limit, DEFAULT_ACCESS_LIMIT)) } satisfies FiduciaryAccessResponse);
   }));
@@ -252,6 +279,7 @@ export function realRoutes(core: RealCore): Router {
       reason: row.reason,
       endpoint: row.endpoint,
       at: row.at,
+      ...(row.outcome === undefined ? {} : { dataCategories: row.dataCategories, outcome: row.outcome }),
     });
     res.status(201).json({ accepted: true, seq: row.seq } satisfies GatewayLogResponse);
     core.anchors.notify(repo.fiduciary(row.fiduciary).address);
@@ -267,7 +295,7 @@ export function realRoutes(core: RealCore): Router {
     res.json(await consentState(address(principal, "principal"), f.address, repo.purpose(f, purpose).id));
   }));
 
-  r.post("/fiduciaries/:fid/export", handle((req, res) => {
+  r.post("/fiduciaries/:fid/export", consoleAuth, handle((req, res) => {
     const f = repo.fiduciary(param(req, "fid"));
     res.json({
       fiduciary: f.address,
@@ -279,9 +307,9 @@ export function realRoutes(core: RealCore): Router {
     } satisfies ExportResponse);
   }));
 
-  // --- 6.3 auditor (the ledger explorer only; scorecards and verify need the anchoring job) ---
+  // --- 6.3 auditor ---
 
-  r.get("/audit/ledger", handle((req, res) => {
+  r.get("/audit/ledger", auditorOnly, handle((req, res) => {
     const { fid, principal, type } = req.query;
     for (const [name, v] of [["fid", fid], ["principal", principal]] as const) {
       if (v !== undefined && (typeof v !== "string" || !isAddress(v))) throw badRequest(`"${name}" must be an address`);
@@ -298,103 +326,21 @@ export function realRoutes(core: RealCore): Router {
     } satisfies AuditLedgerResponse);
   }));
 
-  r.get("/audit/fiduciaries", handle((_req, res) => {
+  r.get("/audit/fiduciaries", auditorOnly, handle((_req, res) => {
     res.json({ fiduciaries: repo.fiduciaries().map((f) => scorecard(core, f.address)) } satisfies AuditFiduciariesResponse);
   }));
 
-  r.post("/audit/verify/:fid", handle(async (req, res) => {
+  r.post("/audit/verify/:fid", auditorOnly, handle(async (req, res) => {
     res.json((await verifyFiduciary(core, repo.fiduciary(param(req, "fid")).address)) satisfies VerifyResponse);
   }));
 
-  r.get("/audit/report/:fid", handle(async (req, res) => {
+  r.get("/audit/report/:fid", auditorOnly, handle(async (req, res) => {
     res.json((await report(core, repo.fiduciary(param(req, "fid")).address)) satisfies AuditReportResponse);
-  }));
-  // --- 6.4 demo controls ---
-
-  r.use("/demo", (_req, _res, next) => {
-    if (!config.demoMode) return next(new HttpError(403, "DEMO_DISABLED", "Demo controls need DEMO_MODE=true"));
-    next();
-  });
-
-  r.post("/demo/tamper/:fid", handle((req, res) => {
-    res.json(tamper(core, repo.fiduciary(param(req, "fid")).address) satisfies TamperResponse);
-  }));
-
-  // Anchors pending log entries now instead of at the next timer tick: for rehearsals and the e2e script.
-  // The presenter's "Withdraw and re-run": withdraws for a customer whose key Core holds (the demo principal). A real
-  // wallet's key never leaves its phone, so for anyone else this refuses and the page waits for the phone instead.
-  r.post("/demo/withdraw", handle(async (req, res) => {
-    const o = requireBody(req.body);
-    const f = repo.fiduciary(requireString(o, "fiduciary"));
-    const purpose = repo.purpose(f, requireString(o, "purposeCode"));
-    const principal = address(requireString(o, "principal"), "principal");
-    const key = config.demoPrincipalKeys[principal.toLowerCase()];
-    if (!key) throw new HttpError(403, "NOT_A_DEMO_PRINCIPAL", "Core holds no key for this customer: withdraw on their phone");
-
-    const nonce = await onChain(() => chain.registry.nonces(principal));
-    const message = { principal, fiduciary: f.address, purposeId: purpose.id, nonce: String(nonce), deadline: now() + 300 };
-    const typed = withdrawTypedData(domain(), message);
-    const signature = await new Wallet(key).signTypedData(typed.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, typed.message);
-    const receipt = await relayer.send("withdrawConsent", [message, signature]);
-    await settle(receipt);
-    res.json({ txHash: receipt.hash, status: "confirmed" } satisfies WithdrawResponse);
-  }));
-
-  r.post("/demo/anchor", handle(async (req, res) => {
-    const body = (req.body ?? {}) as Partial<DemoAnchorBody>;
-    const fiduciary = typeof body.fiduciary === "string" ? repo.fiduciary(body.fiduciary).address : undefined;
-    res.json({ batches: await core.anchors.runOnce(fiduciary) } satisfies DemoAnchorResponse);
-  }));
-
-  r.post("/demo/reset", handle(async (_req, res) => {
-    await core.reset();
-    res.json({ ok: true } satisfies DemoResetResponse);
-  }));
-
-  r.post("/demo/fire", handle(async (req, res) => {
-    const o = requireBody(req.body);
-    const f = repo.fiduciary(requireString(o, "fiduciary"));
-    const purpose = repo.purpose(f, requireString(o, "purposeCode"));
-    const principal = address(requireString(o, "principal"), "principal");
-
-    // The company's own guarded endpoint decides and logs (through the gateway SDK); Core only reports the outcome.
-    const loan = o.action === "loan_decision";
-    if (o.action !== undefined && !loan) throw badRequest('"action" must be "loan_decision" when given');
-    if (loan && purpose.code !== "credit_check") throw badRequest('"loan_decision" is a credit_check action');
-    const target = loan ? LOAN_DECISION_ENDPOINT : { ...GUARDED_ENDPOINTS[purpose.code], method: "GET" as const };
-    const base = companyBaseUrl(config, f.address);
-    if (!target.path || !base) throw new HttpError(404, "NO_ENDPOINT", `${f.name} has no guarded endpoint for ${purpose.code}`);
-    const url = base + target.path.replace(":id", SIMULATOR_CUSTOMER_ID);
-
-    let response: globalThis.Response;
-    try {
-      response = await fetch(url, { method: target.method, headers: { "x-sammati-principal": principal }, signal: AbortSignal.timeout(COMPANY_TIMEOUT_MS) });
-    } catch {
-      throw new HttpError(502, "COMPANY_UNREACHABLE", `${f.name}'s backend did not answer at ${base}; is it running?`);
-    }
-
-    let decision: Decision;
-    let reason: AccessReason;
-    let result: DemoFireResponse["result"];
-    if (response.status === 200) {
-      [decision, reason] = ["ALLOWED", "OK"];
-      // Only the two QuickLoan endpoints that return no personal data by construction are relayed (trd.md §6.4).
-      if (purpose.code === "credit_check") result = sanitiseResult(await response.json().catch(() => undefined));
-    } else if (response.status === 451) {
-      const body = (await response.json().catch(() => ({}))) as { code?: string };
-      if (!(REASON_CODES as readonly string[]).includes(body.code ?? "")) {
-        throw new HttpError(502, "COMPANY_ERROR", `${f.name} answered 451 without a reason code`);
-      }
-      [decision, reason] = ["BLOCKED", body.code as AccessReason];
-    } else {
-      throw new HttpError(502, "COMPANY_ERROR", `${f.name} answered ${response.status}`);
-    }
-    res.json({ decision, reason, entryId: response.headers.get(ENTRY_ID_HEADER) ?? "", ...(result ? { result } : {}) } satisfies DemoFireResponse);
   }));
   // --- not built yet in real mode (trd.md §6.6) ---
 
   const later = (what: string): RequestHandler => (_req, _res, next) =>
-    next(new HttpError(501, "NOT_IMPLEMENTED", `${what} is not available in real mode yet; run with STUB_MODE=true to use the stub`));
+    next(new HttpError(501, "NOT_IMPLEMENTED", `${what} is not available in real mode yet`));
   r.post("/fiduciaries/:fid/purposes", later("Registering purposes from the console"));
   r.post("/fiduciaries/:fid/processors", later("Registering processors from the console"));
 

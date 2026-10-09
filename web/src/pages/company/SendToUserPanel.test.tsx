@@ -2,12 +2,13 @@
 // actions, and no way to learn who the customer is.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_FIDUCIARIES, type TargetedRequestRow } from "@sammati/shared";
+import { type TargetedRequestRow } from "@sammati/shared";
 import { WsProvider } from "../../ws";
 import { NewRequestSection } from "./NewRequestSection";
 import { effectiveStatus } from "./SendToUserPanel";
 
-const seed = SEED_FIDUCIARIES[0]!;
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
+const seed = TEST_COMPANIES[0]!;
 const company = { address: seed.address, slug: seed.slug, name: seed.name, sector: seed.sector, color: seed.color, sandbox: false, demo: true };
 const purposes = seed.purposes.map((p) => ({
   id: `0x${p.code}`,
@@ -190,7 +191,7 @@ describe("the requests sent", () => {
     rows = [sent()];
     mount();
     await screen.findByTestId("row-req_aaaa0001");
-    await push({ event: "request.updated", fiduciary: SEED_FIDUCIARIES[1]!.address, requestId: "req_aaaa0001", status: "granted", at: NOW });
+    await push({ event: "request.updated", fiduciary: TEST_COMPANIES[1]!.address, requestId: "req_aaaa0001", status: "granted", at: NOW });
     expect(screen.getByTestId("row-req_aaaa0001").textContent).toContain("Sent");
   });
 

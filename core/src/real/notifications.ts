@@ -2,10 +2,10 @@
 // Processor's erasure and a processor's acknowledgement tell the wallet. A notification is data, not prose; the wallet
 // writes the sentence in the customer's language, and nothing here is personal data.
 import { randomUUID } from "node:crypto";
-import type { Hex, NotificationAction, NotificationItem, NotificationPatchBody, NotificationType, NotificationsResponse, VaultEvent, WsEvent } from "@sammati/shared";
+import type { Hex, NotificationAction, NotificationItem, NotificationPatchBody, NotificationType, NotificationsResponse, VaultEvent, WsEvent, RightsType } from "@sammati/shared";
 import type { Config } from "../config";
 import { HttpError, badRequest } from "../errors";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Db } from "./db";
 import type { Repo } from "./repo";
 
@@ -29,7 +29,7 @@ export class Notifications {
     private readonly db: Db,
     private readonly repo: Repo,
     private readonly publish: (event: WsEvent) => void,
-    private readonly config: Pick<Config, "expiryThresholdsSeconds" | "demoFastExpiry">,
+    private readonly config: Pick<Config, "expiryThresholdsSeconds">,
     private readonly clock: () => number = now,
   ) {}
 
@@ -69,6 +69,18 @@ export class Notifications {
     };
   }
 
+  /** A company changed the status of a customer's rights request, or replied to a grievance. */
+  onRightsUpdated(r: { id: string; principal: Hex; fiduciary: Hex; type: RightsType; status: "open" | "in_progress" | "resolved"; reply: string | null; updatedAt: number }): void {
+    this.raise({
+      type: "rights.updated",
+      key: `rights:${r.id}:${r.status}:${r.updatedAt}`,
+      principal: r.principal,
+      fiduciary: r.fiduciary,
+      purposeId: null,
+      payload: { rightsId: r.id, rightsType: r.type, rightsStatus: r.status, reply: r.reply },
+    });
+  }
+
   // ------------------------------------------------------------ reading and answering
 
   list(principal: Hex, limitRaw: unknown): NotificationsResponse {
@@ -85,7 +97,7 @@ export class Notifications {
 
   /** What the wallet needs to schedule its own reminders (trd.md §6.12). */
   settings(): NotificationsResponse["config"] {
-    return { thresholdsSeconds: this.config.expiryThresholdsSeconds, fastExpiry: this.config.demoFastExpiry };
+    return { thresholdsSeconds: this.config.expiryThresholdsSeconds };
   }
 
   markAllRead(principal: Hex): number {

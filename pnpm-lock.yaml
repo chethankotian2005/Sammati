@@ -24,51 +24,50 @@ importers:
         specifier: 8.18.1
         version: 8.18.1(eslint@9.17.0(jiti@1.21.7))(typescript@5.6.3)
 
-  companies/foodrush:
-    dependencies:
-      '@sammati/gateway':
-        specifier: workspace:*
-        version: link:../../gateway
-      '@sammati/shared':
-        specifier: workspace:*
-        version: link:../../shared
-      express:
-        specifier: 4.21.2
-        version: 4.21.2
-    devDependencies:
-      '@types/express':
-        specifier: 4.17.21
-        version: 4.17.21
-      '@types/node':
-        specifier: 20.17.10
-        version: 20.17.10
-      tsx:
-        specifier: 4.19.2
-        version: 4.19.2
-
-  companies/medicare:
-    dependencies:
-      '@sammati/gateway':
-        specifier: workspace:*
-        version: link:../../gateway
-      '@sammati/shared':
-        specifier: workspace:*
-        version: link:../../shared
-      express:
-        specifier: 4.21.2
-        version: 4.21.2
-    devDependencies:
-      '@types/express':
-        specifier: 4.17.21
-        version: 4.17.21
-      '@types/node':
-        specifier: 20.17.10
-        version: 20.17.10
-      tsx:
-        specifier: 4.19.2
-        version: 4.19.2
-
   companies/quickloan:
+    dependencies:
+      '@sammati/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
+      express:
+        specifier: 4.21.2
+        version: 4.21.2
+      qrcode.react:
+        specifier: 4.2.0
+        version: 4.2.0(react@18.3.1)
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: 18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: 7.6.12
+        version: 7.6.12
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
+      '@types/react':
+        specifier: 18.3.12
+        version: 18.3.12
+      '@types/react-dom':
+        specifier: 18.3.1
+        version: 18.3.1
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+      vitest:
+        specifier: 2.1.8
+        version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
+
+  companies/template:
     dependencies:
       '@sammati/gateway':
         specifier: workspace:*
@@ -154,6 +153,9 @@ importers:
       '@sammati/gateway':
         specifier: workspace:^
         version: link:../gateway
+      '@sammati/test-fixtures':
+        specifier: workspace:*
+        version: link:../test
       '@types/better-sqlite3':
         specifier: 7.6.12
         version: 7.6.12
@@ -169,6 +171,31 @@ importers:
       hardhat:
         specifier: 2.22.17
         version: 2.22.17(ts-node@10.9.2(@types/node@20.17.10)(typescript@5.6.3))(typescript@5.6.3)
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+      vitest:
+        specifier: 2.1.8
+        version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
+
+  examples/lender:
+    dependencies:
+      '@sammati/gateway':
+        specifier: workspace:*
+        version: link:../../gateway
+      '@sammati/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      express:
+        specifier: 4.21.2
+        version: 4.21.2
+    devDependencies:
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
       tsx:
         specifier: 4.19.2
         version: 4.19.2
@@ -222,6 +249,9 @@ importers:
         specifier: 8.18.0
         version: 8.18.0
     devDependencies:
+      '@sammati/test-fixtures':
+        specifier: workspace:*
+        version: link:../test
       '@types/better-sqlite3':
         specifier: 7.6.12
         version: 7.6.12
@@ -257,6 +287,19 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@20.17.10)(jsdom@25.0.1)
 
+  test:
+    dependencies:
+      '@sammati/shared':
+        specifier: workspace:*
+        version: link:../shared
+      ethers:
+        specifier: 6.13.4
+        version: 6.13.4
+    devDependencies:
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
+
   web:
     dependencies:
       '@sammati/shared':
@@ -278,6 +321,9 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react-is@17.0.2)(react@18.3.1)(redux@5.0.1)
     devDependencies:
+      '@sammati/test-fixtures':
+        specifier: workspace:*
+        version: link:../test
       '@testing-library/dom':
         specifier: 10.4.0
         version: 10.4.0

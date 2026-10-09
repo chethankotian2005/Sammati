@@ -13,8 +13,7 @@ CREATE TABLE IF NOT EXISTS fiduciaries (
   color TEXT,
   registered_tx TEXT,
   slug TEXT,
-  sandbox INTEGER NOT NULL DEFAULT 0,
-  demo INTEGER NOT NULL DEFAULT 0
+  sandbox INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS purposes (
@@ -88,6 +87,8 @@ CREATE TABLE IF NOT EXISTS access_logs (
   prev_hash TEXT NOT NULL,
   hash TEXT NOT NULL,
   batch_index INTEGER,
+  data_categories TEXT,
+  outcome TEXT,
   PRIMARY KEY (fiduciary, seq)
 );
 
@@ -149,7 +150,8 @@ CREATE TABLE IF NOT EXISTS rights_requests (
   principal TEXT NOT NULL, fiduciary TEXT NOT NULL,
   type TEXT NOT NULL,
   note TEXT, status TEXT NOT NULL,
-  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+  reply TEXT
 );
 
 CREATE TABLE IF NOT EXISTS fiduciary_applications (
@@ -158,6 +160,7 @@ CREATE TABLE IF NOT EXISTS fiduciary_applications (
   slug TEXT NOT NULL,
   sector TEXT NOT NULL,
   contact_email TEXT,
+  password_hash TEXT,
   purposes TEXT NOT NULL,
   processors TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -185,6 +188,24 @@ CREATE TABLE IF NOT EXISTS sandbox_testers (
   principal TEXT PRIMARY KEY, added_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS console_operators (
+  email TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fiduciary_operators (
+  fiduciary TEXT REFERENCES fiduciaries(address),
+  operator_email TEXT REFERENCES console_operators(email),
+  PRIMARY KEY (fiduciary, operator_email)
+);
+
+CREATE TABLE IF NOT EXISTS console_sessions (
+  token TEXT PRIMARY KEY,
+  operator_email TEXT REFERENCES console_operators(email),
+  expires_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_access_principal ON access_logs (principal, at);
 CREATE INDEX IF NOT EXISTS idx_ledger_key ON ledger_events (principal, fiduciary, purpose_id, block_number);
 `;
@@ -200,6 +221,9 @@ const ALL_TABLES = [
   "identities",
   "requests",
   "rights_requests",
+  "console_sessions",
+  "fiduciary_operators",
+  "console_operators",
   "fiduciary_applications",
   "fiduciary_credentials",
   "fiduciary_keys",
@@ -228,8 +252,13 @@ function migrate(db: Db): void {
   const have = new Set((db.prepare("PRAGMA table_info(fiduciaries)").all() as Array<{ name: string }>).map((c) => c.name));
   if (!have.has("slug")) db.exec("ALTER TABLE fiduciaries ADD COLUMN slug TEXT");
   if (!have.has("sandbox")) db.exec("ALTER TABLE fiduciaries ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0");
-  if (!have.has("demo")) db.exec("ALTER TABLE fiduciaries ADD COLUMN demo INTEGER NOT NULL DEFAULT 0");
+  const rights = new Set((db.prepare("PRAGMA table_info(rights_requests)").all() as Array<{ name: string }>).map((c) => c.name));
+  if (!rights.has("reply")) db.exec("ALTER TABLE rights_requests ADD COLUMN reply TEXT");
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_fiduciaries_slug ON fiduciaries (slug)");
+  // A database made before usage records (V-09) has format-1 rows: both columns stay NULL for them (drd.md §4.1a).
+  const logs = new Set((db.prepare("PRAGMA table_info(access_logs)").all() as Array<{ name: string }>).map((c) => c.name));
+  if (!logs.has("data_categories")) db.exec("ALTER TABLE access_logs ADD COLUMN data_categories TEXT");
+  if (!logs.has("outcome")) db.exec("ALTER TABLE access_logs ADD COLUMN outcome TEXT");
 }
 
 export function clearChainDerived(db: Db): void {

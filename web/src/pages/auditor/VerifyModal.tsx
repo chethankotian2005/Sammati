@@ -8,7 +8,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { Scorecard, VerifyResponse, BatchVerification } from "@sammati/shared";
-import { verifyFiduciaryIntegrity, triggerDemoReset } from "../../api";
+import { verifyFiduciaryIntegrity } from "../../api";
 
 interface VerifyModalProps {
   open: boolean;
@@ -28,7 +28,6 @@ export function VerifyModal({
   const [stage, setStage] = useState<Stage>("idle");
   const [result, setResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!open || !scorecard) {
@@ -79,28 +78,6 @@ export function VerifyModal({
 
   const badBatch: BatchVerification | undefined = result?.batches.find((b) => !b.ok);
   const totalBatches = result?.batches.length ?? scorecard.anchoredBatches;
-
-  const handleReset = async () => {
-    setResetting(true);
-    try {
-      await triggerDemoReset();
-      // Re-run verification
-      setStage("chain");
-      setResult(null);
-      await new Promise((r) => setTimeout(r, 600));
-      setStage("merkle");
-      await new Promise((r) => setTimeout(r, 600));
-      setStage("anchors");
-      const res = await verifyFiduciaryIntegrity(scorecard.fiduciary);
-      setResult(res);
-      setStage("done");
-      onVerificationFinished?.();
-    } catch (err) {
-      console.error("Reset failed:", err);
-    } finally {
-      setResetting(false);
-    }
-  };
 
   return (
     <div
@@ -309,14 +286,6 @@ export function VerifyModal({
                   <span className="text-mute font-medium">
                     Evidence logged in regulator audit trail
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    disabled={resetting}
-                    className="rounded-row border border-line bg-surface px-3 py-1 font-bold text-ink hover:bg-paper transition-colors"
-                  >
-                    {resetting ? "Resetting…" : "Reset DB to Seed"}
-                  </button>
                 </div>
               </div>
             )}
@@ -325,9 +294,7 @@ export function VerifyModal({
 
         {/* Footer */}
         <div className="mt-6 flex items-center justify-between border-t border-line pt-4 text-xs">
-          <span className="text-mute">
-            Shortcuts: <kbd className="rounded bg-paper px-1.5 py-0.5 font-mono text-ink">Ctrl+Shift+T</kbd> tamper demo
-          </span>
+          <span className="text-mute">Verification recomputes the log from the stored rows and compares it with the on-chain anchors.</span>
           <button
             type="button"
             onClick={onClose}

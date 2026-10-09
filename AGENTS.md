@@ -6,7 +6,7 @@ You are helping build **Sammati**, a consent wallet plus enforcement gateway plu
 Read in this order before coding a feature:
 1. `docs/prd.md` — find the feature ID and its acceptance criteria
 2. `docs/trd.md` — interfaces, endpoints, EIP-712 types, event names
-3. `docs/drd.md` — schemas, hashing, seed data
+3. `docs/drd.md` — schemas, hashing, what a fresh deployment holds
 4. `docs/ui.md` — design tokens, screens, copy
 5. `docs/architecture.md` — how pieces connect
 6. `docs/tasks.md` — what is in scope right now (golden path first)
@@ -40,9 +40,11 @@ If the spec and the code disagree, **update the spec first** (small edit), then 
 ## Commands
 ```
 pnpm install
-pnpm demo:up        # chain, core, 3 companies, web
-pnpm demo:reset     # reset DB, redeploy seed
-pnpm e2e            # grant → allowed → withdraw → blocked → tamper → verify fails
+pnpm demo:up        # chain, core, processor, web (starts empty; companies join via /join)
+pnpm dev:reset        # DEV_TOOLS=true: reset chain, DB and vault (CLI only)
+pnpm dev:tamper -- <fiduciary> <seq>   # DEV_TOOLS=true: edit one stored log row, then Verify in the Auditor
+pnpm e2e:remote     # public-API flow against deployed URLs (CORE_URL, PROCESSOR_URL, REGULATOR_KEY)
+pnpm e2e            # register → grant → allowed → withdraw → blocked → tamper → verify fails
 pnpm --filter contracts test
 flutter run         # in wallet/
 flutter build apk --release

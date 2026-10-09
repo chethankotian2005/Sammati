@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { validateApplication, type ApplicationInput } from "@sammati/shared";
 import { ApiError, submitApplication } from "../api";
+import { CategoryPicker } from "../join/CategoryPicker";
 import { makeJoinT, type JoinKey, type Lang } from "../join/copy";
 
 const LANGS: Array<[Lang, string]> = [["en", "EN"], ["hi", "हि"], ["kn", "ಕ"]];
@@ -16,7 +17,7 @@ interface PurposeForm {
   code: string;
   title: Record<Lang, string>;
   description: Record<Lang, string>;
-  categories: string;
+  categories: string[];
   retention: string;
   shares: boolean;
   required: boolean;
@@ -27,7 +28,7 @@ interface ProcessorForm {
 }
 
 const empty = (): Record<Lang, string> => ({ en: "", hi: "", kn: "" });
-const blankPurpose = (): PurposeForm => ({ code: "", title: empty(), description: empty(), categories: "", retention: "", shares: false, required: false });
+const blankPurpose = (): PurposeForm => ({ code: "", title: empty(), description: empty(), categories: [], retention: "", shares: false, required: false });
 
 /** The screen shows the form's text as typed; this is the value Core is sent. */
 export function toInput(name: string, sector: string, email: string, purposes: PurposeForm[], processors: ProcessorForm[]): ApplicationInput {
@@ -39,7 +40,7 @@ export function toInput(name: string, sector: string, email: string, purposes: P
       code: p.code,
       title: p.title,
       description: p.description,
-      dataCategories: p.categories.split(",").map((c) => c.trim()).filter(Boolean),
+      dataCategories: p.categories,
       retentionDays: p.retention.trim() === "" ? Number.NaN : Number(p.retention),
       sharesThirdParty: p.shares,
       required: p.required,
@@ -101,32 +102,6 @@ export function Join(): ReactNode {
   };
 
   const setPurpose = (i: number, patch: Partial<PurposeForm>) => setPurposes(purposes.map((p, j) => (j === i ? { ...p, ...patch } : p)));
-  const fillExample = () => {
-    setName("DemoBank");
-    setSector("Banking");
-    setEmail("ops@demobank.example");
-    setPurposes([
-      {
-        code: "loan_offers",
-        title: { en: "Loan offers", hi: "ऋण प्रस्ताव", kn: "ಸಾಲದ ಕೊಡುಗೆಗಳು" },
-        description: { en: "Send you loan offers", hi: "आपको ऋण प्रस्ताव भेजना", kn: "ನಿಮಗೆ ಸಾಲದ ಕೊಡುಗೆಗಳನ್ನು ಕಳುಹಿಸುವುದು" },
-        categories: "phone, email",
-        retention: "180",
-        shares: false,
-        required: false,
-      },
-      {
-        code: "bureau_share",
-        title: { en: "Credit bureau sharing", hi: "क्रेडिट ब्यूरो को साझा करना", kn: "ಕ್ರೆಡಿಟ್ ಬ್ಯೂರೋಗೆ ಹಂಚಿಕೆ" },
-        description: { en: "Share repayment history with a credit bureau", hi: "पुनर्भुगतान इतिहास क्रेडिट ब्यूरो के साथ साझा करना", kn: "ಮರುಪಾವತಿ ಇತಿಹಾಸವನ್ನು ಕ್ರೆಡಿಟ್ ಬ್ಯೂರೋ ಜೊತೆ ಹಂಚುವುದು" },
-        categories: "repayment history",
-        retention: "1095",
-        shares: true,
-        required: false,
-      },
-    ]);
-    setProcessors([{ name: "BureauOne", purposeCode: "bureau_share" }]);
-  };
 
   const Err = ({ field }: { field: string }): ReactNode => {
     const message = on(field);
@@ -218,11 +193,11 @@ export function Join(): ReactNode {
                   </label>
                 </div>
               ))}
-              <label className="block">
+              <div className="block">
                 <Label k="join_categories" />
-                <input {...field(`purposes[${i}].dataCategories`)} value={p.categories} onChange={(e) => setPurpose(i, { categories: e.target.value })} className={inputClass} />
+                <CategoryPicker value={p.categories} onChange={(ids) => setPurpose(i, { categories: ids })} invalid={Boolean(on(`purposes[${i}].dataCategories`))} describedBy={`purposes[${i}].dataCategories-error`} />
                 <Err field={`purposes[${i}].dataCategories`} />
-              </label>
+              </div>
               <label className="block">
                 <Label k="join_retention" />
                 <input {...field(`purposes[${i}].retentionDays`)} inputMode="numeric" value={p.retention} onChange={(e) => setPurpose(i, { retention: e.target.value })} className={inputClass} />
@@ -307,9 +282,6 @@ export function Join(): ReactNode {
         <div className="flex flex-wrap items-center gap-4">
           <button type="submit" disabled={sending} className="min-h-[48px] rounded-pill bg-marigold px-6 text-lg font-extrabold text-ink disabled:opacity-60">
             {sending ? t("join_sending") : t("join_submit")}
-          </button>
-          <button type="button" onClick={fillExample} className="font-bold text-mute underline">
-            {t("join_example")}
           </button>
         </div>
       </form>

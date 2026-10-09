@@ -126,7 +126,7 @@ describe("envelope", () => {
   });
 
   it("builds the submit message the principal signs", () => {
-    expect(submitMessage("0xabc", "req-1")).toBe("sammati-vault-submit:v1:0xabc:req-1");
-    expect(toUtf8Bytes(submitMessage("0xabc", "req-1")).length).toBeGreaterThan(0);
+    expect(submitMessage("0xabc", "req-1", 3)).toBe("sammati-vault-submit:v2:0xabc:req-1:3");
+    expect(toUtf8Bytes(submitMessage("0xabc", "req-1", 3)).length).toBeGreaterThan(0);
   });
 });

@@ -1,6 +1,7 @@
 // Routes for Sammati IDs, targeted requests, the inbox, decline and block (trd.md §6.1, §6.2, §6.11).
 import { Router, type Request, type RequestHandler, type Response } from "express";
 import type {
+  AvailabilityResponse,
   BlocksResponse,
   IdentityResponse,
   InboxResponse,
@@ -38,6 +39,10 @@ export function targetedRoutes(core: RealCore): Router {
     const principal = address(requireString(body, "principal"), "principal");
     const result = targeted.register(body.handle, principal, body.issuedAt, body.signature);
     res.status(result.created ? 201 : 200).json({ handle: result.handle, principal: principal.toLowerCase() });
+  }));
+
+  r.get("/identities/availability", handle((req, res) => {
+    res.json(targeted.availability(req.query.handle, req.query.principal, req.ip ?? "unknown") satisfies AvailabilityResponse);
   }));
 
   r.get("/principals/:addr/identity", handle((req, res) => {

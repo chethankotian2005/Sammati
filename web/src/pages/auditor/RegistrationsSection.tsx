@@ -20,29 +20,16 @@ import {
   setSandbox,
 } from "../../api";
 import { useDirectory } from "../../directory";
+import { savedRegulatorCode, saveRegulatorCode } from "../../regulator";
 import { HashLabel, SandboxBadge, StatusChip } from "../../ui";
 
-const CODE_KEY = "sammati.regulatorCode";
 const CHECKS = ["Purposes are specific", "Retention is justified", "Sharing is disclosed"] as const;
 const FILTERS: ApplicationStatus[] = ["pending", "approved", "rejected"];
 const CHIP = { pending: "pending", approved: "verified", rejected: "blocked" } as const;
 const WORD = { pending: "Pending", approved: "Approved", rejected: "Rejected" } as const;
 
-// The code lives for this tab only; storage can be blocked, and then the code is simply asked for again.
-const remembered = (): string => {
-  try {
-    return sessionStorage.getItem(CODE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-};
-const remember = (code: string): void => {
-  try {
-    sessionStorage.setItem(CODE_KEY, code);
-  } catch {
-    // ignore
-  }
-};
+const remembered = savedRegulatorCode;
+const remember = saveRegulatorCode;
 
 const when = (t: number): string => new Date(t * 1000).toLocaleString();
 
@@ -87,7 +74,7 @@ export function RegistrationsSection(): ReactNode {
     return (
       <section className="mx-auto max-w-md space-y-4 rounded-pass border border-line bg-surface p-6 shadow-sm" aria-label="Regulator access">
         <h2 className="text-xl font-extrabold text-ink">Registrations</h2>
-        <p className="text-sm text-mute">Enter the regulator access code. Ask your administrator. In the demo it is on the stage sheet.</p>
+        <p className="text-sm text-mute">Enter the regulator access code. Ask your administrator for the regulator access code.</p>
         <label className="block text-sm font-bold text-ink">
           Regulator access code
           <input
@@ -456,7 +443,7 @@ function TestCustomers({ code }: { code: string }): ReactNode {
   return (
     <section className="space-y-3 rounded-pass border border-line bg-surface p-6 shadow-sm" aria-label="Test customers">
       <h3 className="text-lg font-extrabold text-ink">Test customers</h3>
-      <p className="text-sm text-mute">A company in the sandbox can ask only these customers. The demo customer is always one.</p>
+      <p className="text-sm text-mute">A company in the sandbox can ask only these customers.</p>
       <ul className="space-y-1 text-sm">
         {principals.length === 0 && <li className="text-mute">None added.</li>}
         {principals.map((p) => (

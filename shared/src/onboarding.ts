@@ -1,5 +1,6 @@
 // Company onboarding (prd.md R-01 to R-04, trd.md §6.2a and §6.12). The validation lives here so the /join page
 // and Core refuse exactly the same inputs.
+import { isCategoryId, normalizeCategories } from "./categories";
 import type { Hex, LocalizedText, UnixSeconds } from "./types";
 
 export const API_KEY_HEADER = "x-sammati-api-key";
@@ -28,6 +29,7 @@ export interface ApplicationInput {
   name: string;
   sector: string;
   contactEmail: string;
+  password?: string;
   purposes: ApplicationPurposeInput[];
   processors: ApplicationProcessorInput[];
 }
@@ -40,8 +42,6 @@ export interface FiduciaryInfo {
   sector: string;
   color: string;
   sandbox: boolean;
-  /** True for the seed companies, the only ones with a simulator backend. */
-  demo: boolean;
 }
 export interface FiduciariesResponse {
   fiduciaries: FiduciaryInfo[];
@@ -196,6 +196,8 @@ export function validateApplication(raw: unknown): ApplicationCheck {
   const contactEmail = text(raw.contactEmail, "Contact email", 3, 120);
   if (typeof contactEmail !== "string") return bad("contactEmail", contactEmail.error);
   if (!EMAIL.test(contactEmail)) return bad("contactEmail", "Contact email does not look like an email address");
+  const password = typeof raw.password === "string" ? raw.password : undefined;
+  if (password !== undefined && password.length < 8) return bad("password", "Password must be at least 8 characters");
 
   if (!Array.isArray(raw.purposes) || raw.purposes.length < 1 || raw.purposes.length > APPLICATION_LIMITS.purposes) {
     return bad("purposes", `Add 1 to ${APPLICATION_LIMITS.purposes} purposes`);
@@ -226,16 +228,17 @@ export function validateApplication(raw: unknown): ApplicationCheck {
     }
     const dataCategories: string[] = [];
     for (const c of p.dataCategories) {
-      const t = text(c, "A data category", 1, 30);
-      if (typeof t !== "string") return bad(`${at}.dataCategories`, t.error);
-      dataCategories.push(t);
+      if (typeof c !== "string" || !isCategoryId(c)) {
+        return bad(`${at}.dataCategories`, `"${String(c).slice(0, 30)}" is not a known data category. Pick from the list`);
+      }
+      dataCategories.push(c);
     }
     if (typeof p.retentionDays !== "number" || !Number.isInteger(p.retentionDays) || p.retentionDays < 1 || p.retentionDays > 3650) {
       return bad(`${at}.retentionDays`, "Retention is a whole number of days from 1 to 3650");
     }
     if (typeof p.sharesThirdParty !== "boolean") return bad(`${at}.sharesThirdParty`, "Say whether the data is shared with third parties");
     if (typeof p.required !== "boolean") return bad(`${at}.required`, "Say whether the purpose is needed for the service");
-    purposes.push({ code, title, description, dataCategories, retentionDays: p.retentionDays, sharesThirdParty: p.sharesThirdParty, required: p.required });
+    purposes.push({ code, title, description, dataCategories: normalizeCategories(dataCategories), retentionDays: p.retentionDays, sharesThirdParty: p.sharesThirdParty, required: p.required });
   }
 
   const rawProcessors = raw.processors ?? [];

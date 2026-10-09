@@ -1,12 +1,12 @@
 import type { Wallet } from "ethers";
 import { notificationDigest, notificationSigner, signAck, type SignedAck, type SignedNotification } from "@sammati/shared";
-import { now } from "../store";
+import { now } from "../clock";
 
 /**
- * A demo downstream processor (CreditBureauX, AdPartnerQ, ...) living inside Core (trd.md §9). It does
+ * A downstream processor living inside Core (trd.md §9). It does
  * what a real processor's webhook would: check that the notification really comes from the company
  * whose data it holds, take a moment, and answer with a signed acknowledgement. Its key is held by Core,
- * which is the disclosed demo shortcut (demo.md).
+ * which is one of the two disclosed demo shortcuts (demo.md).
  */
 export class InProcessProcessor {
   constructor(

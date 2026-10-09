@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/router.dart';
 import 'core/consent_providers.dart';
 import 'core/preferences.dart';
+import 'core/profile_controller.dart';
 import 'features/scan/camera_scanner_view.dart';
 import 'features/scan/web_scanner_view.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -26,11 +27,34 @@ Future<void> main() async {
   ));
 }
 
-class SammatiApp extends ConsumerWidget {
+class SammatiApp extends ConsumerStatefulWidget {
   const SammatiApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SammatiApp> createState() => _SammatiAppState();
+}
+
+class _SammatiAppState extends ConsumerState<SammatiApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // The decrypted profile and its key are dropped when the app leaves the foreground (W-16): the next view asks again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) ref.read(profileProvider.notifier).lock();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,

@@ -6,7 +6,7 @@
   },
   "cases": [
     {
-      "name": "demo profile for credit_check",
+      "name": "test profile for credit_check",
       "ephemeralPrivateKey": "0xa5dcf68098ed9b55386a163951c0f4c917a3ba068a7bc5cc21b09bb72ae973d9",
       "nonce": "0x0cd97f0a724c3230d642c15b",
       "fiduciary": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",

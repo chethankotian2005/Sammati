@@ -24,9 +24,6 @@ import type {
   ConsentRow,
   CreateRequestBody,
   CreateRequestResponse,
-  DemoFireBody,
-  DemoFireResponse,
-  DemoResetResponse,
   ExportResponse,
   FiduciaryAccessResponse,
   FiduciaryConsentsResponse,
@@ -39,7 +36,6 @@ import type {
   RegisterPurposeResponse,
   Scorecard,
   StoredAccessLogEntry,
-  TamperResponse,
   TargetedRequestBody,
   TargetedRequestResponse,
   TargetedRequestRow,
@@ -47,11 +43,12 @@ import type {
   ExpiringRow,
   TargetedRequestsResponse,
   VerifyResponse,
-  WithdrawResponse,
 } from "@sammati/shared";
 import { CORE_URL } from "./core";
+import { savedRegulatorCode } from "./regulator";
+import { storedConsoleToken } from "./session";
 
-/** A refusal from Core with its machine code, e.g. `NOT_A_DEMO_PRINCIPAL`. Still an Error with Core's message. */
+/** A refusal from Core with its machine code, e.g. `BAD_REQUEST`. Still an Error with Core's message. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -63,10 +60,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = storedConsoleToken();
   const res = await fetch(`${CORE_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options?.headers ?? {}),
     },
   });
@@ -169,22 +168,20 @@ export async function requestRenewal(fiduciary: string, principal: string, purpo
   return request<TargetedRequestResponse>(`/v1/fiduciaries/${fiduciary}/renewals`, { method: "POST", body: JSON.stringify({ principal, purposeCode }) });
 }
 
-export async function demoFire(body: DemoFireBody): Promise<DemoFireResponse> {
-  return request<DemoFireResponse>("/v1/demo/fire", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+export async function fetchRightsRequests(fiduciary: string): Promise<any[]> {
+  const data = await request<{ rights: any[] }>(`/v1/fiduciaries/${fiduciary}/rights`);
+  return data.rights;
 }
+
+export async function updateRightsRequest(fiduciary: string, id: string, status: "in_progress" | "resolved", reply: string | null): Promise<any> {
+  return request<any>(`/v1/fiduciaries/${fiduciary}/rights/${id}`, { method: "POST", body: JSON.stringify({ status, reply }) });
+}
+
 
 /** Where the Sammati Processor is (`GET /v1/processor`, trd.md §6.1). */
 export async function fetchProcessorUrl(): Promise<string> {
   const data = await request<{ url: string }>("/v1/processor");
   return data.url.replace(/\/+$/, "");
-}
-
-/** The presenter's withdraw for the demo customer (`POST /v1/demo/withdraw`, trd.md §6.4). Throws ApiError `NOT_A_DEMO_PRINCIPAL` for a real wallet. */
-export async function demoWithdraw(body: { principal: string; fiduciary: string; purposeCode: string }): Promise<WithdrawResponse> {
-  return request<WithdrawResponse>("/v1/demo/withdraw", { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function fetchExport(fiduciary: string): Promise<ExportResponse> {
@@ -202,8 +199,14 @@ export async function submitGrant(body: GrantRequestBody): Promise<GrantResponse
 
 // --- Auditor APIs (A-01..A-04) ---
 
+/** The Auditor's calls carry the regulator's access code once it was entered (a hosted Core requires it, trd.md §10.8). */
+const auditAuth = (): RequestInit => {
+  const code = savedRegulatorCode();
+  return code ? asRegulator(code) : {};
+};
+
 export async function fetchAuditScorecards(): Promise<Scorecard[]> {
-  const data = await request<AuditFiduciariesResponse>("/v1/audit/fiduciaries");
+  const data = await request<AuditFiduciariesResponse>("/v1/audit/fiduciaries", auditAuth());
   return data.fiduciaries;
 }
 
@@ -217,30 +220,19 @@ export async function fetchLedgerEvents(params?: {
   if (params?.principal) q.set("principal", params.principal);
   if (params?.type && params.type !== "all") q.set("type", params.type);
   const qs = q.toString() ? `?${q.toString()}` : "";
-  const data = await request<AuditLedgerResponse>(`/v1/audit/ledger${qs}`);
+  const data = await request<AuditLedgerResponse>(`/v1/audit/ledger${qs}`, auditAuth());
   return data.events;
 }
 
 export async function verifyFiduciaryIntegrity(fiduciary: string): Promise<VerifyResponse> {
   return request<VerifyResponse>(`/v1/audit/verify/${fiduciary}`, {
     method: "POST",
+    ...auditAuth(),
   });
 }
 
 export async function fetchAuditReport(fiduciary: string): Promise<AuditReportResponse> {
-  return request<AuditReportResponse>(`/v1/audit/report/${fiduciary}`);
-}
-
-export async function triggerTamper(fiduciary: string): Promise<TamperResponse> {
-  return request<TamperResponse>(`/v1/demo/tamper/${fiduciary}`, {
-    method: "POST",
-  });
-}
-
-export async function triggerDemoReset(): Promise<DemoResetResponse> {
-  return request<DemoResetResponse>("/v1/demo/reset", {
-    method: "POST",
-  });
+  return request<AuditReportResponse>(`/v1/audit/report/${fiduciary}`, auditAuth());
 }
 
 // --- directory and onboarding (R-01 to R-04) ---
@@ -301,4 +293,14 @@ export async function addTestPrincipal(code: string, who: { handle: string } | {
 
 export async function removeTestPrincipal(code: string, principal: string): Promise<TestPrincipal[]> {
   return (await request<{ principals: TestPrincipal[] }>(`/v1/regulator/test-principals/${principal}`, { method: "DELETE", ...asRegulator(code) })).principals;
+}
+
+export async function consoleLogin(email: string, password: string): Promise<any> {
+  const res = await request<any>("/v1/console/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  localStorage.setItem("console_token", res.token);
+  localStorage.setItem("console_operator", JSON.stringify(res));
+  return res;
 }

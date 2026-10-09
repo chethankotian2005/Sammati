@@ -25,12 +25,14 @@ const stage = (): Stage => j.state.stage;
 
 beforeEach(() => {
   deps = {
+    company: vi.fn(),
     createRequest: vi.fn(async () => ({ requestId: "req_abc12345", qrPayload: { v: 1, core: "http://core", requestId: "req_abc12345", fiduciary: QUICKLOAN, name: "QuickLoan" } })),
     consentRows: vi.fn(async () => [{ principal: ASHA, customerAlias: "Asha" }, { principal: RAVI, customerAlias: "Ravi" }]),
     apply: vi.fn(async () => ({ status: 200, body: { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: "e1" } })),
     now: vi.fn(() => NOW),
     wait: vi.fn(async () => {}),
   };
+  (deps as unknown as { company: unknown }).company = { address: QUICKLOAN, name: "QuickLoan", loanPurpose: "credit_check", optionalPurposes: ["marketing", "bureau_share"] };
   j = new Journey(deps as unknown as JourneyDeps);
 });
 

@@ -1,12 +1,14 @@
-// `pnpm e2e` (trd.md §11): the whole story once, against a real stack, in under 30 s.
+// `pnpm e2e` (trd.md §11): the whole story once, against a throwaway real stack, in under 45 s.
 //
-//   reset → company creates a request → user signs and grants → ALLOWED → unconsented purpose BLOCKED
-//   → withdraw → BLOCKED → processor acknowledges → verify (clean) → tamper → verify (mismatch pinpointed)
+//   a company registers and the regulator approves it → it creates a request → user signs and grants → ALLOWED
+//   → unconsented purpose BLOCKED → withdraw → BLOCKED → processor acknowledges → verify (clean)
+//   → `pnpm dev:tamper` → verify (mismatch pinpointed)
 //
-// Uses a running `pnpm demo:up` if there is one (and resets it first); otherwise starts the stack
-// itself and stops it afterwards. Exits non-zero, naming the step, if anything is not as expected.
+// Everything goes through the public APIs: the company is created by the registration flow, the customer is a
+// headless wallet client. Nothing here ships with the app. It starts its own stack and stops it afterwards, and
+// refuses to run beside another one. Exits non-zero, naming the step, if anything is not as expected.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,47 +19,10 @@ import { Journey, type JourneyDeps, type Stage } from "../../web/src/portal/jour
 import { startSampleApp } from "../examples/quickstart";
 import { describeQrUrl } from "../../scripts/lan.mjs";
 import { WebSocket } from "ws";
-import {
-  API_KEY_HEADER,
-  DEMO_PROFILE,
-  REGULATOR_KEY_HEADER,
-  GRANT_CONSENT_TYPE,
-  LOAN_DECISION_ENDPOINT,
-  SEED_FIDUCIARIES,
-  WITHDRAW_CONSENT_TYPE,
-  noticeHash,
-  purposeIdOf,
-  type ApplicationInput,
-  type CascadeResponse,
-  type FiduciariesResponse,
-  type CreateRequestResponse,
-  type DemoAnchorResponse,
-  type DemoFireResponse,
-  type FiduciaryAccessResponse,
-  type FiduciaryConsentsResponse,
-  type FiduciaryPurposesResponse,
-  type GrantResponse,
-  type ExpiringResponse,
-  type HealthResponse,
-  type InboxResponse,
-  type NotificationEvent,
-  type NotificationItem,
-  type NotificationsResponse,
-  type PrincipalConsentsResponse,
-  type RequestNotice,
-  type RightsRequest,
-  type RightsResponse,
-  type StoredAccessLogEntry,
-  type TamperResponse,
-  type TargetedRequestResponse,
-  type TargetedRequestsResponse,
-  type VaultView,
-  type VerifyResponse,
-  type WithdrawResponse,
-  type WsEvent,
-} from "@sammati/shared";
+import { API_KEY_HEADER, REGULATOR_KEY_HEADER, GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, noticeHash, purposeIdOf, type ApplicationInput, type CascadeResponse, type FiduciariesResponse, type Hex, type CreateRequestResponse, type FiduciaryAccessResponse, type FiduciaryConsentsResponse, type FiduciaryPurposesResponse, type GrantResponse, type ExpiringResponse, type HealthResponse, type InboxResponse, type NotificationEvent, type NotificationItem, type NotificationsResponse, type PrincipalConsentsResponse, type RequestNotice, type RightsRequest, type RightsResponse, type StoredAccessLogEntry, type TargetedRequestResponse, type TargetedRequestsResponse, type VaultView, type VerifyResponse, type WithdrawResponse, type WsEvent } from "@sammati/shared";
 
-// The stack this script may start reads the repo-root .env (CORE_PUBLIC_URL, ...), so the checks below must too.
+import { TEST_PROFILE, TEST_COMPANIES } from "@sammati/test-fixtures";
+// The stack this script may start reads the repo-root .env (PUBLIC_CORE_URL, ...), so the checks below must too.
 try {
   process.loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), "../../.env"));
 } catch {
@@ -66,18 +31,47 @@ try {
 
 const CORE = process.env.E2E_CORE_URL ?? "http://localhost:4000";
 const PROCESSOR = process.env.E2E_PROCESSOR_URL ?? "http://localhost:4200";
-const BUDGET_MS = Number(process.env.E2E_BUDGET_MS ?? 30_000);
+const BUDGET_MS = Number(process.env.E2E_BUDGET_MS ?? 45_000);
 const STACK_START_TIMEOUT_MS = 120_000;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-const QUICKLOAN = SEED_FIDUCIARIES[0]!;
-const FID = QUICKLOAN.address;
+/** The throwaway company this run registers (its purposes and processors are test data, see test/src/companies.ts). */
+const QUICKLOAN = TEST_COMPANIES[0]!;
+const LENDER_PORT = Number(process.env.E2E_LENDER_PORT ?? 4310);
+/** Set by the registration step, before anything uses them. */
+let FID = "" as Hex;
+let API_KEY = "";
+let rightsId = ""; // the erasure request the wallet files, completed later by the company
+let MARKETING_ID = "" as Hex;
+let CREDIT_ID = "" as Hex; // the purpose behind the confidential-processing acts
 const GRANTED = "marketing"; // has a downstream processor, so the cascade has someone to tell
 const UNCONSENTED = "bureau_share";
-const MARKETING_ID = purposeIdOf(FID, GRANTED);
 const GRANTED_LOAN = "credit_check";
-const CREDIT_ID = purposeIdOf(FID, GRANTED_LOAN); // the purpose behind the confidential-processing acts
-const PLAINTEXT = DEMO_PROFILE.pan; // what must appear nowhere but the wallet and the Processor's memory (prd.md V-05)
+const REGULATOR_HEADERS = { [REGULATOR_KEY_HEADER]: process.env.REGULATOR_KEY ?? "demo-regulator-key" };
+const PLAINTEXT = TEST_PROFILE.pan; // what must appear nowhere but the wallet and the Processor's memory (prd.md V-05)
+
+/** What the company's own server answered to one request: the SDK's decision, and the log entry it wrote. */
+interface Fired {
+  decision: "ALLOWED" | "BLOCKED";
+  reason: string;
+  entryId: string;
+  result?: unknown;
+}
+
+/** One request to the sample lender, the way a company's server would make it. */
+async function fireAt(principal: string, purposeCode: string, action?: "loan_decision"): Promise<Fired> {
+  const base = `http://localhost:${LENDER_PORT}`;
+  const res = action
+    ? await fetch(`${base}/customers/1/apply`, { method: "POST", headers: { "x-sammati-principal": principal } })
+    : await fetch(`${base}/${purposeCode === GRANTED_LOAN ? "customers/1/credit-profile" : `guarded/${purposeCode}`}`, { headers: { "x-sammati-principal": principal } });
+  const body = (await res.json().catch(() => ({}))) as { code?: string };
+  const entryId = res.headers.get("x-sammati-entry-id") ?? "";
+  if (res.status === 200) {
+    const { entryId: _ignored, ...result } = body as Record<string, unknown>; // the entry id is the log's business, not part of the answer
+    return { decision: "ALLOWED", reason: "OK", entryId, result };
+  }
+  return { decision: "BLOCKED", reason: String(body.code), entryId };
+}
 
 /** The notification inside a notification event (the event name is the notification's type). */
 const noteOf = (e: WsEvent): NotificationItem => (e as NotificationEvent).notification;
@@ -104,7 +98,8 @@ const traffic: string[] = [];
 async function api<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: T }> {
   const res = await fetch(CORE + path, {
     method,
-    headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
+    // The company's own console reads need its key (trd.md §6.2a); the headless client plays the company there.
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...(API_KEY && FID && path.startsWith(`/v1/fiduciaries/${FID}`) ? { [API_KEY_HEADER]: API_KEY } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -138,8 +133,9 @@ async function until<T>(what: string, read: () => Promise<T | undefined>, timeou
 
 // --- the stack ---
 
-const stack: { child: ChildProcess | null; logFile: string; dbFile: string; vaultFile: string } = {
+const stack: { child: ChildProcess | null; lender: ChildProcess | null; logFile: string; dbFile: string; vaultFile: string } = {
   child: null,
+  lender: null,
   logFile: join(tmpdir(), "sammati-e2e-stack.log"),
   dbFile: join(tmpdir(), "sammati-e2e.sqlite"),
   vaultFile: join(tmpdir(), "sammati-e2e-processor.sqlite"),
@@ -161,9 +157,9 @@ async function health(): Promise<HealthResponse | null> {
   }
 }
 
-async function companyUp(): Promise<boolean> {
+async function lenderUp(): Promise<boolean> {
   try {
-    return (await fetch(`http://localhost:${QUICKLOAN.port}/health`, { signal: AbortSignal.timeout(1500) })).ok;
+    return (await fetch(`http://localhost:${LENDER_PORT}/health`, { signal: AbortSignal.timeout(1500) })).ok;
   } catch {
     return false;
   }
@@ -177,43 +173,39 @@ async function processorUp(): Promise<boolean> {
   }
 }
 
-function stopStack(): void {
-  const child = stack.child;
+function killTree(child: ChildProcess | null): void {
   if (!child?.pid) return;
   if (process.platform === "win32") spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
   else process.kill(-child.pid, "SIGTERM"); // the whole process group: pnpm, node and their children
+}
+
+function stopStack(): void {
+  killTree(stack.lender);
+  killTree(stack.child);
+  stack.lender = null;
   stack.child = null;
   removeDb();
 }
 
-/** Returns how the stack was found: already running (needs a reset) or started here (already clean). */
-async function ensureStack(): Promise<"reused" | "started"> {
-  const found = await health();
-  if (found) {
-    if (found.mode !== "live") fail(`Core at ${CORE} is in ${found.mode} mode; the e2e needs the real one. Stop it and run \`pnpm demo:up\` (or let this script start the stack).`);
-    check(await companyUp(), `Core is up but QuickLoan's backend (port ${QUICKLOAN.port}) is not: is the whole \`pnpm demo:up\` stack running?`);
-    check(await processorUp(), `Core is up but the Sammati Processor (${PROCESSOR}) is not: is the whole \`pnpm demo:up\` stack running?`);
-    return "reused";
-  }
-  if (process.argv.includes("--no-start")) fail(`No Core at ${CORE}, and --no-start was given. Run \`pnpm demo:up\` first.`);
-
-  console.log(`No stack running: starting \`pnpm demo:up\` (log: ${stack.logFile})`);
+/** Starts a stack of its own. It never reuses or resets one that is already running: that one may be someone's data. */
+async function startStack(): Promise<void> {
+  if (await health()) fail(`A Core is already answering at ${CORE}. Stop \`pnpm demo:up\` first: this script starts a throwaway stack of its own on the same ports.`);
+  console.log(`Starting a throwaway stack with \`pnpm demo:up\` (log: ${stack.logFile})`);
   const log = createWriteStream(stack.logFile);
-  // A stack started here gets a database of its own. The default one persists between runs, and would
-  // bring back the previous run's deliberately tampered log against this run's brand-new chain.
+  // A database of its own: the default one persists between runs.
   removeDb();
   stack.child = spawn(process.execPath, [join(repoRoot, "scripts/demo-up.mjs")], {
     cwd: repoRoot,
     env: {
       ...process.env,
       DB_PATH: stack.dbFile,
-      PROCESSOR_DB_PATH: stack.vaultFile,
-      // Seconds, not days, so expiry and the grace period fit in the run (trd.md §6.12); anything set in the environment wins.
-      DEMO_FAST_EXPIRY: "1",
+      VAULT_PATH: stack.vaultFile,
+      // Seconds, not days, so reminders, expiry and erasure fit in the run (trd.md §6.12); anything set in the environment wins.
       EXPIRY_THRESHOLDS_SECONDS: process.env.EXPIRY_THRESHOLDS_SECONDS ?? "5,2",
       EXPIRY_TICK_MS: process.env.EXPIRY_TICK_MS ?? "500",
       EXPIRY_ERASURE_GRACE_SECONDS: process.env.EXPIRY_ERASURE_GRACE_SECONDS ?? "12",
       PROCESSOR_SWEEP_MS: process.env.PROCESSOR_SWEEP_MS ?? "500",
+      ANCHOR_INTERVAL_MS: process.env.ANCHOR_INTERVAL_MS ?? "1000",
     },
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
@@ -223,15 +215,55 @@ async function ensureStack(): Promise<"reused" | "started"> {
   const exited = new Promise<number | null>((r) => stack.child?.once("exit", r));
   const deadline = Date.now() + STACK_START_TIMEOUT_MS;
   for (;;) {
-    if ((await health())?.mode === "live" && (await companyUp()) && (await processorUp())) return "started";
+    if ((await health()) && (await processorUp())) return;
     if (Date.now() > deadline) fail(`the stack did not come up in ${STACK_START_TIMEOUT_MS / 1000}s; see ${stack.logFile}`);
     if ((await Promise.race([exited, sleep(250).then(() => "running")])) !== "running") fail(`the stack exited while starting; see ${stack.logFile}`);
   }
 }
 
-function resetEverything(): void {
-  const r = spawnSync(process.execPath, [join(repoRoot, "scripts/demo-reset.mjs")], { cwd: repoRoot, encoding: "utf8" });
-  if (r.status !== 0) fail(`pnpm demo:reset failed (exit ${r.status}):\n${(r.stdout + r.stderr).trim().split("\n").slice(-6).join("\n")}`);
+/** The company registers through the public flow and the regulator approves it live; then its sample lender starts with its key. */
+async function registerCompany(): Promise<void> {
+  const text = (en: string) => ({ en, hi: `${en} (hi)`, kn: `${en} (kn)` });
+  const input: ApplicationInput = {
+    name: QUICKLOAN.name,
+    sector: QUICKLOAN.sector,
+    contactEmail: "ops@example.test",
+    purposes: QUICKLOAN.purposes.map((p) => ({
+      code: p.code,
+      title: p.title,
+      description: p.description,
+      dataCategories: p.dataCategories,
+      retentionDays: p.retentionDays,
+      sharesThirdParty: p.sharesThirdParty,
+      required: p.required,
+    })),
+    processors: QUICKLOAN.processors.map((p) => ({ name: p.name, purposeCode: p.purposeCode })),
+  };
+  void text;
+  const sent = await call<{ applicationId: string }>("POST", "/v1/registrations", input);
+  const approved = await call<{ fiduciary: { address: Hex } }>("POST", `/v1/regulator/registrations/${sent.applicationId}/approve`, { note: "e2e", sandbox: false }, REGULATOR_HEADERS);
+  FID = approved.fiduciary.address;
+  MARKETING_ID = purposeIdOf(FID, GRANTED);
+  CREDIT_ID = purposeIdOf(FID, GRANTED_LOAN);
+  const status = await call<{ result: { apiKey: string | null } }>("GET", `/v1/registrations/${sent.applicationId}`);
+  API_KEY = status.result.apiKey || "";
+  check(API_KEY, "the approved company was not given an API key");
+
+  const log = createWriteStream(stack.logFile, { flags: "a" });
+  stack.lender = spawn("pnpm", ["--filter", "@sammati/example-lender", "start"], {
+    cwd: repoRoot,
+    shell: true,
+    env: { ...process.env, FIDUCIARY: FID, SAMMATI_API_KEY: API_KEY, CORE_URL: CORE, PROCESSOR_URL: PROCESSOR, PORT: String(LENDER_PORT) },
+    detached: process.platform !== "win32",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  stack.lender.stdout?.pipe(log);
+  stack.lender.stderr?.pipe(log);
+  const deadline = Date.now() + 30_000;
+  while (!(await lenderUp())) {
+    if (Date.now() > deadline) fail(`the sample lender did not come up; see ${stack.logFile}`);
+    await sleep(250);
+  }
 }
 
 // --- the story ---
@@ -258,20 +290,16 @@ async function step<T>(name: string, fn: () => Promise<T>): Promise<T> {
 
 async function main(): Promise<void> {
   console.log(`Sammati e2e against ${CORE}`);
-  const how = await ensureStack();
+  await startStack();
   const suiteStarted = Date.now();
-
-  if (how === "reused") await step("reset the chain, reseed it and wipe Core's database", async () => resetEverything());
-  else console.log("  · stack started on a fresh chain: nothing to reset");
+  await step("a company registers, the regulator approves it, and its sample lender starts with the key it was given", registerCompany);
 
   // A new person every run: nothing cached or recorded about them anywhere.
   const user = Wallet.createRandom();
   const events: WsEvent[] = [];
-  const eventTimes: number[] = []; // when each frame arrived, for the Data Flow Inspector's recording
   const socket = new WebSocket(CORE.replace(/^http/, "ws") + "/ws");
   socket.on("message", (raw) => {
     events.push(JSON.parse(raw.toString()) as WsEvent);
-    eventTimes.push(Date.now());
   });
   await new Promise<void>((resolveOpen, rejectOpen) => {
     socket.once("open", () => resolveOpen());
@@ -292,7 +320,7 @@ async function main(): Promise<void> {
       expectEqual(created.qrPayload.fiduciary, FID, "QR payload names the company");
       check(created.requestId.startsWith("req_"), "request id looks wrong");
       // The phone fetches the notice from this address, so it must be the one demo:up printed, not "localhost".
-      if (how === "started" && !process.env.CORE_PUBLIC_URL) {
+      if (!process.env.PUBLIC_CORE_URL) {
         const expected = describeQrUrl({ port: new URL(CORE).port || "4000", env: {} });
         expectEqual(created.qrPayload.core, expected.url, "the address in the QR code");
       }
@@ -344,13 +372,24 @@ async function main(): Promise<void> {
       expectEqual(purposes.purposes.map((p) => p.code), ["credit_check", "marketing", "bureau_share"], "QuickLoan's purposes");
       const filed = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "erasure", note: "e2e" });
       expectEqual([filed.status, filed.json.status], [201, "open"], "filing a rights request");
+      rightsId = filed.json.id;
       const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
       expectEqual(mine.rights.map((r) => [r.id, r.fiduciaryName, r.type]), [[filed.json.id, "QuickLoan", "erasure"]], "the wallet's rights list");
+
+      const resolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${filed.json.id}`, { status: "resolved", reply: "Data deleted" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(resolved.status, "resolved", "resolved erasure request");
+
+      const corr = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "correction", note: "Address changed" });
+      const corrResolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${corr.json.id}`, { status: "resolved", reply: "Updated" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(corrResolved.status, "resolved", "resolved correction request");
+
+      const griev = await api<RightsRequest>("POST", "/v1/rights", { principal: user.address, fiduciary: FID, type: "grievance", note: "Spam emails" });
+      const grievResolved = await call<{ id: string, status: string }>("POST", `/v1/fiduciaries/${FID}/rights/${griev.json.id}`, { status: "resolved", reply: "Opted out" }, { [API_KEY_HEADER]: API_KEY });
+      expectEqual(grievResolved.status, "resolved", "resolved grievance request");
     });
-    const fire = (purposeCode: string, action?: "loan_decision") =>
-      call<DemoFireResponse>("POST", "/v1/demo/fire", { fiduciary: FID, purposeCode, principal: user.address, ...(action ? { action } : {}) });
+    const fire = (purposeCode: string, action?: "loan_decision") => fireAt(user.address, purposeCode, action);
     const entries: { label: string; id: string; expected: string }[] = [];
-    const record = (label: string, fired: DemoFireResponse, expected: string) => {
+    const record = (label: string, fired: Fired, expected: string) => {
       check(fired.entryId, `${label}: no log entry id came back`);
       entries.push({ label, id: fired.entryId, expected });
     };
@@ -418,10 +457,8 @@ async function main(): Promise<void> {
     /** The customer of the portal section, and the portal's own state machine and feed. */
     const portalUser: { wallet?: ReturnType<typeof Wallet.createRandom>; journey?: Journey; feed?: WebSocket; requestId?: string; purposes?: string[]; nonce?: number } = {};
     const portalFrames: unknown[] = [];
-    /** What the Data Flow Inspector's replay answers its staff buttons with (trd.md §6.9): the two real reads. */
-    const recorded: { vaultRow: unknown; staffView: { status: number; body: unknown } | null } = { vaultRow: null, staffView: null };
 
-    await step("user gives credit_check consent; the wallet seals the demo profile and the Processor stores ciphertext only", async () => {
+    await step("user gives credit_check consent; the wallet seals the test profile and the Processor stores ciphertext only", async () => {
       const message = { principal: user.address, fiduciary: FID, purposeId: CREDIT_ID, expiresAt: inAnHour() + 86_400, noticeHash: notice.noticeHash, nonce: String(nonce++), deadline: inAnHour() };
       const signature = await user.signTypedData(notice.domain, { GrantConsent: [...GRANT_CONSENT_TYPE] }, message);
       expectEqual((await call<GrantResponse>("POST", "/v1/consents/grant", { request: message, signature })).status, "confirmed", "grant status");
@@ -433,10 +470,10 @@ async function main(): Promise<void> {
       expectEqual([key.alg, key.mode], ["X25519", "simulated-enclave"], "the Processor's public key, labelled honestly");
 
       // Seal on the "phone" (here: this script), bound to this customer, company and purpose, and sign the submission.
-      const envelope = seal(DEMO_PROFILE, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
+      const envelope = seal(TEST_PROFILE, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
       const requestId = `e2e-${Date.now()}`;
-      const submitSignature = await user.signMessage(submitMessage(handleOf(envelope), requestId));
-      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature: submitSignature });
+      const submitSignature = await user.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 1, signature: submitSignature });
       expectEqual(submit.status, 201, "submit status");
       profile.handle = submit.json.handle!;
       profile.ciphertextHash = submit.json.ciphertextHash!;
@@ -449,33 +486,72 @@ async function main(): Promise<void> {
       const held = await until(
         "QuickLoan to be told the handle",
         async () => {
-          const r = await raw("GET", `http://localhost:${QUICKLOAN.port}/customers/1/credit-profile`, undefined, { "x-sammati-principal": user.address });
+          const r = await raw("GET", `http://localhost:${LENDER_PORT}/customers/1/credit-profile`, undefined, { "x-sammati-principal": user.address });
           return r.status === 200 && r.json.status === "stored" ? r.json : undefined;
         },
         4000,
       );
       expectEqual(held, { handle: profile.handle, ciphertextHash: profile.ciphertextHash, status: "stored" } satisfies VaultView, "what QuickLoan holds");
-      recorded.staffView = { status: 200, body: held };
 
-      // The same, as the console's simulator sees it through Core.
+      // The same request through the company's own guarded endpoint.
       const fired = await fire("credit_check");
       expectEqual([fired.decision, fired.reason], ["ALLOWED", "OK"], "the credit-profile request");
-      expectEqual(fired.result, { handle: profile.handle, ciphertextHash: profile.ciphertextHash, status: "stored" }, "the result Core relays");
+      expectEqual(fired.result, { handle: profile.handle, ciphertextHash: profile.ciphertextHash, status: "stored" }, "the admin view");
       record("credit_check admin view", fired, "ALLOWED");
 
       // And the vault itself: ciphertext and metadata, whoever asks.
       const vaulted = (await raw("GET", `${PROCESSOR}/v1/vault/${profile.handle}`)).json;
       expectEqual([vaulted.status, vaulted.purposeCode], ["stored", "credit_check"], "vault entry");
-      recorded.vaultRow = vaulted;
       check(typeof vaulted.envelope?.ciphertext === "string", "the vault should return the ciphertext");
     });
 
     await step("apply: the Processor decrypts, QuickLoan gets only a decision", async () => {
       const fired = await fire("credit_check", "loan_decision");
       expectEqual([fired.decision, fired.reason], ["ALLOWED", "OK"], "the apply request");
-      expectEqual(fired.result, { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] }, "the loan decision");
+      expectEqual(fired.result, { decision: "approved", limit: 300000, rateBps: 1400, reasonCodes: ["SCORE_FAIR"] }, "the loan decision");
       record("loan decision", fired, "ALLOWED");
-      check(LOAN_DECISION_ENDPOINT.path === "/customers/:id/apply", "the apply endpoint moved");
+      // the wallet's Activity feed names the categories the rules read and the decision label, nothing else (W-18)
+      const used = await until(
+        "the usage record in the wallet's Activity",
+        async () => (await call<{ items: Array<{ id: string; outcome?: string; dataCategories?: string[] }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`)).items.find((i) => i.outcome === "approved"),
+        5000,
+      );
+      expectEqual(used.dataCategories, ["financial.pan", "financial.income_band", "financial.employment"], "the categories the loan decision read");
+    });
+
+    await step("the wallet's activity record shows the company's use of the details", async () => {
+      const feed = await call<{ items: Array<{ purposeCode: string; decision: string; id: string }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`);
+      const uses = feed.items.filter((i) => i.purposeCode === "credit_check" && i.decision === "ALLOWED");
+      check(uses.length >= 2, `the activity feed shows ${uses.length} allowed credit_check uses, expected the admin view and the loan decision`);
+    });
+
+    await step("correction: the wallet sends a corrected profile; the Processor replaces the old copy and the next decision uses it", async () => {
+      const old = profile.handle;
+      const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
+      const corrected = { ...TEST_PROFILE, incomeBand: "9+ LPA" };
+      const envelope = seal(corrected, key.publicKey!, { fiduciary: FID, principal: user.address, purposeCode: "credit_check" });
+      const requestId = `e2e-fix-${Date.now()}`;
+      const signature = await user.signMessage(submitMessage(handleOf(envelope), requestId, 2));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: user.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 2, signature });
+      check(submit.status === 200 || submit.status === 201, `the corrected submission answered ${submit.status}`);
+      profile.handle = submit.json.handle!;
+      profile.ciphertextHash = submit.json.ciphertextHash!;
+      const stale = (await raw("GET", `${PROCESSOR}/v1/vault/${old}`)).json;
+      expectEqual([stale.status, stale.envelope], ["erased", null], "the superseded copy");
+      await until(
+        "the company to be told the new handle",
+        async () => ((await fireAt(user.address, GRANTED_LOAN)).result as { handle?: string } | undefined)?.handle === profile.handle ? true : undefined,
+        4000,
+      );
+      const decided = await until(
+        "the decision on the corrected details",
+        async () => {
+          const f = await fireAt(user.address, GRANTED_LOAN, "loan_decision");
+          return f.decision === "ALLOWED" && (f.result as { limit?: number }).limit === 600000 ? f : undefined;
+        },
+        5000,
+      );
+      check(decided, "the corrected profile did not change the limit");
     });
 
     await step("user withdraws credit_check; apply is refused with 451 CONSENT_WITHDRAWN", async () => {
@@ -485,6 +561,12 @@ async function main(): Promise<void> {
       const fired = await fire("credit_check", "loan_decision");
       expectEqual([fired.decision, fired.reason, fired.result], ["BLOCKED", "CONSENT_WITHDRAWN", undefined], "the apply request after withdrawal");
       record("loan decision after withdrawal", fired, "BLOCKED");
+      const refused = await until(
+        "the refusal in the wallet's Activity",
+        async () => (await call<{ items: Array<{ outcome?: string; dataCategories?: string[] }> }>("GET", `/v1/principals/${user.address}/activity?limit=50`)).items.find((i) => i.outcome === "blocked"),
+        5000,
+      );
+      expectEqual(refused.dataCategories, [], "a refusal reads no category");
     });
 
     await step("the vault entry is erased: metadata stays, ciphertext is gone", async () => {
@@ -499,6 +581,17 @@ async function main(): Promise<void> {
       expectEqual([erased.envelope, erased.ciphertextHash], [null, profile.ciphertextHash], "erased entry");
     });
 
+    await step("erasure request completion: the company resolves the customer's request and the wallet is told", async () => {
+      check(rightsId, "no rights request was filed earlier");
+      const reply = "Your data has been erased from our systems.";
+      await call("POST", `/v1/fiduciaries/${FID}/rights/${rightsId}`, { status: "resolved", reply }, { [API_KEY_HEADER]: API_KEY });
+      const mine = await call<RightsResponse>("GET", `/v1/principals/${user.address}/rights`);
+      expectEqual(mine.rights.find((r) => r.id === rightsId)?.status, "resolved", "the rights request status");
+      const notes = (await call<NotificationsResponse>("GET", `/v1/principals/${user.address}/notifications`)).notifications;
+      const told = notes.find((n) => n.type === "rights.updated" && n.payload.rightsId === rightsId);
+      expectEqual([told?.payload.rightsStatus, told?.payload.reply], ["resolved", reply], "the wallet's alert");
+    });
+
     await step("the live feeds carried every vault step, and nothing but handles, hashes and codes", async () => {
       const names = () => events.filter((e) => /^(vault|processor)\./.test(e.event)).map((e) => e.event);
       await until("the vault.erased event", async () => (names().includes("vault.erased") ? true : undefined), 3000);
@@ -508,8 +601,8 @@ async function main(): Promise<void> {
         "vault and processor events, in order of first appearance",
       );
       const decided = events.filter((e): e is Extract<WsEvent, { event: "processor.decided" }> => e.event === "processor.decided");
-      expectEqual(decided.map((e) => [e.decision, e.limit, e.reasonCodes]), [["approved", 300000, ["SCORE_FAIR"]], ["blocked", null, ["CONSENT_WITHDRAWN"]]], "processor.decided");
-      expectEqual(events.filter((e) => e.event === "vault.erased").map((e) => (e as Extract<WsEvent, { event: "vault.erased" }>).cause), ["withdrawn"], "vault.erased cause (once)");
+      expectEqual(decided.map((e) => [e.decision, e.limit, e.reasonCodes]), [["approved", 300000, ["SCORE_FAIR"]], ["approved", 600000, ["SCORE_FAIR"]], ["blocked", null, ["CONSENT_WITHDRAWN"]]], "processor.decided");
+      expectEqual(events.filter((e) => e.event === "vault.erased").map((e) => (e as Extract<WsEvent, { event: "vault.erased" }>).cause), ["superseded", "withdrawn"], "vault.erased causes (the corrected copy replaced the first, then the withdrawal)");
     });
 
     // --- the customer portal and the wallet's data entry (prd.md C-09, W-13) ---
@@ -521,14 +614,15 @@ async function main(): Promise<void> {
       portalUser.wallet = shopper;
 
       const deps: JourneyDeps = {
+        company: { address: FID, name: QUICKLOAN.name, loanPurpose: GRANTED_LOAN, optionalPurposes: [] },
         createRequest: async (alias, purposes) => {
-          const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes, customerAlias: alias });
+          const created = await call<CreateRequestResponse>("POST", `/v1/fiduciaries/${FID}/requests`, { purposes, customerAlias: alias }, { [API_KEY_HEADER]: API_KEY });
           portalUser.purposes = purposes;
           return { requestId: created.requestId, qrPayload: created.qrPayload };
         },
-        consentRows: async () => (await call<{ rows: Array<{ principal: string; customerAlias: string | null }> }>("GET", `/v1/fiduciaries/${FID}/consents`)).rows,
+        consentRows: async () => (await call<{ rows: Array<{ principal: string; customerAlias: string | null }> }>("GET", `/v1/fiduciaries/${FID}/consents`, undefined, { [API_KEY_HEADER]: API_KEY })).rows,
         apply: async (alias, principal) => {
-          const answered = await raw("POST", `http://localhost:${QUICKLOAN.port}/customers/${encodeURIComponent(alias)}/apply`, undefined, { "x-sammati-principal": principal });
+          const answered = await raw("POST", `http://localhost:${LENDER_PORT}/customers/${encodeURIComponent(alias)}/apply`, undefined, { "x-sammati-principal": principal });
           const entryId = answered.headers.get("x-sammati-entry-id");
           if (entryId) entries.push({ label: "portal apply", id: entryId, expected: answered.status === 451 ? "BLOCKED" : "ALLOWED" });
           return { status: answered.status, body: answered.json };
@@ -555,7 +649,9 @@ async function main(): Promise<void> {
 
       check(!journey.login(PLAINTEXT), "the login accepted a PAN as a name");
       check(journey.login(portalName), "the login refused an ordinary name");
-      expectEqual(journey.state.stage, "form", "stage after sign-in");
+      expectEqual(journey.state.stage, "home", "stage after sign-in");
+      journey.startApplication();
+      expectEqual(journey.state.stage, "form", "stage after startApplication");
       expectEqual(journey.state.optional, [], "nothing is pre-ticked");
 
       await journey.tick();
@@ -594,17 +690,17 @@ async function main(): Promise<void> {
       const shopper = portalUser.wallet!;
       const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
       // W10, manual entry: PAN, income band and employment; no credit score to give.
-      const typed = { employment: "salaried", incomeBand: DEMO_PROFILE.incomeBand, pan: DEMO_PROFILE.pan };
+      const typed = { employment: "salaried", incomeBand: TEST_PROFILE.incomeBand, pan: TEST_PROFILE.pan };
       const envelope = seal(typed, key.publicKey!, { fiduciary: FID, principal: shopper.address, purposeCode: "credit_check" });
       const requestId = `e2e-portal-${Date.now()}`;
-      const signature = await shopper.signMessage(submitMessage(handleOf(envelope), requestId));
-      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: shopper.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, signature });
+      const signature = await shopper.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+      const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: shopper.address, fiduciary: FID, purposeCode: "credit_check", envelope, requestId, version: 1, signature });
       expectEqual(submit.status, 201, "submit status");
       await portalStage("data-submitted", "the portal to show \"Data submitted securely\"");
       expectEqual(portalUser.journey!.state.vault, { handle: handleOf(envelope), ciphertextHash: ciphertextHashOf(envelope) }, "what the portal holds");
       // the portal's whole state, serialised, has nothing of the details in it
       const stateText = JSON.stringify(portalUser.journey!.state);
-      for (const secret of [DEMO_PROFILE.pan, DEMO_PROFILE.incomeBand, "salaried"]) check(!stateText.includes(secret), `the portal's state contains "${secret}"`);
+      for (const secret of [TEST_PROFILE.pan, TEST_PROFILE.incomeBand, "salaried"]) check(!stateText.includes(secret), `the portal's state contains "${secret}"`);
     });
 
     await step("portal: Apply returns a decision card, from data the page never saw", async () => {
@@ -620,21 +716,22 @@ async function main(): Promise<void> {
       const message = { principal: shopper.address, fiduciary: FID, purposeId: CREDIT_ID, nonce: n.nonce, deadline: inAnHour() };
       const signature = await shopper.signTypedData(n.domain, { WithdrawConsent: [...WITHDRAW_CONSENT_TYPE] }, message);
       expectEqual((await call<WithdrawResponse>("POST", "/v1/consents/withdraw", { request: message, signature })).status, "confirmed", "withdraw status");
-      await portalStage("withdrawn", "the portal to show \"Consent withdrawn\"");
+      await portalStage("home", "the portal to return home after withdrawal");
       expectEqual(portalUser.journey!.state.decision, null, "the old decision is gone");
+      expectEqual(portalUser.journey!.state.notice, "Your data consent was withdrawn.", "the withdrawal message");
 
       // the page will not even try; and QuickLoan's backend refuses if asked anyway
       const before = entries.length;
       await portalUser.journey!.apply();
       expectEqual(entries.length, before, "a withdrawn page must not call the company");
-      const direct = await raw("POST", `http://localhost:${QUICKLOAN.port}/customers/portal/apply`, undefined, { "x-sammati-principal": shopper.address });
+      const direct = await raw("POST", `http://localhost:${LENDER_PORT}/customers/portal/apply`, undefined, { "x-sammati-principal": shopper.address });
       expectEqual([direct.status, direct.json.code], [451, "CONSENT_WITHDRAWN"], "QuickLoan's own answer to an Apply after withdrawal");
       const entryId = direct.headers.get("x-sammati-entry-id");
       check(entryId, "the refusal carried no log entry id");
       entries.push({ label: "portal apply after withdrawal", id: entryId!, expected: "BLOCKED" });
 
       await until("the portal to learn the details were erased", async () => (portalUser.journey!.state.dataErased ? true : undefined), 4000);
-      expectEqual(portalUser.journey!.state.stage, "withdrawn", "the page stays on withdrawn");
+      expectEqual(portalUser.journey!.state.stage, "home", "the page stays on home");
       portalUser.feed!.close();
     });
 
@@ -737,14 +834,14 @@ async function main(): Promise<void> {
     const application = (name: string): ApplicationInput => ({
       name,
       sector: "Banking",
-      contactEmail: "ops@demobank.example",
+      contactEmail: "ops@testbank.example",
       purposes: [
-        { code: "loan_offers", title: text3("Loan offers"), description: text3("Send you loan offers"), dataCategories: ["phone"], retentionDays: 90, sharesThirdParty: false, required: false },
-        { code: "bureau_share", title: text3("Bureau sharing"), description: text3("Share repayment history with a bureau"), dataCategories: ["repayment history"], retentionDays: 365, sharesThirdParty: true, required: false },
+        { code: "loan_offers", title: text3("Loan offers"), description: text3("Send you loan offers"), dataCategories: ["contact.mobile"], retentionDays: 90, sharesThirdParty: false, required: false },
+        { code: "bureau_share", title: text3("Bureau sharing"), description: text3("Share repayment history with a bureau"), dataCategories: ["financial.income_band"], retentionDays: 365, sharesThirdParty: true, required: false },
       ],
       processors: [{ name: "BureauOne", purposeCode: "bureau_share" }],
     });
-    const bankName = `DemoBank${Date.now().toString(36).slice(-4)}`;
+    const bankName = `TestBank${Date.now().toString(36).slice(-4)}`;
     const bank = { id: "", address: "", apiKey: "", name: bankName };
     const customerWithId = async (label: string) => {
       const wallet = Wallet.createRandom();
@@ -790,7 +887,7 @@ async function main(): Promise<void> {
       check(approved.txHashes.length >= 4, "too few ledger transactions for a company, two purposes and a processor");
 
       const listed = (await call<FiduciariesResponse>("GET", "/v1/fiduciaries")).fiduciaries.find((f) => f.address === bank.address);
-      expectEqual([listed?.name, listed?.sandbox, listed?.demo, listed?.color], [bankName, true, false, "#16173F"], "the directory entry");
+      expectEqual([listed?.name, listed?.sandbox, listed?.color], [bankName, true, "#16173F"], "the directory entry");
       expectEqual((await call<FiduciaryPurposesResponse>("GET", `/v1/fiduciaries/${bank.address}/purposes`)).purposes.map((p) => p.code), ["loan_offers", "bureau_share"], "its purposes");
       const ledger = await call<{ events: Array<{ type: string; payload: { kind?: string } | null }> }>("GET", `/v1/audit/ledger?fid=${bank.address}&type=purpose`);
       const kinds = ledger.events.map((e) => e.payload?.kind);
@@ -835,7 +932,7 @@ async function main(): Promise<void> {
 
         await sample.close(); // flushes its log entries to Core
         const log = (await call<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${bank.address}/access?limit=10`)).items;
-        expectEqual(log.map((e) => `${e.decision}:${e.reason}`).reverse(), ["BLOCKED:NO_CONSENT", "ALLOWED:OK", "BLOCKED:CONSENT_WITHDRAWN"], "DemoBank's own access log");
+        expectEqual(log.map((e) => `${e.decision}:${e.reason}`).reverse(), ["BLOCKED:NO_CONSENT", "ALLOWED:OK", "BLOCKED:CONSENT_WITHDRAWN"], "TestBank's own access log");
       } finally {
         await sample.close().catch(() => undefined);
       }
@@ -854,7 +951,7 @@ async function main(): Promise<void> {
 
       // keys are scoped, and fail closed
       const other = await api<{ error: { code: string } }>("POST", `/v1/fiduciaries/${FID}/requests/targeted`, { handle: stranger.handle, purposes: [GRANTED_LOAN] }, key);
-      expectEqual([other.status, other.json.error.code], [403, "FIDUCIARY_MISMATCH"], "DemoBank's key on QuickLoan");
+      expectEqual([other.status, other.json.error.code], [403, "FIDUCIARY_MISMATCH"], "TestBank's key on QuickLoan");
       const none = await api<{ error: { code: string } }>("GET", `/v1/gateway/consent-state?principal=${stranger.wallet.address}&fid=${bank.address}&purpose=loan_offers`);
       expectEqual([none.status, none.json.error.code], [401, "INVALID_API_KEY"], "a gateway call with no key");
 
@@ -878,9 +975,7 @@ async function main(): Promise<void> {
       return rows.sort((a, b) => a.seq - b.seq);
     });
 
-    await step("anchor the log on chain now (instead of waiting for the 10 s timer)", async () => {
-      // The timer may get there first and leave this call nothing to do, so check the outcome, not who did it.
-      await call<DemoAnchorResponse>("POST", "/v1/demo/anchor", { fiduciary: FID });
+    await step("Core anchors the log on chain on its own timer", async () => {
       const wanted = new Set(stored.map((r) => r.id));
       await until(
         "every entry of this run to be covered by an anchored batch",
@@ -888,7 +983,7 @@ async function main(): Promise<void> {
           const rows = (await call<FiduciaryAccessResponse>("GET", `/v1/fiduciaries/${FID}/access?limit=500`)).items.filter((r) => wanted.has(r.id));
           return rows.length === wanted.size && rows.every((r) => r.batchIndex !== null) ? true : undefined;
         },
-        4000,
+        12_000,
       );
     });
 
@@ -898,11 +993,19 @@ async function main(): Promise<void> {
       check(v.batches.length >= 1 && v.batches.every((b) => b.ok && b.recomputedRoot === b.anchoredRoot), "a batch does not match its on-chain root");
     });
 
-    const tampered = await step("tamper with one stored log row (hide a refusal)", async () => {
-      const t = await call<TamperResponse>("POST", `/v1/demo/tamper/${FID}`);
-      check(stored.some((r) => r.seq === t.seq), `tampered row ${t.seq} is not one of this run's entries ${stored.map((r) => r.seq)}`);
-      expectEqual([t.field, t.before, t.after], ["decision", "BLOCKED", "ALLOWED"], "what the tamper changed");
-      return t;
+    const tampered = await step("an insider edits one stored log row with `pnpm dev:tamper` (hides a refusal)", async () => {
+      // Core's row for this run's newest anchored refusal: the CLI is given a company and a seq, like a person would.
+      const target = [...stored].reverse().find((r) => r.decision === "BLOCKED" && r.batchIndex !== null);
+      check(target, "this run has no anchored refusal to hide");
+      const ran = spawnSync("pnpm", ["--filter", "@sammati/core", "dev:tamper", "--", FID, String(target!.seq)], {
+        cwd: repoRoot,
+        shell: true,
+        encoding: "utf8",
+        env: { ...process.env, DEV_TOOLS: "true", DB_PATH: stack.dbFile },
+      });
+      check(ran.status === 0, `pnpm dev:tamper failed: ${(ran.stdout + ran.stderr).trim().split("\n").slice(-3).join(" | ")}`);
+      check(ran.stdout.includes("BLOCKED -> ALLOWED"), "the tamper script did not report what it changed");
+      return { seq: target!.seq };
     });
 
     await step("verify again: the mismatch is pinpointed to that exact record", async () => {
@@ -920,12 +1023,10 @@ async function main(): Promise<void> {
     });
 
     // --- expiry, renewal and the notification centre (prd.md N-03 to N-05) ---
-    // Needs the stack in DEMO_FAST_EXPIRY (seconds, not days): a stack started here is; one that was already running may not be.
+    // The stack started here has reminders and erasure in seconds (startStack). The consents themselves are short because the customer signs a short expiresAt.
 
     const fastExpiry = (await call<NotificationsResponse>("GET", `/v1/principals/${Wallet.createRandom().address}/notifications`)).config;
-    if (!fastExpiry.fastExpiry || (fastExpiry.thresholdsSeconds[0] ?? Infinity) > 10) {
-      console.log("  - SKIPPED expiry, renewal and notifications: the stack that was already running is not in DEMO_FAST_EXPIRY. Stop it, or run `pnpm demo:up:fast`, or let `pnpm e2e` start its own.");
-    } else {
+    {
       const LIFE = (fastExpiry.thresholdsSeconds[0] ?? 5) + 4; // seconds the short consents last: the first reminder, then the rest of the way
       const alerts = new Map<string, WsEvent[]>();
       const sockets: WebSocket[] = [];
@@ -943,8 +1044,7 @@ async function main(): Promise<void> {
       };
       const heard = (who: Signer, name: WsEvent["event"]) => (alerts.get(who.address) ?? []).filter((e) => e.event === name);
       const listOf = async (who: Signer) => (await call<NotificationsResponse>("GET", `/v1/principals/${who.address}/notifications`)).notifications.reverse();
-      const fireFor = (who: Signer, action?: "loan_decision") =>
-        call<DemoFireResponse>("POST", "/v1/demo/fire", { fiduciary: FID, purposeCode: GRANTED_LOAN, principal: who.address, ...(action ? { action } : {}) });
+      const fireFor = (who: Signer, action?: "loan_decision") => fireAt(who.address, GRANTED_LOAN, action);
 
       const bea = Wallet.createRandom(); // renews
       const cy = Wallet.createRandom(); // lets it lapse, and had sent details
@@ -965,10 +1065,10 @@ async function main(): Promise<void> {
           grantedAt = Date.now();
 
           const key = (await raw("GET", `${PROCESSOR}/v1/processor/pubkey`)).json;
-          const envelope = seal(DEMO_PROFILE, key.publicKey!, { fiduciary: FID, principal: cy.address, purposeCode: GRANTED_LOAN });
+          const envelope = seal(TEST_PROFILE, key.publicKey!, { fiduciary: FID, principal: cy.address, purposeCode: GRANTED_LOAN });
           const requestId = `e2e-cy-${Date.now()}`;
-          const signature = await cy.signMessage(submitMessage(handleOf(envelope), requestId));
-          const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: cy.address, fiduciary: FID, purposeCode: GRANTED_LOAN, envelope, requestId, signature });
+          const signature = await cy.signMessage(submitMessage(handleOf(envelope), requestId, 1));
+          const submit = await raw("POST", `${PROCESSOR}/v1/vault/submit`, { principal: cy.address, fiduciary: FID, purposeCode: GRANTED_LOAN, envelope, requestId, version: 1, signature });
           expectEqual(submit.status, 201, "submit status");
           cyHandle = submit.json.handle!;
 
@@ -1092,7 +1192,7 @@ async function main(): Promise<void> {
       expectEqual(alert?.firstBadSeq, tampered.seq, "tamper.alert names the row");
     });
 
-    await step("the demo PAN appears nowhere: not in any response, event, log or database file", async () => {
+    await step("the PAN this run submitted appears nowhere: not in any response, event, log or database file", async () => {
       // Everything the run said or stored, as text. The searches are real: the same text must contain what we expect to find.
       const databases = [stack.dbFile, join(repoRoot, "core/data/sammati.sqlite"), stack.vaultFile, join(repoRoot, "processor/data/processor.sqlite")];
       const files = databases.flatMap((f) => ["", "-wal", "-shm"].map((x) => f + x)).filter((f) => existsSync(f));
@@ -1100,44 +1200,19 @@ async function main(): Promise<void> {
         ["HTTP responses", traffic.join("\n")],
         ["WebSocket events", events.map((e) => JSON.stringify(e)).join("\n")],
         ["the portal's live feed", portalFrames.map((f) => JSON.stringify(f)).join("\n")],
-        ...(existsSync(stack.logFile) && how === "started" ? ([["the stack's output", readFileSync(stack.logFile, "latin1")]] as Array<[string, string]>) : []),
+        ...(existsSync(stack.logFile) ? ([["the stack's output", readFileSync(stack.logFile, "latin1")]] as Array<[string, string]>) : []),
         ...files.map((f): [string, string] => [`database file ${f}`, readFileSync(f, "latin1")]),
       ];
       check(traffic.length > 20 && events.length > 10, "the search saw too little traffic to mean anything");
       check(haystacks.some(([, text]) => text.includes("approved")), "control failed: the captured traffic does not contain the loan decision");
       check(files.some((f) => /processor/.test(f)), "control failed: the Processor's database file was not found, so it was not searched");
       for (const [where, text] of haystacks) {
-        for (const secret of [PLAINTEXT, DEMO_PROFILE.incomeBand]) {
+        for (const secret of [PLAINTEXT, TEST_PROFILE.incomeBand, "9+ LPA"]) {
           if (text.includes(secret)) fail(`"${secret}" was found in ${where}`);
         }
       }
-      if (how === "reused") console.log("    (the stack was already running: its console output was not captured, so it was not searched)");
     });
 
-    const recordTo = process.env.E2E_RECORD_FLOW;
-    if (recordTo) {
-      await step(`record the flow for the Data Flow Inspector's replay (${recordTo})`, async () => {
-        const kept = events
-          .map((event, i) => ({ event, at: eventTimes[i]! }))
-          .filter(({ event }) => /^(vault|processor)\./.test(event.event) && (event as { principal?: string }).principal === user.address);
-        check(kept.length >= 8 && recorded.staffView && recorded.vaultRow, "the run did not produce a complete flow to record");
-        const first = kept[0]!.at;
-        const file = {
-          v: 1,
-          recordedAt: new Date().toISOString(),
-          note: "Recorded from a real `pnpm e2e` run: real events, the real ciphertext row, QuickLoan's real admin answer.",
-          events: kept.map(({ event, at }) => ({ t: at - first, event })),
-          vaultRow: recorded.vaultRow,
-          staffView: recorded.staffView,
-        };
-        const text = JSON.stringify(file, null, 2) + "\n";
-        // The recording is played in a browser, so it gets the same search as everything else this run produced.
-        if (text.includes(PLAINTEXT) || text.includes(DEMO_PROFILE.incomeBand)) fail("the recording contains the demo profile");
-        const target = resolve(repoRoot, recordTo);
-        mkdirSync(dirname(target), { recursive: true });
-        writeFileSync(target, text);
-      });
-    }
   } finally {
     socket.close();
   }
@@ -1145,14 +1220,13 @@ async function main(): Promise<void> {
   const total = Date.now() - suiteStarted;
   console.log(`\nAll ${timings.length} steps passed in ${(total / 1000).toFixed(1)} s (budget ${BUDGET_MS / 1000} s).`);
   if (total > BUDGET_MS) fail(`the story took ${(total / 1000).toFixed(1)} s, over the ${BUDGET_MS / 1000} s budget (trd.md §11)`);
-  if (how === "reused") console.log("The QuickLoan log is now deliberately tampered with: run `pnpm demo:reset` before the next rehearsal.");
 }
 
 try {
   await main();
 } catch (err) {
   console.error(`\nE2E FAILED: ${err instanceof Error ? err.message : String(err)}`);
-  if (stack.child) {
+  if (stack.child || stack.lender) {
     try {
       console.error(`\n--- last lines of the stack log (${stack.logFile}) ---\n${readFileSync(stack.logFile, "utf8").trim().split("\n").slice(-12).join("\n")}`);
     } catch {

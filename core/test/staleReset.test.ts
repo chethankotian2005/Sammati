@@ -5,15 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SEED_FIDUCIARIES, chainEntry, type AccessLogEntry, type VerifyResponse } from "@sammati/shared";
+import { chainEntry, type AccessLogEntry, type VerifyResponse } from "@sammati/shared";
 import { createRealApp } from "../src/app";
 import { chainFingerprint, storedFingerprint } from "../src/real/fingerprint";
-import { createRealCore, type RealCore } from "../src/real/core";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import type { RealCore } from "../src/real/core";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
 // The bug this guards: reset the chain, keep Core's database. The old log rows were then anchored onto
 // the new chain, and every Verify after that was red before anyone had tampered with anything.
-const QL = SEED_FIDUCIARIES[0]!.address;
+const QL = TEST_COMPANIES[0]!.address;
 const PRINCIPAL = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
 let chain: TestChain;
@@ -22,7 +23,7 @@ let dbPath: string;
 const opened: RealCore[] = [];
 
 async function open(): Promise<RealCore> {
-  const core = await createRealCore(realConfig(chain, { dbPath }), () => {}, () => {});
+  const core = await createTestCore(realConfig(chain, { dbPath }), () => {}, () => {});
   opened.push(core);
   return core;
 }
@@ -35,7 +36,8 @@ function close(core: RealCore): void {
 /** Appends `n` entries to QuickLoan's log exactly as the gateway would (hash-chained from the stored head). */
 function writeLog(core: RealCore, n: number): void {
   for (let i = 0; i < n; i++) {
-    const { seq, prevHash } = core.repo.nextLogPosition(QL);
+    const { seq, head } = core.repo.nextLogPosition(QL);
+    const prevHash = head?.hash ?? null;
     const entry: AccessLogEntry = {
       at: Math.floor(Date.now() / 1000),
       decision: i % 2 ? "BLOCKED" : "ALLOWED",
@@ -98,7 +100,7 @@ describe("a database that describes a different chain", () => {
     const oldFingerprint = storedFingerprint(run.repo);
     close(run);
 
-    // reset the chain only: the database file is not touched (this is what demo:reset's old order did)
+    // reset the chain only: the database file is not touched (this is what the old reset order did)
     await chain.reset();
 
     const restarted = await open();

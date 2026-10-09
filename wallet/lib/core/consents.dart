@@ -29,6 +29,8 @@ class ConsentView {
     required this.expiresAt,
     required this.lastTx,
     required this.required,
+    this.dataCategories = const [],
+    this.noticeHash,
   });
 
   factory ConsentView.fromJson(Map<String, dynamic> json) => ConsentView(
@@ -39,6 +41,8 @@ class ConsentView {
         expiresAt: json['expiresAt'] as int?,
         lastTx: json['lastTx'] as String?,
         required: json['required'] as bool,
+        dataCategories: ((json['dataCategories'] as List?) ?? const []).cast<String>(),
+        noticeHash: json['noticeHash'] as String?,
       );
 
   final String purposeId;
@@ -50,6 +54,12 @@ class ConsentView {
   final int? expiresAt;
   final String? lastTx;
   final bool required;
+
+  /// Registry ids of the data this purpose uses (data_categories.dart): what a consent needs from the profile.
+  final List<String> dataCategories;
+
+  /// The notice hash the customer signed; a submission quotes it so the Processor can check it (trd.md §6.13).
+  final String? noticeHash;
 
   ConsentState stateAt(DateTime now) {
     if (status == ConsentStatus.withdrawn) return ConsentState.withdrawn;
@@ -66,6 +76,8 @@ class ConsentView {
         expiresAt: expiresAt ?? this.expiresAt,
         lastTx: lastTx ?? this.lastTx,
         required: required,
+        dataCategories: dataCategories,
+        noticeHash: noticeHash,
       );
 }
 

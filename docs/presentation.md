@@ -50,7 +50,7 @@
 *2. "I signed this with my key. The company cannot forge it."*
 *3. "The gateway checked the ledger before releasing a single byte."*
 *4. (Withdraw) "Withdraw is two taps. The very next request is blocked. And the company's partner was told and confirmed."*
-*5. (Auditor Tamper) "A company edits its own log to hide an access. The regulator catches it without trusting the company."*
+*5. (Auditor, after `pnpm dev:tamper`) "A company edits its own log to hide an access. The regulator catches it without trusting the company."*
 
 ### Slide 5: Why This Is Real
 **Title:** Built for Production
@@ -66,10 +66,10 @@
 ### Slide 6: How Sammati lines up with the Act's principles
 **Title:** Aligned with the principles. Not certified.
 **Content:**
-- Notice and consent: itemised plain-language purposes, a separate choice per purpose, nothing pre-ticked, in English, Hindi and Kannada (the seed's Hindi and Kannada purpose text is still being reviewed).
+- Notice and consent: itemised plain-language purposes, a separate choice per purpose, nothing pre-ticked, in English, Hindi and Kannada (a company's Hindi and Kannada purpose text is its own and unreviewed).
 - Withdrawal and erasure: two taps to withdraw, the company's next request is blocked, the sealed copy is erased, processors are told and acknowledge on chain.
 - Consent-manager role: accountable to the person (only her signature changes consent); Core never receives the data it manages.
-- Honest gaps: simulated enclave, demo-held keys, no breach flow, no children's data, no correction or nomination.
+- Honest gaps: simulated sealed service, Core-held keys, no breach flow, no children's data, no correction or nomination.
 - Footer: "28 obligations mapped: 10 implemented, 12 partial, 6 out of scope. Every legal point is marked VERIFY until checked. docs/dpdp-mapping.md"
 
 **Speaker Notes:**
@@ -150,4 +150,4 @@ Ensure a native speaker reviews the following exact strings before the demo.
 | `withdraw_easy` | आप बाद में किसी भी उद्देश्य की सहमति उतनी ही आसानी से वापस ले सकते हैं। | ನೀವು ನಂತರ ಯಾವುದೇ ಉದ್ದೇಶದ ಒಪ್ಪಿಗೆಯನ್ನು ನೀಡಿದಷ್ಟೇ ಸುಲಭವಾಗಿ ಹಿಂಪಡೆಯಬಹುದು. |
 | `recorded` | लेजर पर दर्ज | ಲೆಡ್ಜರ್‌ನಲ್ಲಿ ದಾಖಲಾಗಿದೆ |
 
-*(Also ensure any purpose descriptions created for QuickLoan, MediCare+, and FoodRush are translated naturally)*
+*(Also ensure any purpose descriptions are translated naturally)*

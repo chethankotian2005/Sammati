@@ -111,7 +111,7 @@ export function OverviewSection({
             className="flex items-center gap-2 rounded-row border border-line bg-surface px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-paper"
           >
             <span className="text-base text-marigold">⚡</span>
-            Open simulator
+            Live requests
           </button>
           <button
             type="button"
@@ -173,7 +173,7 @@ export function OverviewSection({
           <div className="space-y-2">
             {recentFeedRows.length === 0 ? (
               <div className="rounded-row border border-dashed border-line p-8 text-center text-sm text-mute">
-                No access requests yet. Fire simulated requests in the Simulator tab.
+                No access requests yet. Calls from your server appear here.
               </div>
             ) : (
               recentFeedRows.map((row) => (

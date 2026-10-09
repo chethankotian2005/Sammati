@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/vault_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../theme/tokens.dart';
+import '../activity/activity_text.dart' show categoriesText;
 import '../shell/hash_text.dart';
 
 /// One status line with an icon: status never relies on colour alone (ui.md §7).
@@ -27,11 +28,14 @@ class StatusLine extends StatelessWidget {
 /// What happened to the details the customer sent: sending, sent (with the handle), erased, failed. Shared by the
 /// pass (V2) and the share screen (W10), so the two never disagree. Nothing for the idle state.
 class VaultStatusLines extends StatelessWidget {
-  const VaultStatusLines({super.key, required this.stage, required this.vault, required this.company});
+  const VaultStatusLines({super.key, required this.stage, required this.vault, required this.company, this.categories = const []});
 
   final VaultStage stage;
   final VaultState vault;
   final String company;
+
+  /// Registry ids of what the purpose uses, to say what the company no longer holds (W-18).
+  final List<String> categories;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +49,7 @@ class VaultStatusLines extends StatelessWidget {
             if (vault.handle != null) HashText(vault.handle!),
           ],
         ),
-      VaultStage.erased => StatusLine(icon: Icons.delete_outline, color: SammatiColors.mute, text: t.vault_erased),
+      VaultStage.erased => StatusLine(icon: Icons.delete_outline, color: SammatiColors.mute, text: categories.isEmpty ? t.vault_erased : t.erased_named(company, categoriesText(context, categories))),
       VaultStage.failed => StatusLine(
           icon: Icons.error_outline,
           color: SammatiColors.block,

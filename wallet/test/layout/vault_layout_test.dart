@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sammati/core/live_events.dart';
 import 'package:sammati/core/core_api.dart';
 import 'package:sammati/features/consents/pass_detail_screen.dart';
-import 'package:sammati/features/vault/demo_profile_screen.dart';
+import 'package:sammati/features/profile/profile_screen.dart';
 import 'package:sammati/features/vault/share_details_screen.dart';
 
 import '../support/fake_core.dart';
@@ -20,6 +20,7 @@ import '../support/pump_app.dart';
 
 const _now = 1760000000;
 const _day = 86400;
+const _loanProfile = {'pan': 'QZXWV9876K', 'incomeBand': '6-9 LPA', 'employment': 'salaried'};
 
 Future<void> _loadBundledFonts() async {
   const files = {
@@ -82,7 +83,7 @@ void main() {
         phone(tester);
         final live = FakeLiveEvents();
         final processor = FakeProcessorApi();
-        await pumpApp(tester, stored: {'locale': locale}, core: core(), live: live, processor: processor);
+        await pumpApp(tester, stored: {'locale': locale}, core: core(), live: live, processor: processor, profile: _loanProfile);
         await tester.tap(find.text('QuickLoan'));
         await tester.pumpAndSettle();
         _expectFits(tester, PassDetailScreen, size.width); // idle: button and hint
@@ -91,9 +92,6 @@ void main() {
         await tester.tap(find.byIcon(Icons.lock_outline));
         await tester.pumpAndSettle();
         _expectFits(tester, ShareDetailsScreen, size.width); // empty form
-        await tester.tap(find.byIcon(Icons.badge_outlined)); // use demo details
-        await tester.pumpAndSettle();
-        _expectFits(tester, ShareDetailsScreen, size.width); // filled form
         await tester.tap(find.byType(FilledButton).first);
         await tester.pumpAndSettle();
         expect(processor.submissions, hasLength(1));
@@ -110,8 +108,6 @@ void main() {
         processor.submitError = const CoreException(CoreFailure.server);
         await tester.tap(find.byIcon(Icons.lock_outline));
         await tester.pumpAndSettle();
-        await tester.tap(find.byIcon(Icons.badge_outlined));
-        await tester.pumpAndSettle();
         await tester.tap(find.byType(FilledButton).first);
         await tester.pumpAndSettle();
         _expectFits(tester, ShareDetailsScreen, size.width);
@@ -125,7 +121,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byIcon(Icons.badge_outlined));
         await tester.pumpAndSettle();
-        _expectFits(tester, DemoProfileScreen, size.width);
+        _expectFits(tester, ProfileScreen, size.width);
       });
     }
   }

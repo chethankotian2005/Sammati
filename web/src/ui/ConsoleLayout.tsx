@@ -18,6 +18,7 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import { CoreChip } from "../components";
+import { storedConsoleOperator } from "../session";
 import { useDirectory } from "../directory";
 import { SandboxBadge } from "./SandboxBadge";
 import { WsIndicator } from "./WsIndicator";
@@ -29,7 +30,8 @@ export type RailSection =
   | "consents"
   | "live-requests"
   | "processors"
-  | "evidence";
+  | "evidence"
+  | "rights-inbox";
 
 const RAIL_ITEMS: { id: RailSection; label: string; icon: string }[] = [
   { id: "overview",      label: "Overview",       icon: "⊞" },
@@ -39,6 +41,7 @@ const RAIL_ITEMS: { id: RailSection; label: string; icon: string }[] = [
   { id: "live-requests", label: "Live requests",   icon: "⚡" },
   { id: "processors",    label: "Processors",      icon: "⟳" },
   { id: "evidence",      label: "Evidence",        icon: "🗂" },
+  { id: "rights-inbox",  label: "Rights inbox",    icon: "📥" },
 ];
 
 interface ConsoleLayoutProps {
@@ -55,6 +58,9 @@ export function ConsoleLayout({
   onSectionChange,
 }: ConsoleLayoutProps): ReactNode {
   const { id: companyId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const operatorStr = storedConsoleOperator();
+  const operator = operatorStr ? JSON.parse(operatorStr) : null;
 
   return (
     <div className="flex min-h-screen bg-paper">
@@ -105,13 +111,6 @@ export function ConsoleLayout({
             <span aria-hidden="true" className="text-base leading-none">⚖</span>
             Auditor
           </Link>
-          <Link
-            to="/stage"
-            className="mt-0.5 flex items-center gap-3 rounded-row px-3 py-2.5 text-sm font-medium text-paper/70 transition-colors hover:bg-white/10 hover:text-paper"
-          >
-            <span aria-hidden="true" className="text-base leading-none">▶</span>
-            Stage view
-          </Link>
         </div>
       </nav>
 
@@ -145,10 +144,14 @@ const MAX_PILLS = 5;
 function CompanySwitcher({ currentId }: { currentId: string | undefined }): ReactNode {
   const { fiduciaries, status } = useDirectory();
   const navigate = useNavigate();
+  const operatorStr = storedConsoleOperator();
+  const operator = operatorStr ? JSON.parse(operatorStr) : null;
+  const myFids = operator ? fiduciaries.filter(f => operator.fiduciaries.some((of: any) => of.address.toLowerCase() === f.address.toLowerCase())) : [];
+
   if (status !== "ready") {
     return <span className="text-sm text-mute">{status === "loading" ? "Loading companies…" : "Cannot load the companies"}</span>;
   }
-  if (fiduciaries.length > MAX_PILLS) {
+  if (myFids.length > MAX_PILLS) {
     return (
       <label className="flex items-center gap-2 text-sm font-medium text-ink">
         <span className="text-mute">Company</span>
@@ -158,7 +161,7 @@ function CompanySwitcher({ currentId }: { currentId: string | undefined }): Reac
           onChange={(e) => navigate(`/company/${e.target.value}`)}
           className="rounded-pill border border-line bg-paper px-3 py-1.5 text-sm font-medium"
         >
-          {fiduciaries.map((f) => (
+          {myFids.map((f) => (
             <option key={f.slug} value={f.slug}>
               {f.name}
               {f.sandbox ? " (sandbox)" : ""}
@@ -174,7 +177,7 @@ function CompanySwitcher({ currentId }: { currentId: string | undefined }): Reac
       aria-label="Switch company"
       className="flex gap-1 rounded-pill border border-line bg-paper p-1"
     >
-      {fiduciaries.map((f) => {
+      {myFids.map((f) => {
         const isActive = f.slug === currentId;
         return (
           <Link

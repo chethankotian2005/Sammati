@@ -5,7 +5,16 @@ import type { Chain } from "./chain";
 import { clearChainDerived, type Db } from "./db";
 import { addr, statusOf, type LedgerInsert, type Repo } from "./repo";
 
-const CHUNK_BLOCKS = 2000;
+const DEFAULT_CHUNK_BLOCKS = 2000;
+/** With no new block the saved block's hash is still re-checked, but only every this many polls, to spare the RPC. */
+const IDLE_HASH_CHECK_EVERY = 20;
+
+export interface IndexerOptions {
+  /** Most blocks one eth_getLogs asks for (public RPCs cap the range). */
+  chunkBlocks?: number;
+  /** A chain that is not the one this database describes: wipe and re-read (local) or refuse (production, trd.md §10.7). */
+  wipeOnChainChange?: boolean;
+}
 
 /**
  * Reads ConsentRegistry and AccessAnchor events into ledger_events and consents_cache (drd.md §3),
@@ -18,6 +27,10 @@ const CHUNK_BLOCKS = 2000;
  */
 export class Indexer {
   private timer: NodeJS.Timeout | null = null;
+  private stopped = true;
+  private idleTicks = 0;
+  private readonly chunkBlocks: number;
+  private readonly wipeOnChainChange: boolean;
   private running: Promise<unknown> = Promise.resolve();
   private lastError: string | null = null;
   private readonly blockTimes = new Map<number, number>();
@@ -37,7 +50,11 @@ export class Indexer {
     private readonly chain: Chain,
     private readonly publish: (event: WsEvent) => void,
     private readonly log: (message: string) => void = console.warn,
-  ) {}
+    options: IndexerOptions = {},
+  ) {
+    this.chunkBlocks = options.chunkBlocks ?? DEFAULT_CHUNK_BLOCKS;
+    this.wipeOnChainChange = options.wipeOnChainChange ?? true;
+  }
 
   get startBlock(): number {
     return this.chain.deployment.startBlock ?? 0;
@@ -47,17 +64,33 @@ export class Indexer {
     return this.lastError;
   }
 
-  start(intervalMs: number): void {
-    const tick = () => {
-      this.syncOnce().catch(() => undefined); // syncOnce records the failure; the next tick retries
+  /**
+   * Polls every `intervalMs`. After a failed poll (a rate-limited or unreachable RPC) the wait doubles up to
+   * `maxBackoffMs`, with jitter, and returns to `intervalMs` after one success. A failure never moves the cursor.
+   */
+  start(intervalMs: number, maxBackoffMs = 60_000): void {
+    this.stopped = false;
+    let failures = 0;
+    const tick = async (): Promise<void> => {
+      if (this.stopped) return;
+      try {
+        await this.syncOnce();
+        failures = 0;
+      } catch (err) {
+        failures += 1;
+        this.log(`[indexer] poll failed (${err instanceof Error ? err.message.split("\n")[0] : String(err)}); retrying with backoff`);
+      }
+      if (this.stopped) return;
+      const wait = failures === 0 ? intervalMs : Math.min(maxBackoffMs, intervalMs * 2 ** failures) * (0.8 + Math.random() * 0.4);
+      this.timer = setTimeout(() => void tick(), wait);
+      this.timer.unref();
     };
-    tick();
-    this.timer = setInterval(tick, intervalMs);
-    this.timer.unref();
+    void tick();
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.stopped = true;
+    if (this.timer) clearTimeout(this.timer);
     this.timer = null;
   }
 
@@ -106,11 +139,17 @@ export class Indexer {
     const latest = await provider.getBlockNumber();
     let last = Number(this.repo.getState("last_block") ?? this.startBlock - 1);
 
-    // A node that was reset (hardhat_reset, a fresh `demo:up`) invalidates everything we derived from it.
+    // A node that was reset (hardhat_reset, a fresh `pnpm demo:up`) invalidates everything we derived from it.
+    // Looking costs a call, so with no new block it is done only now and then.
     const savedHash = this.repo.getState("last_block_hash");
-    if (savedHash !== undefined && last >= this.startBlock) {
+    const mustCheck = latest !== last || ++this.idleTicks >= IDLE_HASH_CHECK_EVERY;
+    if (savedHash !== undefined && last >= this.startBlock && mustCheck) {
+      this.idleTicks = 0;
       const block = last <= latest ? await provider.getBlock(last) : null;
       if (!block || block.hash !== savedHash) {
+        // A missing block can be a lagging or flaky RPC node as easily as a replaced chain, and in production the
+        // database is the only copy of what Core holds (company keys): never wipe it on that evidence.
+        if (!this.wipeOnChainChange) throw new Error(`CHAIN_MISMATCH: block ${last} is not the one this database indexed; not indexing until the RPC agrees again`);
         this.log("[indexer] chain changed under us (reset?): re-reading from the start");
         // A replaced chain makes the whole database stale, not just what was derived from events: log rows
         // would otherwise be anchored onto the new chain. Without the hook (tests) only the derived part goes.
@@ -121,8 +160,8 @@ export class Indexer {
       }
     }
 
-    for (let from = last + 1; from <= latest; from += CHUNK_BLOCKS) {
-      const to = Math.min(from + CHUNK_BLOCKS - 1, latest);
+    for (let from = last + 1; from <= latest; from += this.chunkBlocks) {
+      const to = Math.min(from + this.chunkBlocks - 1, latest);
       const logs = await provider.getLogs({
         address: [this.chain.deployment.consentRegistry, this.chain.deployment.accessAnchor],
         fromBlock: from,

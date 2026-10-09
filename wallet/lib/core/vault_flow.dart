@@ -12,9 +12,10 @@ import 'processor_api.dart';
 import 'wallet_service.dart';
 
 class VaultSent {
-  const VaultSent({required this.handle, required this.ciphertextHash});
+  const VaultSent({required this.handle, required this.ciphertextHash, required this.version});
   final String handle;
   final String ciphertextHash;
+  final int version;
 }
 
 class VaultFlow {
@@ -46,6 +47,8 @@ class VaultFlow {
     required String purposeCode,
     required String reason,
     required Object? profile,
+    required int version,
+    String? consentRef,
   }) async {
     final principal = await _wallet.address();
     if (principal == null) throw const WalletException(WalletFailure.notCreated);
@@ -61,7 +64,7 @@ class VaultFlow {
       EnvelopeContext(fiduciary: fiduciary, principal: principal, purposeCode: purposeCode),
     );
     final requestId = _requestId();
-    final signature = await _wallet.signMessage(submitMessage(envelope.handle, requestId), reason: reason);
+    final signature = await _wallet.signMessage(submitMessage(envelope.handle, requestId, version), reason: reason);
 
     final receipt = await processor.submit(
       principal: principal,
@@ -69,11 +72,13 @@ class VaultFlow {
       purposeCode: purposeCode,
       envelope: envelope,
       requestId: requestId,
+      version: version,
+      consentRef: consentRef,
       signature: signature,
     );
     // The handle is a hash of what we sent: an answer about anything else means we are not talking to the
     // Processor we think we are.
     if (receipt.handle != envelope.handle) throw const CoreException(CoreFailure.server, message: 'Handle mismatch');
-    return VaultSent(handle: receipt.handle, ciphertextHash: receipt.ciphertextHash);
+    return VaultSent(handle: receipt.handle, ciphertextHash: receipt.ciphertextHash, version: receipt.version ?? version);
   }
 }

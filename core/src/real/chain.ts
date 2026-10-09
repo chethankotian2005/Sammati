@@ -3,19 +3,22 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import {
   Contract,
+  FeeData,
   Interface,
   JsonRpcProvider,
   Network,
   Wallet,
   isError,
+  parseUnits,
   type InterfaceAbi,
+  type JsonRpcApiProviderOptions,
+  type Networkish,
+  type TransactionRequest,
   type TransactionReceipt,
 } from "ethers";
 import type { Deployment, Deployments } from "@sammati/shared";
-import type { Config } from "../config";
+import type { Config, GasConfig } from "../config";
 import { HttpError } from "../errors";
-
-const RECEIPT_POLL_MS = 250;
 
 const sharedDir = dirname(createRequire(import.meta.url).resolve("@sammati/shared/package.json"));
 
@@ -28,6 +31,41 @@ export function readDeployment(config: Config): Deployment | null {
   const file = resolve(sharedDir, "deployments.json");
   if (!existsSync(file)) return null;
   return (JSON.parse(readFileSync(file, "utf8")) as Deployments)[config.chainNetwork] ?? null;
+}
+
+/**
+ * Fee defaults by chain id (trd.md §10.7): what a public network insists on, so no setting is needed to send a
+ * transaction. GAS_PRIORITY_FEE_GWEI and GAS_MAX_FEE_GWEI override them. Polygon Amoy rejects a priority fee below 25 gwei.
+ */
+export const NETWORK_FEES: Record<number, { priorityFeeGwei: number }> = {
+  80002: { priorityFeeGwei: 25 },
+  137: { priorityFeeGwei: 30 },
+};
+
+const gwei = (n: number): bigint => parseUnits(String(n), "gwei");
+
+/** One fee policy for every transaction Core sends: the relayer's, a company's anchor, a processor's acknowledgement. */
+export class TunedProvider extends JsonRpcProvider {
+  constructor(url: string, network: Networkish, options: JsonRpcApiProviderOptions, private readonly gas: GasConfig, private readonly chainId: number) {
+    super(url, network, options);
+  }
+
+  override async getFeeData(): Promise<FeeData> {
+    const base = await super.getFeeData();
+    const floor = NETWORK_FEES[this.chainId]?.priorityFeeGwei;
+    const priority = this.gas.priorityFeeGwei ?? floor;
+    const tip = priority === undefined || priority === null ? base.maxPriorityFeePerGas : gwei(priority);
+    let max = this.gas.maxFeeGwei === null ? base.maxFeePerGas : gwei(this.gas.maxFeeGwei);
+    // The cap must cover the tip, whatever the node suggested for its own smaller tip.
+    if (tip !== null && max !== null && base.maxPriorityFeePerGas !== null && this.gas.maxFeeGwei === null) max = max - base.maxPriorityFeePerGas + tip;
+    if (tip !== null && max !== null && max < tip) max = tip;
+    return new FeeData(base.gasPrice, max, tip);
+  }
+
+  override async estimateGas(tx: TransactionRequest): Promise<bigint> {
+    const estimate = await super.estimateGas(tx);
+    return (estimate * BigInt(Math.round(this.gas.limitMultiplier * 100))) / 100n;
+  }
 }
 
 /** The tuple getConsent returns, as ethers decodes it. */
@@ -70,14 +108,10 @@ export interface Chain {
 export async function connectChain(config: Config, deployment: Deployment): Promise<Chain> {
   const network = Network.from(deployment.chainId);
   // staticNetwork: the chain id is configuration, so a stopped node is a clean error, not a retry storm.
-  // pollingInterval: ethers waits for receipts by polling (default 4 s), and a consent grant should not feel that slow.
+  // pollingInterval: ethers waits for receipts by polling (default 4 s); RECEIPT_POLL_MS trades speed for RPC calls.
   // cacheTimeout -1: by default ethers reuses an identical RPC answer for 250 ms. That would let the gateway read
   // "still consented" just after a withdrawal, and let two relayed transactions in a row reuse one nonce.
-  const provider = new JsonRpcProvider(config.chainRpc, network, {
-    staticNetwork: network,
-    pollingInterval: RECEIPT_POLL_MS,
-    cacheTimeout: -1,
-  });
+  const provider = new TunedProvider(config.chainRpc, network, { staticNetwork: network, pollingInterval: config.receiptPollMs, cacheTimeout: -1 }, config.gas, deployment.chainId);
   const actual = (await provider.send("eth_chainId", []) as string).toLowerCase();
   if (BigInt(actual) !== BigInt(deployment.chainId)) {
     throw new Error(`Node at ${config.chainRpc} is chain ${BigInt(actual)}, deployments.json says ${deployment.chainId}`);
@@ -105,6 +139,7 @@ export async function connectChain(config: Config, deployment: Deployment): Prom
 export async function waitForChain(config: Config, timeoutMs = 120_000, log = console.log): Promise<Chain> {
   const deadline = Date.now() + timeoutMs;
   let lastNote = 0;
+  let delay = 1000;
   for (;;) {
     let reason: string;
     try {
@@ -119,7 +154,8 @@ export async function waitForChain(config: Config, timeoutMs = 120_000, log = co
       log(`Waiting for the chain at ${config.chainRpc} (${reason})`);
       lastNote = Date.now();
     }
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(delay * 2, config.production ? config.rpcBackoffMaxMs : 2000); // a rate-limited RPC needs room, a local node that is starting does not
   }
 }
 

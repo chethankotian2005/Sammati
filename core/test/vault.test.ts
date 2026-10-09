@@ -2,10 +2,10 @@ import type { AddressInfo } from "node:net";
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { WsEvent } from "@sammati/shared";
-import { createApp } from "../src/app";
+import express from "express";
 import { readConfig } from "../src/config";
-import { StubStore } from "../src/store";
-import { sanitiseResult } from "../src/routes/vault";
+import { errorHandler, notFoundHandler } from "../src/errors";
+import { vaultRoutes } from "../src/routes/vault";
 import { topicsFor } from "../src/ws";
 
 const KEY = "test-event-key";
@@ -20,7 +20,11 @@ let url: string;
 
 beforeAll(async () => {
   const config = readConfig({ PROCESSOR_EVENT_KEY: KEY, PROCESSOR_PUBLIC_URL: "http://192.168.1.5:4200" });
-  server = createServer(createApp({ store: new StubStore(config), config, publish: (e) => published.push(e) }));
+  const app = express();
+  app.use(express.json());
+  app.use("/v1", vaultRoutes({ config, publish: (e) => published.push(e) }));
+  app.use(notFoundHandler, errorHandler);
+  server = createServer(app);
   await new Promise<void>((r) => server.listen(0, r));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
 });
@@ -32,10 +36,10 @@ const post = (body: unknown, key: string | null = KEY) =>
 
 const valid: Record<string, Record<string, unknown>> = {
   "vault.encrypted": { ciphertextHash: HASH, sizeBytes: 300 },
-  "vault.stored": { ciphertextHash: HASH, sizeBytes: 300 },
+  "vault.stored": { ciphertextHash: HASH, sizeBytes: 300, version: 1 },
   "processor.requested": { action: "loan_decision", requestedAt: 1760000000123 },
   "processor.decrypting": { decryptingAt: 1760000000150 },
-  "processor.decided": { decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], entryId: "0b4e6c3a-1111-4222-8333-444455556666", durationMs: 9 },
+  "processor.decided": { decision: "approved", limit: 300000, rateBps: 1400, dataCategories: ["financial.pan", "financial.income_band"], reasonCodes: ["SCORE_FAIR"], entryId: "0b4e6c3a-1111-4222-8333-444455556666", durationMs: 9 },
   "vault.erased": { cause: "withdrawn" },
 };
 
@@ -67,13 +71,13 @@ describe("POST /v1/events/vault", () => {
     published.length = 0;
     await post({ event: "vault.stored", ...base, ...valid["vault.stored"], plaintext: "ABCDE1234F", envelope: { ciphertext: "0x00" }, pan: "ABCDE1234F" });
     expect(JSON.stringify(published)).not.toContain("ABCDE1234F");
-    expect(Object.keys(published[0]!).sort()).toEqual(["at", "atMs", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes"]);
+    expect(Object.keys(published[0]!).sort()).toEqual(["at", "atMs", "ciphertextHash", "event", "fiduciary", "handle", "principal", "purposeCode", "sizeBytes", "version"]);
   });
 
   it.each([
     ["an unknown event", { event: "vault.leaked", ...base }],
     ["a missing field", { event: "vault.stored", ...base, ciphertextHash: HASH }],
-    ["free text where a hash belongs", { event: "vault.stored", ...base, ciphertextHash: "ABCDE1234F", sizeBytes: 1 }],
+    ["free text where a hash belongs", { event: "vault.stored", ...base, ciphertextHash: "ABCDE1234F", sizeBytes: 1, version: 1 }],
     ["free text as an entry id", { event: "processor.decided", ...base, ...valid["processor.decided"], entryId: "ABCDE1234F" }],
     ["free text as a decision code", { event: "processor.decided", ...base, ...valid["processor.decided"], reasonCodes: ["PAN is ABCDE1234F"] }],
     ["an unknown erase cause", { event: "vault.erased", ...base, cause: "because" }],
@@ -95,21 +99,5 @@ describe("who receives vault events", () => {
       const topics = topicsFor({ event: name, ...base, principal: PRINCIPAL, fiduciary: FIDUCIARY, ...extra } as unknown as WsEvent);
       expect(topics.sort()).toEqual(["auditor", `fiduciary:${FIDUCIARY.toLowerCase()}`, `principal:${PRINCIPAL.toLowerCase()}`]);
     }
-  });
-});
-
-describe("sanitiseResult (what /v1/demo/fire relays from a company)", () => {
-  it("passes a loan decision and a vault view, rebuilt field by field", () => {
-    expect(sanitiseResult({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"], pan: "ABCDE1234F" })).toEqual({ decision: "approved", limit: 300000, reasonCodes: ["SCORE_FAIR"] });
-    expect(sanitiseResult({ handle: HANDLE, ciphertextHash: HASH, status: "stored", extra: "x" })).toEqual({ handle: HANDLE, ciphertextHash: HASH, status: "stored" });
-    expect(sanitiseResult({ handle: null, ciphertextHash: null, status: "none" })).toEqual({ handle: null, ciphertextHash: null, status: "none" });
-  });
-
-  it("drops everything else, in particular a raw credit profile", () => {
-    expect(sanitiseResult({ pan: "ABCDE1234F", incomeBand: "6-9 LPA", score: 742 })).toBeUndefined();
-    expect(sanitiseResult({ decision: "approved", limit: 1.5, reasonCodes: [] })).toBeUndefined();
-    expect(sanitiseResult({ decision: "approved", limit: 1, reasonCodes: ["PAN ABCDE1234F"] })).toBeUndefined();
-    expect(sanitiseResult({ status: "stored", handle: "ABCDE1234F", ciphertextHash: null })).toBeUndefined();
-    expect(sanitiseResult("ABCDE1234F")).toBeUndefined();
   });
 });

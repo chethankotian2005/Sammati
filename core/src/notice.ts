@@ -7,7 +7,7 @@ import {
   type NoticeInput,
   type RequestNotice,
 } from "@sammati/shared";
-import type { DirectoryPurpose } from "./fixtures";
+import type { DirectoryPurpose } from "./directory";
 
 export interface NoticeArgs {
   requestId: string;

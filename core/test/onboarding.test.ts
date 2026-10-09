@@ -6,27 +6,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { Wallet } from "ethers";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { startSampleApp } from "../examples/quickstart";
-import {
-  API_KEY_HEADER,
-  GRANT_CONSENT_TYPE,
-  REGULATOR_KEY_HEADER,
-  SEED_FIDUCIARIES,
-  WITHDRAW_CONSENT_TYPE,
-  ZERO_HASH,
-  chainEntry,
-  demoApiKey,
-  purposeIdOf,
-  type ApplicationInput,
-  type RequestNotice,
-  type WsEvent,
-} from "@sammati/shared";
-import { createApp, createRealApp } from "../src/app";
-import { readConfig, type Config } from "../src/config";
-import { createRealCore, type RealCore } from "../src/real/core";
-import { StubStore } from "../src/store";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import { API_KEY_HEADER, GRANT_CONSENT_TYPE, REGULATOR_KEY_HEADER, WITHDRAW_CONSENT_TYPE, ZERO_HASH, chainEntry, purposeIdOf, type ApplicationInput, type RequestNotice, type WsEvent } from "@sammati/shared";
+import { createRealApp } from "../src/app";
+import type { Config } from "../src/config";
+import type { RealCore } from "../src/real/core";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
-const QUICKLOAN = SEED_FIDUCIARIES[0]!;
+import { TEST_COMPANIES, testApiKey } from "@sammati/test-fixtures";
+const QUICKLOAN = TEST_COMPANIES[0]!;
 const REGULATOR = { [REGULATOR_KEY_HEADER]: "demo-regulator-key" };
 const unix = () => Math.floor(Date.now() / 1000);
 
@@ -35,8 +22,6 @@ let core: RealCore;
 let config: Config;
 let server: Server;
 let base: string;
-let stubServer: Server;
-let stubBase: string;
 const published: WsEvent[] = [];
 
 // Responses are asserted field by field, so they are read loosely.
@@ -54,20 +39,15 @@ async function api<T = any>(method: string, path: string, body?: unknown, header
 beforeAll(async () => {
   chain = await startTestChain();
   config = realConfig(chain, { registrationsPerHour: 1000 });
-  core = await createRealCore(config, (e) => void published.push(e), () => {});
+  core = await createTestCore(config, (e) => void published.push(e), () => {});
   server = createServer(createRealApp(core));
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  const stubConfig = readConfig({});
-  stubServer = createServer(createApp({ store: new StubStore(stubConfig), config: stubConfig, publish: () => {} }));
-  await new Promise<void>((r) => stubServer.listen(0, r));
-  stubBase = `http://127.0.0.1:${(stubServer.address() as AddressInfo).port}`;
 });
 
 afterAll(async () => {
   core?.stop();
   await new Promise((r) => server?.close(r));
-  await new Promise((r) => stubServer?.close(r));
   await chain?.stop();
 });
 
@@ -85,10 +65,10 @@ function application(name = uniqueName("DemoBank")): ApplicationInput {
   return {
     name,
     sector: "Banking",
-    contactEmail: "ops@demobank.example",
+    contactEmail: "ops@example.test",
     purposes: [
-      { code: "loan_offers", title: text("Loan offers"), description: text("Send you loan offers"), dataCategories: ["phone"], retentionDays: 90, sharesThirdParty: false, required: false },
-      { code: "partner_share", title: text("Partner sharing"), description: text("Share with our partner"), dataCategories: ["repayment history"], retentionDays: 365, sharesThirdParty: true, required: false },
+      { code: "loan_offers", title: text("Loan offers"), description: text("Send you loan offers"), dataCategories: ["contact.mobile"], retentionDays: 90, sharesThirdParty: false, required: false },
+      { code: "partner_share", title: text("Partner sharing"), description: text("Share with our partner"), dataCategories: ["financial.employment"], retentionDays: 365, sharesThirdParty: true, required: false },
     ],
     processors: [{ name: "PartnerOne", purposeCode: "partner_share" }],
   };
@@ -134,19 +114,11 @@ async function withdraw(who: ReturnType<typeof Wallet.createRandom>, fid: string
 }
 
 describe("the directory (R-04)", () => {
-  it("lists the seed companies as live demo companies, with the slug the console route uses", async () => {
+  it("lists the test companies as live companies, with the slug the console route uses", async () => {
     const { status: s, json } = await api("GET", "/v1/fiduciaries");
     expect(s).toBe(200);
     expect(json.fiduciaries.slice(0, 3).map((f: { slug: string }) => f.slug)).toEqual(["quickloan", "medicare", "foodrush"]);
-    expect(json.fiduciaries[0]).toMatchObject({ address: QUICKLOAN.address, name: "QuickLoan", sandbox: false, demo: true, color: "#2F5BEA" });
-  });
-
-  it("is served in the stub too, and the stub refuses registration", async () => {
-    const list = await api("GET", "/v1/fiduciaries", undefined, {}, stubBase);
-    expect(list.json.fiduciaries).toHaveLength(3);
-    expect(list.json.fiduciaries.every((f: { demo: boolean }) => f.demo)).toBe(true);
-    expect((await api("POST", "/v1/registrations", application(), {}, stubBase)).status).toBe(501);
-    expect((await api("GET", "/v1/regulator/registrations", undefined, REGULATOR, stubBase)).status).toBe(501);
+    expect(json.fiduciaries[0]).toMatchObject({ address: QUICKLOAN.address, name: "QuickLoan", sandbox: false });
   });
 });
 
@@ -161,7 +133,7 @@ describe("applying (R-01)", () => {
     const st = (await status(json.applicationId)).json;
     expect(st).toMatchObject({ name: input.name, status: "pending", note: null, result: null });
     expect((await api("GET", "/v1/fiduciaries")).json.fiduciaries).toHaveLength(before);
-    expect((await api("GET", "/v1/regulator/registrations?status=pending", undefined, REGULATOR)).json.applications.find((a: { id: string }) => a.id === json.applicationId)).toMatchObject({ contactEmail: "ops@demobank.example" });
+    expect((await api("GET", "/v1/regulator/registrations?status=pending", undefined, REGULATOR)).json.applications.find((a: { id: string }) => a.id === json.applicationId)).toMatchObject({ contactEmail: "ops@example.test" });
   });
 
   it.each([
@@ -267,9 +239,9 @@ describe("approving (R-02)", () => {
     expect(await reg.getFunction("isProcessor")(purposeIdOf(co.address, "partner_share"), processor.address)).toBe(true);
     expect(co.txHashes.length).toBeGreaterThanOrEqual(4);
 
-    // in the directory, with ink for a colour, in the sandbox, and not a demo company
+    // in the directory, with ink for a colour, in the sandbox, and with no special status
     const entry = (await api("GET", "/v1/fiduciaries")).json.fiduciaries.find((f: { address: string }) => f.address === co.address);
-    expect(entry).toMatchObject({ name: co.name, slug: co.slug, sandbox: true, demo: false, color: "#16173F" });
+    expect(entry).toMatchObject({ name: co.name, slug: co.slug, sandbox: true, color: "#16173F" });
     expect((await api("GET", `/v1/fiduciaries/${co.address}/purposes`)).json.purposes.map((p: { code: string }) => p.code)).toEqual(["loan_offers", "partner_share"]);
 
     // in the ledger explorer: the registration events, like any other ledger event
@@ -332,7 +304,7 @@ describe("API keys (R-03)", () => {
   it("whoami says who a key is; seed companies have keys too", async () => {
     const co = await joined();
     expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: co.apiKey })).json).toEqual({ fiduciary: co.address, slug: co.slug, name: co.name, sandbox: true });
-    expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: demoApiKey("quickloan") })).json).toMatchObject({ fiduciary: QUICKLOAN.address, sandbox: false });
+    expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: testApiKey("quickloan") })).json).toMatchObject({ fiduciary: QUICKLOAN.address, sandbox: false });
   });
 
   it("fails closed, clearly, with no key, an unknown key, a pending applicant's id used as a key", async () => {
@@ -388,7 +360,8 @@ describe("API keys (R-03)", () => {
     expect(fresh.apiKey).not.toBe(co.apiKey);
     expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: fresh.apiKey })).status).toBe(200);
     expect((await status(co.id)).json.result.apiKey).toBeNull();
-    expect((await api("POST", `/v1/regulator/fiduciaries/${QUICKLOAN.address}/reissue-key`, {}, REGULATOR)).json.error.code).toBe("DEMO_COMPANY");
+    // a company that was never approved through an application has no key to reissue
+    expect((await api("POST", `/v1/regulator/fiduciaries/${QUICKLOAN.address}/reissue-key`, {}, REGULATOR)).json.error.code).toBe("FIDUCIARY_NOT_FOUND");
   });
 });
 
@@ -442,7 +415,7 @@ describe("the sandbox (R-03)", () => {
 
     await api("POST", `/v1/regulator/fiduciaries/${co.address}/sandbox`, { sandbox: true }, REGULATOR);
     expect((await api("GET", `/v1/requests/${qr.requestId}?principal=${Wallet.createRandom().address}`)).status).toBe(403);
-    expect((await api("POST", `/v1/regulator/fiduciaries/${QUICKLOAN.address}/sandbox`, { sandbox: true }, REGULATOR)).json.error.code).toBe("DEMO_COMPANY");
+    expect((await api("POST", `/v1/regulator/fiduciaries/0x0000000000000000000000000000000000000001/sandbox`, { sandbox: true }, REGULATOR)).json.error.code).toBe("FIDUCIARY_NOT_FOUND");
     expect((await api("POST", `/v1/regulator/fiduciaries/${co.address}/sandbox`, { sandbox: "yes" }, REGULATOR)).status).toBe(400);
   });
 
@@ -505,13 +478,13 @@ describe("a joined company runs the quickstart sample app end to end (R-03)", ()
 });
 
 describe("reset", () => {
-  it("removes registered companies, their keys and the applications, and keeps the seed companies and their keys", async () => {
+  it("removes registered companies, their keys and the applications; a Core reset leaves no company at all", async () => {
     const co = await joined();
-    expect((await api("POST", "/v1/demo/reset", {})).status).toBe(200);
+    await core.reset(); // the test harness then loads the throwaway test companies again, as a fresh deployment would not
     const list = (await api("GET", "/v1/fiduciaries")).json.fiduciaries as Array<{ address: string }>;
-    expect(list).toHaveLength(3);
+    expect(list.map((f) => f.address)).not.toContain(co.address);
     expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: co.apiKey })).status).toBe(401);
-    expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: demoApiKey("quickloan") })).status).toBe(200);
+    expect((await api("GET", "/v1/gateway/whoami", undefined, { [API_KEY_HEADER]: testApiKey("quickloan") })).status).toBe(200);
     expect((await status(co.id)).status).toBe(404);
   });
 });

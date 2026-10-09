@@ -17,7 +17,7 @@ import 'notice.dart' show canonicalJson;
 
 const envelopeVersion = 1;
 const _hkdfInfo = 'sammati-vault-v1';
-const _submitPrefix = 'sammati-vault-submit:v1:';
+const _submitPrefix = 'sammati-vault-submit:v2:';
 
 /// What an envelope is bound to. Moving the ciphertext to another customer, company or purpose makes it unreadable.
 class EnvelopeContext {
@@ -60,7 +60,7 @@ class Envelope {
 }
 
 /// The message the principal signs (EIP-191) to submit an envelope.
-String submitMessage(String handle, String requestId) => '$_submitPrefix$handle:$requestId';
+String submitMessage(String handle, String requestId, int version) => '$_submitPrefix$handle:$requestId:$version';
 
 /// The GCM additional data: the context as canonical JSON with both addresses lower-cased.
 Uint8List envelopeAad(EnvelopeContext ctx) => Uint8List.fromList(utf8.encode(canonicalJson({

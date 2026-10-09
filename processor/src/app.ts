@@ -2,6 +2,7 @@
 // because a body here can be an envelope or, if something is wrong, data. Errors print only their class name
 // for the same reason (a JSON parse error message quotes the text it choked on).
 import express, { type Express, type NextFunction, type Request, type RequestHandler, type Response } from "express";
+import { cors, healthz, isProbePath, securityHeaders } from "@sammati/shared/src/server";
 import type { ProcessorConfig } from "./config";
 import { ApiFailure, type ProcessorService } from "./service";
 
@@ -13,27 +14,34 @@ const handle =
       .catch(next);
   };
 
-export function createApp(service: ProcessorService, config: ProcessorConfig, log: (line: string) => void = console.log): Express {
+/** `ready` backs GET /readyz (the vault and the chain answer); it is for people and monitors, never for the platform. */
+export function createApp(
+  service: ProcessorService,
+  config: ProcessorConfig,
+  log: (line: string) => void = console.log,
+  ready: () => Promise<void> = () => Promise.resolve(),
+): Express {
   const app = express();
+  app.set("trust proxy", 1);
   app.disable("x-powered-by");
-
+  app.use(securityHeaders({ production: config.production }));
+  app.get("/healthz", healthz); // first route: answers at once, touches nothing, leaves no log line (trd.md §10.3)
   // The wallet runs in a browser too (flutter run -d chrome), so it needs CORS.
+  app.use(cors(config.corsOrigins, { headers: "content-type, x-sammati-api-key", methods: "GET,POST,OPTIONS" }));
   app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "content-type, x-sammati-api-key");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    if (req.method === "OPTIONS") {
-      res.sendStatus(204);
-      return;
-    }
-    next();
-  });
-  app.use((req, res, next) => {
+    if (isProbePath(req.path)) return next();
     const started = Date.now();
     res.on("finish", () => log(`[processor] ${req.method} ${req.path} ${res.statusCode} ${Date.now() - started}ms`));
     next();
   });
   app.use(express.json({ limit: "16kb" }));
+
+  app.get("/readyz", (_req, res) => {
+    ready().then(
+      () => void res.json({ ready: true }),
+      (err: unknown) => void res.status(503).json({ ready: false, reason: err instanceof Error ? err.message : "not ready" }),
+    );
+  });
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "processor", mode: "simulated-enclave", time: Math.floor(Date.now() / 1000) });
@@ -47,7 +55,7 @@ export function createApp(service: ProcessorService, config: ProcessorConfig, lo
     "/v1/vault/submit",
     handle(async (req, res) => {
       const result = await service.submit(req.body);
-      res.status(result.created ? 201 : 200).json({ handle: result.handle, ciphertextHash: result.ciphertextHash });
+      res.status(result.created ? 201 : 200).json({ handle: result.handle, ciphertextHash: result.ciphertextHash, version: result.version });
     }),
   );
 
@@ -67,16 +75,13 @@ export function createApp(service: ProcessorService, config: ProcessorConfig, lo
     }),
   );
 
-  if (config.demoMode) {
-    app.post("/v1/demo/reset", (_req, res) => {
-      service.reset();
-      res.json({ ok: true });
-    });
-    app.post("/v1/demo/tamper/:handle", (req, res) => {
-      const ok = service.tamper(String(req.params.handle));
-      res.status(ok ? 200 : 404).json(ok ? { ok: true } : { error: { code: "HANDLE_NOT_FOUND", message: "Nothing live to edit under that handle" } });
-    });
-  }
+  app.post(
+    "/v1/processor/callback",
+    handle(async (req, res) => {
+      await service.registerCallback(req.header("x-sammati-api-key"), req.body);
+      res.status(204).end();
+    }),
+  );
 
   app.use((req, _res, next) => next(new ApiFailure(404, "NOT_FOUND", `No route for ${req.method} ${req.path}`)));
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

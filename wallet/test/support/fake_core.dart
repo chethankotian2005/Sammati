@@ -94,6 +94,13 @@ class FakeConsent {
 
 /// Stands in for Core, with the checks the real one makes: the nonce must match
 /// exactly and then advances, and the signature must recover to the principal.
+/// What Core's consent view says each purpose uses: registry ids (trd.md §4.6). The notice keeps its own free text above.
+const _registryIds = {
+  'credit_check': ['financial.pan', 'financial.income_band', 'financial.employment'],
+  'marketing': ['contact.mobile', 'contact.email'],
+  'kyc': ['identity.name'],
+};
+
 class FakeCoreApi implements CoreApi {
   FakeCoreApi({Map<String, dynamic>? notice}) : _notice = notice ?? buildNoticeJson();
 
@@ -141,6 +148,19 @@ class FakeCoreApi implements CoreApi {
   final List<({String fiduciary, String action, int issuedAt, String signature})> blockCalls = [];
   Object? registerError;
   Object? actionError;
+
+  /// Handles other wallets hold; [handleChecks] records what the account step asked about.
+  final Set<String> takenHandles = {};
+  final List<String> handleChecks = [];
+  Object? availabilityError;
+
+  @override
+  Future<bool> handleAvailable(String handle, {String? principal}) async {
+    handleChecks.add(handle);
+    final e = availabilityError;
+    if (e != null) throw e;
+    return !takenHandles.contains(handle);
+  }
 
   @override
   Future<String?> getIdentity(String principal) async {
@@ -353,6 +373,7 @@ class FakeCoreApi implements CoreApi {
                   'noticeHash': _notice['noticeHash'],
                   'lastTx': row.txHash,
                   'required': p['required'],
+                  'dataCategories': _registryIds[p['code']] ?? const <String>[],
                 },
           ],
         },
@@ -458,7 +479,7 @@ class FakeProcessorApi implements ProcessorApi {
   /// Answer with a handle other than the one of the envelope that was sent.
   bool wrongHandle = false;
   int keyFetches = 0;
-  final List<Map<String, Object>> submissions = [];
+  final List<Map<String, Object?>> submissions = [];
 
   @override
   Future<ProcessorKey> getPublicKey() async {
@@ -475,6 +496,8 @@ class FakeProcessorApi implements ProcessorApi {
     required String purposeCode,
     required Envelope envelope,
     required String requestId,
+    required int version,
+    String? consentRef,
     required String signature,
   }) async {
     final error = submitError;
@@ -485,6 +508,8 @@ class FakeProcessorApi implements ProcessorApi {
       'purposeCode': purposeCode,
       'envelope': envelope.toJson(),
       'requestId': requestId,
+      'version': version,
+      'consentRef': consentRef,
       'signature': signature,
     });
     return VaultReceipt(handle: wrongHandle ? '0x${'00' * 32}' : envelope.handle, ciphertextHash: envelope.ciphertextHash);

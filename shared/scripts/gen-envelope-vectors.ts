@@ -23,7 +23,7 @@ const PRINCIPAL = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
 const cases = [
   {
-    name: "demo profile for credit_check",
+    name: "test profile for credit_check",
     ctx: { fiduciary: FIDUCIARY, principal: PRINCIPAL, purposeCode: "credit_check" },
     payload: { incomeBand: "6-9 LPA", pan: "ABCDE1234F", score: 742 },
   },

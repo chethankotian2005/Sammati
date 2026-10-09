@@ -22,6 +22,8 @@ class ActivityItem {
     required this.reason,
     required this.at,
     this.arrivedAt,
+    this.dataCategories,
+    this.outcome,
   });
 
   /// From an `/activity` row. Null if it is not a row we understand.
@@ -61,6 +63,8 @@ class ActivityItem {
       reason: reason,
       at: at,
       arrivedAt: arrivedAt,
+      dataCategories: json['dataCategories'] is List ? (json['dataCategories'] as List).whereType<String>().toList() : null,
+      outcome: json['outcome'] is String ? json['outcome'] as String : null,
     );
   }
 
@@ -78,4 +82,12 @@ class ActivityItem {
 
   /// Set only for rows that arrived over the socket in this session.
   final DateTime? arrivedAt;
+
+  /// Registry ids of the data a Processor use read, and the decision label that left it (W-18). Null for an entry
+  /// written before the usage-record format; empty / '' for one that read nothing.
+  final List<String>? dataCategories;
+  final String? outcome;
+
+  /// A use of the customer's data by the Processor, as opposed to an endpoint call behind the gateway.
+  bool get isDataUse => outcome != null && outcome!.isNotEmpty;
 }

@@ -3,20 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@9.15.9",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "demo:up": "node scripts/demo-up.mjs",
-    "demo:up:real": "node scripts/demo-up.mjs",
-    "demo:up:stub": "node scripts/demo-up.mjs --stub",
-    "demo:up:fast": "node scripts/demo-up.mjs --fast-expiry",
-    "demo:reset": "node scripts/demo-reset.mjs",
     "deploy:local": "pnpm --filter @sammati/contracts run deploy:local",
     "deploy:amoy": "pnpm --filter @sammati/contracts run deploy:amoy",
     "seed": "pnpm --filter @sammati/contracts run seed:local",
     "e2e": "pnpm --filter @sammati/core run e2e",
+    "e2e:remote": "pnpm --filter @sammati/core run e2e:remote",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "dev:reset": "node scripts/dev-reset.mjs",
+    "dev:tamper": "pnpm --filter @sammati/core dev:tamper"
   },
   "devDependencies": {
     "@eslint/js": "9.17.0",

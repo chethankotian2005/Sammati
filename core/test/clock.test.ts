@@ -4,7 +4,7 @@ import { startTestChain, type TestChain } from "./harness";
 
 // The Auditor compares ledger time with the gateway's wall-clock log entries, so the demo chain has to
 // track real time. Without this, `hardhat_reset` leaves the chain behind by the node's age (minutes,
-// growing with every demo:reset) and the scorecard reports violations that never happened.
+// growing with every dev:reset) and the scorecard reports violations that never happened.
 const TOLERANCE_SECONDS = 2;
 
 let chain: TestChain;
@@ -48,7 +48,7 @@ describe("chain clock vs wall clock", () => {
 
   it("is within 2 s after the full demo reset: reset, sync, redeploy and seed (a burst of about 25 blocks)", async () => {
     await sleep(2500);
-    await chain.reset(); // hardhat_reset + syncClock + deploy + seed, the sequence demo:reset runs
+    await chain.reset(); // hardhat_reset + syncClock + deploy + register, the sequence dev:reset runs
     await rpc("evm_mine", [], chain.rpc);
     const block = Number.parseInt(((await rpc("eth_blockNumber", [], chain.rpc)) as string), 16);
     expect(block).toBeGreaterThan(20);

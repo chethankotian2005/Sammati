@@ -1,0 +1,141 @@
+# Render blueprint (trd.md §10.1, docs/deploy-guide.md). Four web services in Singapore; the three that keep state
+# have one disk each and therefore one instance. Every secret is `sync: false`: Render asks for it in the dashboard,
+# it never lives in this file. NODE_ENV=production switches each service to its production rules and start-up checks.
+#
+# The runtime is tsx, which is a dev dependency, so the build installs dev dependencies too (--prod=false).
+services:
+  - type: web
+    name: sammati-core
+    runtime: node
+    region: singapore
+    plan: starter # a disk needs a paid instance type
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile --prod=false
+    startCommand: pnpm --filter @sammati/core start
+    healthCheckPath: /healthz
+    disk:
+      name: core-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.1
+      - key: NODE_ENV
+        value: production
+      - key: CHAIN_NETWORK
+        value: amoy
+      - key: DB_PATH
+        value: /var/data/sammati.sqlite
+      - key: INDEXER_INTERVAL_MS
+        value: "4000"
+      - key: RECEIPT_POLL_MS
+        value: "2000"
+      - key: REGISTRATION_FUNDING_ETH
+        value: "0.05"
+      - key: PUBLIC_CORE_URL # https://<this service>.onrender.com
+        sync: false
+      - key: PROCESSOR_PUBLIC_URL # the Processor's public URL
+        sync: false
+      - key: CHAIN_RPC # your Amoy RPC provider
+        sync: false
+      - key: CORS_ORIGINS # the Vercel origin(s), comma separated, no trailing slash
+        sync: false
+      - key: RELAYER_KEY
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: REGULATOR_KEY
+        sync: false
+      - key: PROCESSOR_EVENT_KEY
+        sync: false
+
+  - type: web
+    name: sammati-processor
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile --prod=false
+    startCommand: pnpm --filter @sammati/processor start
+    healthCheckPath: /healthz
+    disk:
+      name: vault-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.1
+      - key: NODE_ENV
+        value: production
+      - key: CHAIN_NETWORK
+        value: amoy
+      - key: VAULT_PATH
+        value: /var/data/processor.sqlite
+      - key: CORE_URL # Core's public URL
+        sync: false
+      - key: CHAIN_RPC
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PROCESSOR_KEY # 0x + 64 hex. Back it up outside Render: losing it makes every stored ciphertext unreadable
+        sync: false
+      - key: PROCESSOR_EVENT_KEY # the same value as Core's
+        sync: false
+
+  - type: web
+    name: sammati-quickloan
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile --prod=false
+    startCommand: pnpm --filter @sammati/company-quickloan start
+    healthCheckPath: /healthz
+    disk:
+      name: quickloan-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.1
+      - key: NODE_ENV
+        value: production
+      - key: QUICKLOAN_DB
+        value: /var/data/quickloan.sqlite
+      - key: CORE_URL
+        sync: false
+      - key: PROCESSOR_URL
+        sync: false
+      - key: QUICKLOAN_PUBLIC_URL # https://<this service>.onrender.com, where the Processor reaches the webhook
+        sync: false
+      - key: FIDUCIARY # the company's address, after /join and the regulator's approval
+        sync: false
+      - key: SAMMATI_API_KEY
+        sync: false
+      - key: STAFF_USER
+        sync: false
+      - key: STAFF_PASSWORD
+        sync: false
+
+  - type: web
+    name: sammati-company2
+    runtime: node
+    region: singapore
+    plan: free # holds no data, so it needs no disk; keepalive.yml stops it sleeping
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile --prod=false
+    startCommand: pnpm --filter @sammati/company-template start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.1
+      - key: NODE_ENV
+        value: production
+      - key: SITE # which company this is: a file under companies/template/sites
+        value: companies/template/sites/carefirst.json
+      - key: CORE_URL
+        sync: false
+      - key: FIDUCIARY
+        sync: false
+      - key: SAMMATI_API_KEY
+        sync: false

@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getBytes, hexlify } from "ethers";
 import { generateKeyPair } from "@sammati/shared/src/envelope";
 import { createApp } from "../src/app";
-import { PAN, QL_KEY, QUICKLOAN, rig } from "./rig";
+import { PAN, QL_KEY, QUICKLOAN, rig, tamperStored } from "./rig";
 
 const KEY = generateKeyPair();
 const KEY_HEX = hexlify(KEY.privateKey);
@@ -65,7 +65,7 @@ describe("HTTP surface", () => {
 
     const view = await call("GET", `/v1/vault/${handle}`);
     expect(view.json).toMatchObject({ status: "stored", purposeCode: "credit_check", envelope: body.envelope });
-    expect(Object.keys(view.json).sort()).toEqual(["ciphertextHash", "createdAt", "envelope", "erasedAt", "fiduciary", "handle", "principal", "purposeCode", "status"]);
+    expect(Object.keys(view.json).sort()).toEqual(["ciphertextHash", "createdAt", "envelope", "erasedAt", "fiduciary", "handle", "principal", "purposeCode", "status", "version"]);
 
     const decision = await evaluate(handle);
     expect(decision.status).toBe(200);
@@ -95,15 +95,13 @@ describe("HTTP surface", () => {
     expect(big.status).toBe(413);
   });
 
-  it("the demo tamper control makes the next evaluate an error", async () => {
+  it("a row edited in storage makes the next evaluate an error", async () => {
     r.consent.allow(r.principal, QUICKLOAN, "credit_check");
     const { handle } = (await call("POST", "/v1/vault/submit", await r.walletSubmission())).json as { handle: string };
-    expect((await call("POST", `/v1/demo/tamper/${handle}`)).status).toBe(200);
+    expect(tamperStored(r.vault, handle)).toBe(true);
     const res = await evaluate(handle);
     expect([res.status, res.json.error.code]).toEqual([422, "CIPHERTEXT_INVALID"]);
-    expect((await call("POST", "/v1/demo/tamper/0x" + "00".repeat(32))).status).toBe(404);
-    expect((await call("POST", "/v1/demo/reset")).status).toBe(200);
-    expect(r.vault.allLive()).toHaveLength(0);
+    expect(tamperStored(r.vault, "0x" + "00".repeat(32))).toBe(false);
   });
 });
 
@@ -133,10 +131,11 @@ describe("no plaintext anywhere (V-05)", () => {
     }
     expect(routes.sort()).toEqual([
       "GET /health",
+      "GET /healthz",
+      "GET /readyz",
       "GET /v1/processor/pubkey",
       "GET /v1/vault/:handle",
-      "POST /v1/demo/reset",
-      "POST /v1/demo/tamper/:handle",
+      "POST /v1/processor/callback",
       "POST /v1/processor/evaluate",
       "POST /v1/vault/submit",
     ]);

@@ -97,6 +97,9 @@ abstract interface class CoreApi {
   /// `GET /v1/processor` (trd.md §6.1): where the Sammati Processor is. Core only points at it.
   Future<String> getProcessorUrl();
 
+  /// `GET /v1/identities/availability` (W-15 step 1): is this ID free (or already this wallet's)?
+  Future<bool> handleAvailable(String handle, {String? principal});
+
   /// `GET /v1/principals/:addr/identity`: this wallet's Sammati ID, or null.
   Future<String?> getIdentity(String principal);
 
@@ -242,6 +245,15 @@ class DioCoreApi implements CoreApi {
             'note': note,
           },
         ));
+  }
+
+  @override
+  Future<bool> handleAvailable(String handle, {String? principal}) async {
+    final json = await _send(() => _dio.get<Map<String, dynamic>>(
+          '/v1/identities/availability',
+          queryParameters: {'handle': handle, 'principal': ?principal},
+        ));
+    return json['available'] == true;
   }
 
   @override

@@ -1,15 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { getAddress } from "ethers";
 import {
   DEFAULT_COMPANY_COLOR,
-  SEED_FIDUCIARIES,
-  demoApiKey,
   ZERO_HASH,
-  descHash,
+  entryFormat,
+  expectedPrevHash,
   explorerTxUrl,
   hashEntry,
-  noticeHash,
-  purposeIdOf,
   type AccessReason,
   type ActivityItem,
   type AnchorBatchView,
@@ -33,13 +30,11 @@ import {
   type StoredAccessLogEntry,
 } from "@sammati/shared";
 import { HttpError } from "../errors";
-import type { DirectoryPurpose } from "../fixtures";
-import { noticeInput } from "../notice";
-import { now, toHashedEntry } from "../store";
+import type { DirectoryPurpose } from "../directory";
+import { now, toHashedEntry } from "../clock";
 import { hashApiKey } from "./apikeys";
 import type { Db } from "./db";
 
-export const DEMO_REQUEST_ID = "req_demo_quickloan";
 export const NOTICE_VERSION = 1;
 
 /** Addresses are stored checksummed, so every input goes through here. */
@@ -62,8 +57,6 @@ export interface FiduciaryRow {
   slug: string;
   /** In the sandbox (R-03): only test customers can be asked. */
   sandbox: boolean;
-  /** One of the seed companies, the only ones with a simulator backend. */
-  demo: boolean;
 }
 
 export interface RequestRow {
@@ -111,60 +104,14 @@ export class Repo {
 
   // --- directory (fiduciaries, purposes, processors) ---
 
-  /** The demo companies from shared/seed.ts. The chain registers them (the seed script); this is their off-chain metadata. */
-  seedDirectory(): void {
-    const insertF = this.db.prepare("INSERT OR IGNORE INTO fiduciaries (address, name, sector, color, slug, demo) VALUES (?, ?, ?, ?, ?, 1)");
-    // A database from before R-01 has the seed companies without a slug.
-    const fixSlug = this.db.prepare("UPDATE fiduciaries SET slug = ?, demo = 1 WHERE address = ? AND slug IS NULL");
-    const insertCredential = this.db.prepare("INSERT OR IGNORE INTO fiduciary_credentials (fiduciary, api_key_hash, issued_at) VALUES (?, ?, ?)");
-    const insertP = this.db.prepare(
-      `INSERT OR IGNORE INTO purposes (id, fiduciary, code, title_en, title_hi, title_kn, desc_en, desc_hi, desc_kn,
-         data_categories, retention_days, shares_third_party, desc_hash, required)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const insertProc = this.db.prepare("INSERT OR IGNORE INTO processors (address, name, purpose_id) VALUES (?, ?, ?)");
-    this.db.transaction(() => {
-      for (const f of SEED_FIDUCIARIES) {
-        insertF.run(f.address, f.name, f.sector, f.color, f.slug);
-        fixSlug.run(f.slug, f.address);
-        insertCredential.run(f.address, hashApiKey(demoApiKey(f.slug)), now());
-        for (const p of f.purposes) {
-          insertP.run(
-            purposeIdOf(f.address, p.code), f.address, p.code,
-            p.title.en, p.title.hi, p.title.kn, p.description.en, p.description.hi, p.description.kn,
-            JSON.stringify(p.dataCategories), p.retentionDays, p.sharesThirdParty ? 1 : 0, descHash(p.description), p.required ? 1 : 0,
-          );
-        }
-        for (const proc of f.processors) insertProc.run(proc.address, proc.name, purposeIdOf(f.address, proc.purposeCode));
-      }
-      this.seedDemoRequest();
-    })();
-  }
-
-  /** A ready-made QuickLoan request so a wallet can be built without the console (never expires). */
-  private seedDemoRequest(): void {
-    const quickloan = SEED_FIDUCIARIES[0]!;
-    const purposes = this.purposesOf(quickloan.address);
-    this.db
-      .prepare("INSERT OR IGNORE INTO requests (id, fiduciary, purposes, customer_alias, notice_hash, created_at, status) VALUES (?, ?, ?, ?, ?, 0, 'open')")
-      .run(
-        DEMO_REQUEST_ID,
-        quickloan.address,
-        JSON.stringify(purposes.map((p) => p.id)),
-        "Customer #4821",
-        noticeHash(noticeInput(quickloan.address, purposes, NOTICE_VERSION)),
-      );
-  }
-
   fiduciaries(): FiduciaryRow[] {
-    return (this.db.prepare("SELECT address, name, sector, color, slug, sandbox, demo FROM fiduciaries ORDER BY rowid").all() as Row[]).map((r) => ({
+    return (this.db.prepare("SELECT address, name, sector, color, slug, sandbox FROM fiduciaries ORDER BY rowid").all() as Row[]).map((r) => ({
       address: r.address as Hex,
       name: r.name as string,
       sector: r.sector as string,
       color: (r.color as string | null) ?? DEFAULT_COMPANY_COLOR,
       slug: (r.slug as string | null) ?? "",
       sandbox: r.sandbox === 1,
-      demo: r.demo === 1,
     }));
   }
 
@@ -174,7 +121,7 @@ export class Repo {
     return r ? this.fiduciaries().find((f) => f.address === r.fiduciary) : undefined;
   }
 
-  /** Keys Core generated for companies that joined through R-01 (demo shortcut, trd.md §12). */
+  /** Keys Core generated for companies that joined through R-01 (disclosed shortcut, trd.md §12). */
   fiduciaryKey(address: string): string | undefined {
     return (this.db.prepare("SELECT private_key FROM fiduciary_keys WHERE address = ?").get(addr(address)) as { private_key: string } | undefined)?.private_key;
   }
@@ -239,12 +186,12 @@ export class Repo {
     return { id, fiduciary: f.address, purposeIds, customerAlias, noticeHash, createdAt };
   }
 
-  /** Marks an old request expired and refuses it (the seeded demo request is exempt). */
+  /** Marks an old request expired and refuses it . */
   request(id: string, ttlSeconds: number): RequestRow {
     const r = this.db.prepare("SELECT * FROM requests WHERE id = ?").get(id) as Row | undefined;
     if (!r) throw new HttpError(404, "REQUEST_NOT_FOUND", `Unknown request ${id}`);
     const createdAt = r.created_at as number;
-    if (id !== DEMO_REQUEST_ID && now() - createdAt > ttlSeconds) {
+    if (now() - createdAt > ttlSeconds) {
       this.db.prepare("UPDATE requests SET status = 'expired' WHERE id = ?").run(id);
       throw new HttpError(410, "REQUEST_EXPIRED", "This consent request has expired; ask the company for a new QR code");
     }
@@ -338,6 +285,7 @@ export class Repo {
           noticeHash: c.noticeHash,
           lastTx: c.lastTx,
           required: p.required,
+          dataCategories: p.dataCategories,
         });
       }
       if (consents.length) fiduciaries.push({ fiduciary: f, consents });
@@ -406,6 +354,8 @@ export class Repo {
       prevHash: r.prev_hash as Hex,
       hash: r.hash as Hex,
       batchIndex: (r.batch_index as number | null) ?? null,
+      // Format 2 only (drd.md §4.1a): a format-1 row has neither key, so it hashes exactly as it was written.
+      ...(r.outcome === null || r.outcome === undefined ? {} : { dataCategories: JSON.parse((r.data_categories as string | null) ?? "[]") as string[], outcome: r.outcome as string }),
     };
   }
 
@@ -431,15 +381,17 @@ export class Repo {
         endpoint: e.endpoint,
         at: e.at,
         anchored: e.batchIndex !== null,
+        ...(e.outcome === undefined ? {} : { dataCategories: e.dataCategories, outcome: e.outcome }),
       };
     });
   }
 
-  nextLogPosition(fiduciary: Hex): { seq: number; prevHash: Hex } {
-    const last = this.db.prepare("SELECT seq, hash FROM access_logs WHERE fiduciary = ? ORDER BY seq DESC LIMIT 1").get(fiduciary) as
-      | { seq: number; hash: Hex }
+  /** Where the next entry goes. `lastFormat` is 0 for an empty chain; the prevHash depends on the entry's own format (drd.md §4.1a). */
+  nextLogPosition(fiduciary: Hex): { seq: number; head: { hash: Hex; format: 1 | 2 } | null } {
+    const last = this.db.prepare("SELECT seq, hash, outcome FROM access_logs WHERE fiduciary = ? ORDER BY seq DESC LIMIT 1").get(fiduciary) as
+      | { seq: number; hash: Hex; outcome: string | null }
       | undefined;
-    return { seq: (last?.seq ?? 0) + 1, prevHash: last?.hash ?? ZERO_HASH };
+    return { seq: (last?.seq ?? 0) + 1, head: last ? { hash: last.hash, format: last.outcome === null ? 1 : 2 } : null };
   }
 
   /** Validates seq, prevHash and hash exactly as the Auditor will later (drd.md §7). */
@@ -447,16 +399,19 @@ export class Repo {
     this.fiduciary(row.fiduciary);
     const expected = this.nextLogPosition(row.fiduciary);
     if (row.seq !== expected.seq) throw new HttpError(409, "SEQ_MISMATCH", `Expected seq ${expected.seq}, got ${row.seq}`);
-    if (row.prevHash !== expected.prevHash) throw new HttpError(409, "PREV_HASH_MISMATCH", "prevHash does not match the chain head");
+    const format = entryFormat(row);
+    // Once the chain is in the new format, an old-format entry is refused: the two never mix (drd.md §4.1a).
+    if (format === 1 && expected.head?.format === 2) throw new HttpError(409, "FORMAT_OUTDATED", "This chain uses the usage-record format; update the Sammati SDK");
+    if (row.prevHash !== expectedPrevHash(expected.head, format)) throw new HttpError(409, "PREV_HASH_MISMATCH", "prevHash does not match the chain head");
     if (row.hash !== hashEntry(row.prevHash, toHashedEntry(row))) {
       throw new HttpError(400, "BAD_HASH", "hash does not match keccak256(prevHash || canonical entry)");
     }
     this.db
       .prepare(
-        `INSERT INTO access_logs (seq, fiduciary, id, principal, purpose_code, decision, reason, endpoint, latency_ms, at, prev_hash, hash, batch_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        `INSERT INTO access_logs (seq, fiduciary, id, principal, purpose_code, decision, reason, endpoint, latency_ms, at, prev_hash, hash, batch_index, data_categories, outcome)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
       )
-      .run(row.seq, row.fiduciary, row.id, row.principal, row.purposeCode, row.decision, row.reason, row.endpoint, row.latencyMs, row.at, row.prevHash, row.hash);
+      .run(row.seq, row.fiduciary, row.id, row.principal, row.purposeCode, row.decision, row.reason, row.endpoint, row.latencyMs, row.at, row.prevHash, row.hash, format === 2 ? JSON.stringify(row.dataCategories ?? []) : null, format === 2 ? row.outcome : null);
   }
 
   // --- cascade ---
@@ -698,21 +653,6 @@ export class Repo {
     ).c;
   }
 
-  /**
-   * Demo tampering: flips `decision` on one stored row and leaves its hash alone, like someone hiding a
-   * refusal in the company database. Prefers the newest anchored BLOCKED row, then any anchored row, then any row.
-   */
-  tamperRow(fiduciary: Hex): { seq: number; id: string; before: Decision; after: Decision } | undefined {
-    const pick = (where: string) => this.db.prepare(`SELECT seq, id, decision FROM access_logs WHERE fiduciary = ? AND ${where} ORDER BY seq DESC LIMIT 1`).get(fiduciary) as
-      | { seq: number; id: string; decision: Decision }
-      | undefined;
-    const row = pick("batch_index IS NOT NULL AND decision = 'BLOCKED'") ?? pick("batch_index IS NOT NULL") ?? pick("1 = 1");
-    if (!row) return undefined;
-    const after: Decision = row.decision === "BLOCKED" ? "ALLOWED" : "BLOCKED";
-    this.db.prepare("UPDATE access_logs SET decision = ? WHERE fiduciary = ? AND seq = ?").run(after, fiduciary, row.seq);
-    return { seq: row.seq, id: row.id, before: row.decision, after };
-  }
-
   /** The result of the last verification run; "unverified" until one has happened. */
   integrity(fiduciary: Hex): IntegrityState {
     return (this.getState(`integrity:${fiduciary}`) as IntegrityState | undefined) ?? "unverified";
@@ -741,9 +681,33 @@ export class Repo {
     return request;
   }
 
-  /** Oldest first, like the stub. */
+  /** Oldest first. */
+  /** A company moves a rights request along and may say why (W-10). Returns the updated view, or undefined if it is not this company's. */
+  updateRightsRequest(fiduciary: Hex, id: string, status: RightsStatus, reply: string | null): (RightsRequestView & { reply: string | null }) | undefined {
+    const row = this.db.prepare("SELECT * FROM rights_requests WHERE id = ? AND fiduciary = ?").get(id, fiduciary) as Row | undefined;
+    if (!row) return undefined;
+    this.db.prepare("UPDATE rights_requests SET status = ?, reply = ?, updated_at = ? WHERE id = ?").run(status, reply, now(), id);
+    const view = this.rightsFor(row.principal as Hex).find((r) => r.id === id)!;
+    return { ...view, reply };
+  }
+
   rightsFor(principal: Hex): RightsRequestView[] {
     const rows = this.db.prepare("SELECT * FROM rights_requests WHERE principal = ? ORDER BY created_at, rowid").all(principal) as Row[];
+    return rows.map((r) => ({
+      id: r.id as string,
+      principal: r.principal as Hex,
+      fiduciary: r.fiduciary as Hex,
+      fiduciaryName: this.fiduciary(r.fiduciary as string).name,
+      type: r.type as RightsType,
+      note: (r.note as string | null) ?? "",
+      status: r.status as RightsStatus,
+      createdAt: r.created_at as number,
+      updatedAt: r.updated_at as number,
+    }));
+  }
+
+  fiduciaryRights(fiduciary: Hex): RightsRequestView[] {
+    const rows = this.db.prepare("SELECT * FROM rights_requests WHERE fiduciary = ? ORDER BY created_at DESC, rowid").all(fiduciary) as Row[];
     return rows.map((r) => ({
       id: r.id as string,
       principal: r.principal as Hex,
@@ -771,6 +735,26 @@ export class Repo {
 
   setState(key: string, value: string): void {
     this.db.prepare("INSERT INTO indexer_state (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(key, value);
+  }
+
+  // --- console operators (C-10) ---
+  consoleLogin(email: string, passwordHash: string): { token: string, operatorEmail: string, fiduciaries: Array<{ address: string, slug: string }> } | null {
+    const op = this.db.prepare("SELECT email FROM console_operators WHERE email = ? AND password_hash = ?").get(email, passwordHash) as { email: string } | undefined;
+    if (!op) return null;
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = Math.floor(Date.now() / 1000) + 86400; // 24 hours
+    this.db.prepare("INSERT INTO console_sessions (token, operator_email, expires_at) VALUES (?, ?, ?)").run(token, email, expiresAt);
+    const me = this.consoleMe(token);
+    return me ? { token, ...me } : null;
+  }
+
+  consoleMe(token: string): { operatorEmail: string, fiduciaries: Array<{ address: string, slug: string }> } | null {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const session = this.db.prepare("SELECT operator_email FROM console_sessions WHERE token = ? AND expires_at > ?").get(token, nowSecs) as { operator_email: string } | undefined;
+    if (!session) return null;
+    const email = session.operator_email;
+    const rows = this.db.prepare("SELECT f.address, f.slug FROM fiduciaries f JOIN fiduciary_operators fo ON f.address = fo.fiduciary WHERE fo.operator_email = ?").all(email) as Array<{ address: string, slug: string }>;
+    return { operatorEmail: email, fiduciaries: rows };
   }
 }
 

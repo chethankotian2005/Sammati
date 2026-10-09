@@ -64,7 +64,6 @@ export function useVaultTimeline(fiduciary: string): VaultEvent[] {
 
 interface VaultTimelineProps {
   events: readonly VaultEvent[];
-  /** Stage view: smaller type. */
   compact?: boolean;
 }
 

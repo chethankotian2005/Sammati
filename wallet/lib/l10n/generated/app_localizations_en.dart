@@ -437,22 +437,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get vault_profile_title => 'My demo details';
-
-  @override
-  String get vault_profile_note =>
-      'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.';
-
-  @override
-  String get vault_pan => 'PAN';
-
-  @override
-  String get vault_income => 'Income';
-
-  @override
-  String get vault_score => 'Credit score';
-
-  @override
   String get vault_simulated =>
       'Demo processor (simulated enclave, not real hardware protection)';
 
@@ -489,11 +473,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String share_intro(String company) {
-    return '$company needs these to decide your loan. They are encrypted on this phone, so $company never sees them.';
+    return '$company needs these details for this purpose. They are encrypted on this phone, so $company never sees them.';
   }
-
-  @override
-  String get share_use_demo => 'Use demo details';
 
   @override
   String get share_pan => 'PAN';
@@ -827,4 +808,247 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get protect_note =>
       'Sammati is a prototype with made-up data. It is aligned with the principles of India\'s DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md.';
+
+  @override
+  String acct_step(int n) {
+    return 'Step $n of 3';
+  }
+
+  @override
+  String get acct_id_title => 'Choose your Sammati ID';
+
+  @override
+  String get acct_id_checking => 'Checking…';
+
+  @override
+  String acct_id_available(String handle) {
+    return '$handle is available';
+  }
+
+  @override
+  String get acct_id_later => 'Choose later';
+
+  @override
+  String acct_registering(String handle) {
+    return 'Your wallet is created. Registering $handle…';
+  }
+
+  @override
+  String acct_register_failed(String handle) {
+    return 'Your wallet is ready, but $handle could not be registered.';
+  }
+
+  @override
+  String get acct_choose_another => 'Choose another ID';
+
+  @override
+  String get acct_profile_title => 'Your details';
+
+  @override
+  String get acct_profile_body =>
+      'Fill in what you like, once. Every field is optional. A company only gets a detail after you say yes to a purpose that needs it.';
+
+  @override
+  String get acct_skip => 'Skip for now';
+
+  @override
+  String get acct_finish => 'Save and continue';
+
+  @override
+  String get profile_title => 'My details';
+
+  @override
+  String get profile_group_identity => 'Who you are';
+
+  @override
+  String get profile_group_contact => 'How to reach you';
+
+  @override
+  String get profile_group_financial => 'Money';
+
+  @override
+  String get profile_group_health => 'Health';
+
+  @override
+  String get profile_group_prefs => 'Your preferences';
+
+  @override
+  String get profile_private =>
+      'Stored only on this phone, locked with your fingerprint or PIN. Sammati\'s servers never receive them.';
+
+  @override
+  String get profile_locked => 'Your details are locked';
+
+  @override
+  String get profile_unlock => 'Unlock';
+
+  @override
+  String get auth_reason_profile => 'Confirm to open your details';
+
+  @override
+  String get profile_empty =>
+      'Nothing added yet. Add a detail once and use it with any company.';
+
+  @override
+  String get profile_not_set => 'Not added';
+
+  @override
+  String get profile_save => 'Save';
+
+  @override
+  String get profile_remove => 'Remove';
+
+  @override
+  String get profile_saved => 'Saved on this phone';
+
+  @override
+  String get profile_lost =>
+      'Your saved details could not be read. Add them again.';
+
+  @override
+  String get gender_female => 'Female';
+
+  @override
+  String get gender_male => 'Male';
+
+  @override
+  String get gender_other => 'Other';
+
+  @override
+  String get gender_prefer_not => 'Prefer not to say';
+
+  @override
+  String get food_vegetarian => 'Vegetarian';
+
+  @override
+  String get food_non_vegetarian => 'Non-vegetarian';
+
+  @override
+  String get food_vegan => 'Vegan';
+
+  @override
+  String get dob_hint => 'DD/MM/YYYY';
+
+  @override
+  String get err_name => 'Enter your full name, 2 to 80 characters';
+
+  @override
+  String get err_dob => 'Enter a real date like 31/12/1995';
+
+  @override
+  String get err_mobile => 'Enter a 10-digit mobile number';
+
+  @override
+  String get err_email => 'Enter an email like name@example.com';
+
+  @override
+  String get err_text => 'Too short or too long';
+
+  @override
+  String get err_policy => 'Use 4 to 30 letters, digits or dashes';
+
+  @override
+  String get share_have => 'From My details';
+
+  @override
+  String share_missing(String company) {
+    return '$company also needs these';
+  }
+
+  @override
+  String get share_saved_note =>
+      'Saved in My details, so you only type them once.';
+
+  @override
+  String share_none_needed(String company) {
+    return '$company does not need any details from you for this.';
+  }
+
+  @override
+  String get share_edit => 'Edit';
+
+  @override
+  String details_changed(String company) {
+    return 'Your details changed. Update what $company holds?';
+  }
+
+  @override
+  String get details_update => 'Update';
+
+  @override
+  String get me_about => 'About';
+
+  @override
+  String get about_title => 'About Sammati';
+
+  @override
+  String get about_prototype => 'Sammati is a prototype. Use made-up details.';
+
+  @override
+  String get about_no_recovery_title => 'No account recovery in this build';
+
+  @override
+  String get about_no_recovery_body =>
+      'If you lose this phone or clear the app\'s data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release.';
+
+  @override
+  String activity_used(
+    String company,
+    String data,
+    String purpose,
+    String outcome,
+  ) {
+    return '$company used your $data for $purpose. Decision shared: $outcome.';
+  }
+
+  @override
+  String activity_used_blocked(String company, String purpose) {
+    return '$company tried to use your data for $purpose. Blocked.';
+  }
+
+  @override
+  String get outcome_approved => 'approved';
+
+  @override
+  String get outcome_declined => 'declined';
+
+  @override
+  String list_and(String rest, String last) {
+    return '$rest and $last';
+  }
+
+  @override
+  String get use_title => 'How your data was used';
+
+  @override
+  String get use_what => 'What was used';
+
+  @override
+  String get use_stored => 'Where it was stored';
+
+  @override
+  String get use_stored_value =>
+      'Encrypted at rest on the Processor. Ciphertext hash:';
+
+  @override
+  String get use_stored_unknown => 'Not recorded on this phone';
+
+  @override
+  String get use_where => 'Where it was processed';
+
+  @override
+  String get use_where_value => 'Sammati Processor (simulated enclave)';
+
+  @override
+  String get use_left => 'What left the Processor';
+
+  @override
+  String use_left_value(String outcome) {
+    return 'Decision only: $outcome. No details.';
+  }
+
+  @override
+  String erased_named(String company, String data) {
+    return '$company no longer holds your $data.';
+  }
 }

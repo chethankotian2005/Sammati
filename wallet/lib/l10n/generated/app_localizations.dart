@@ -771,36 +771,6 @@ abstract class AppLocalizations {
   /// **'{n} s ago'**
   String cascade_acked(int n);
 
-  /// No description provided for @vault_profile_title.
-  ///
-  /// In en, this message translates to:
-  /// **'My demo details'**
-  String get vault_profile_title;
-
-  /// No description provided for @vault_profile_note.
-  ///
-  /// In en, this message translates to:
-  /// **'Made-up details for the demo. They stay on this phone and are encrypted before they are sent anywhere.'**
-  String get vault_profile_note;
-
-  /// No description provided for @vault_pan.
-  ///
-  /// In en, this message translates to:
-  /// **'PAN'**
-  String get vault_pan;
-
-  /// No description provided for @vault_income.
-  ///
-  /// In en, this message translates to:
-  /// **'Income'**
-  String get vault_income;
-
-  /// No description provided for @vault_score.
-  ///
-  /// In en, this message translates to:
-  /// **'Credit score'**
-  String get vault_score;
-
   /// No description provided for @vault_simulated.
   ///
   /// In en, this message translates to:
@@ -864,14 +834,8 @@ abstract class AppLocalizations {
   /// No description provided for @share_intro.
   ///
   /// In en, this message translates to:
-  /// **'{company} needs these to decide your loan. They are encrypted on this phone, so {company} never sees them.'**
+  /// **'{company} needs these details for this purpose. They are encrypted on this phone, so {company} never sees them.'**
   String share_intro(String company);
-
-  /// No description provided for @share_use_demo.
-  ///
-  /// In en, this message translates to:
-  /// **'Use demo details'**
-  String get share_use_demo;
 
   /// No description provided for @share_pan.
   ///
@@ -1364,6 +1328,425 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sammati is a prototype with made-up data. It is aligned with the principles of India\'s DPDP Act, 2023. This is not legal advice and not a certification. What is mapped, and what is still unchecked, is in docs/dpdp-mapping.md.'**
   String get protect_note;
+
+  /// No description provided for @acct_step.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {n} of 3'**
+  String acct_step(int n);
+
+  /// No description provided for @acct_id_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your Sammati ID'**
+  String get acct_id_title;
+
+  /// No description provided for @acct_id_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get acct_id_checking;
+
+  /// No description provided for @acct_id_available.
+  ///
+  /// In en, this message translates to:
+  /// **'{handle} is available'**
+  String acct_id_available(String handle);
+
+  /// No description provided for @acct_id_later.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose later'**
+  String get acct_id_later;
+
+  /// No description provided for @acct_registering.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wallet is created. Registering {handle}…'**
+  String acct_registering(String handle);
+
+  /// No description provided for @acct_register_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wallet is ready, but {handle} could not be registered.'**
+  String acct_register_failed(String handle);
+
+  /// No description provided for @acct_choose_another.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another ID'**
+  String get acct_choose_another;
+
+  /// No description provided for @acct_profile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your details'**
+  String get acct_profile_title;
+
+  /// No description provided for @acct_profile_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in what you like, once. Every field is optional. A company only gets a detail after you say yes to a purpose that needs it.'**
+  String get acct_profile_body;
+
+  /// No description provided for @acct_skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get acct_skip;
+
+  /// No description provided for @acct_finish.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and continue'**
+  String get acct_finish;
+
+  /// No description provided for @profile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My details'**
+  String get profile_title;
+
+  /// No description provided for @profile_group_identity.
+  ///
+  /// In en, this message translates to:
+  /// **'Who you are'**
+  String get profile_group_identity;
+
+  /// No description provided for @profile_group_contact.
+  ///
+  /// In en, this message translates to:
+  /// **'How to reach you'**
+  String get profile_group_contact;
+
+  /// No description provided for @profile_group_financial.
+  ///
+  /// In en, this message translates to:
+  /// **'Money'**
+  String get profile_group_financial;
+
+  /// No description provided for @profile_group_health.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get profile_group_health;
+
+  /// No description provided for @profile_group_prefs.
+  ///
+  /// In en, this message translates to:
+  /// **'Your preferences'**
+  String get profile_group_prefs;
+
+  /// No description provided for @profile_private.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored only on this phone, locked with your fingerprint or PIN. Sammati\'s servers never receive them.'**
+  String get profile_private;
+
+  /// No description provided for @profile_locked.
+  ///
+  /// In en, this message translates to:
+  /// **'Your details are locked'**
+  String get profile_locked;
+
+  /// No description provided for @profile_unlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get profile_unlock;
+
+  /// No description provided for @auth_reason_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to open your details'**
+  String get auth_reason_profile;
+
+  /// No description provided for @profile_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing added yet. Add a detail once and use it with any company.'**
+  String get profile_empty;
+
+  /// No description provided for @profile_not_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Not added'**
+  String get profile_not_set;
+
+  /// No description provided for @profile_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get profile_save;
+
+  /// No description provided for @profile_remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get profile_remove;
+
+  /// No description provided for @profile_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved on this phone'**
+  String get profile_saved;
+
+  /// No description provided for @profile_lost.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved details could not be read. Add them again.'**
+  String get profile_lost;
+
+  /// No description provided for @gender_female.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get gender_female;
+
+  /// No description provided for @gender_male.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get gender_male;
+
+  /// No description provided for @gender_other.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get gender_other;
+
+  /// No description provided for @gender_prefer_not.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer not to say'**
+  String get gender_prefer_not;
+
+  /// No description provided for @food_vegetarian.
+  ///
+  /// In en, this message translates to:
+  /// **'Vegetarian'**
+  String get food_vegetarian;
+
+  /// No description provided for @food_non_vegetarian.
+  ///
+  /// In en, this message translates to:
+  /// **'Non-vegetarian'**
+  String get food_non_vegetarian;
+
+  /// No description provided for @food_vegan.
+  ///
+  /// In en, this message translates to:
+  /// **'Vegan'**
+  String get food_vegan;
+
+  /// No description provided for @dob_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'DD/MM/YYYY'**
+  String get dob_hint;
+
+  /// No description provided for @err_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your full name, 2 to 80 characters'**
+  String get err_name;
+
+  /// No description provided for @err_dob.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a real date like 31/12/1995'**
+  String get err_dob;
+
+  /// No description provided for @err_mobile.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a 10-digit mobile number'**
+  String get err_mobile;
+
+  /// No description provided for @err_email.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an email like name@example.com'**
+  String get err_email;
+
+  /// No description provided for @err_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Too short or too long'**
+  String get err_text;
+
+  /// No description provided for @err_policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 4 to 30 letters, digits or dashes'**
+  String get err_policy;
+
+  /// No description provided for @share_have.
+  ///
+  /// In en, this message translates to:
+  /// **'From My details'**
+  String get share_have;
+
+  /// No description provided for @share_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} also needs these'**
+  String share_missing(String company);
+
+  /// No description provided for @share_saved_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in My details, so you only type them once.'**
+  String get share_saved_note;
+
+  /// No description provided for @share_none_needed.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} does not need any details from you for this.'**
+  String share_none_needed(String company);
+
+  /// No description provided for @share_edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get share_edit;
+
+  /// No description provided for @details_changed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your details changed. Update what {company} holds?'**
+  String details_changed(String company);
+
+  /// No description provided for @details_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get details_update;
+
+  /// No description provided for @me_about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get me_about;
+
+  /// No description provided for @about_title.
+  ///
+  /// In en, this message translates to:
+  /// **'About Sammati'**
+  String get about_title;
+
+  /// No description provided for @about_prototype.
+  ///
+  /// In en, this message translates to:
+  /// **'Sammati is a prototype. Use made-up details.'**
+  String get about_prototype;
+
+  /// No description provided for @about_no_recovery_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No account recovery in this build'**
+  String get about_no_recovery_title;
+
+  /// No description provided for @about_no_recovery_body.
+  ///
+  /// In en, this message translates to:
+  /// **'If you lose this phone or clear the app\'s data, your wallet, your Sammati ID and your saved details are gone, and you start again with a new account. Backup and recovery are planned for a real release.'**
+  String get about_no_recovery_body;
+
+  /// No description provided for @activity_used.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} used your {data} for {purpose}. Decision shared: {outcome}.'**
+  String activity_used(
+    String company,
+    String data,
+    String purpose,
+    String outcome,
+  );
+
+  /// No description provided for @activity_used_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} tried to use your data for {purpose}. Blocked.'**
+  String activity_used_blocked(String company, String purpose);
+
+  /// No description provided for @outcome_approved.
+  ///
+  /// In en, this message translates to:
+  /// **'approved'**
+  String get outcome_approved;
+
+  /// No description provided for @outcome_declined.
+  ///
+  /// In en, this message translates to:
+  /// **'declined'**
+  String get outcome_declined;
+
+  /// No description provided for @list_and.
+  ///
+  /// In en, this message translates to:
+  /// **'{rest} and {last}'**
+  String list_and(String rest, String last);
+
+  /// No description provided for @use_title.
+  ///
+  /// In en, this message translates to:
+  /// **'How your data was used'**
+  String get use_title;
+
+  /// No description provided for @use_what.
+  ///
+  /// In en, this message translates to:
+  /// **'What was used'**
+  String get use_what;
+
+  /// No description provided for @use_stored.
+  ///
+  /// In en, this message translates to:
+  /// **'Where it was stored'**
+  String get use_stored;
+
+  /// No description provided for @use_stored_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted at rest on the Processor. Ciphertext hash:'**
+  String get use_stored_value;
+
+  /// No description provided for @use_stored_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded on this phone'**
+  String get use_stored_unknown;
+
+  /// No description provided for @use_where.
+  ///
+  /// In en, this message translates to:
+  /// **'Where it was processed'**
+  String get use_where;
+
+  /// No description provided for @use_where_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Sammati Processor (simulated enclave)'**
+  String get use_where_value;
+
+  /// No description provided for @use_left.
+  ///
+  /// In en, this message translates to:
+  /// **'What left the Processor'**
+  String get use_left;
+
+  /// No description provided for @use_left_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision only: {outcome}. No details.'**
+  String use_left_value(String outcome);
+
+  /// No description provided for @erased_named.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} no longer holds your {data}.'**
+  String erased_named(String company, String data);
 }
 
 class _AppLocalizationsDelegate

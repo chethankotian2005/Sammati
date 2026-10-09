@@ -24,7 +24,7 @@ import type { Hex } from "./types";
 export const ENVELOPE_VERSION = 1;
 export const ENVELOPE_HKDF_INFO = "sammati-vault-v1";
 /** The submit signature message prefix (trd.md §4.4.8). */
-export const VAULT_SUBMIT_PREFIX = "sammati-vault-submit:v1:";
+export const VAULT_SUBMIT_PREFIX = "sammati-vault-submit:v2:";
 /** Largest envelope the Processor accepts, in bytes of canonical JSON. */
 export const MAX_ENVELOPE_BYTES = 4096;
 
@@ -99,8 +99,8 @@ export function ciphertextHashOf(envelope: Envelope): Hex {
 }
 
 /** The message the principal signs (EIP-191) to submit an envelope. */
-export function submitMessage(handle: string, requestId: string): string {
-  return `${VAULT_SUBMIT_PREFIX}${handle}:${requestId}`;
+export function submitMessage(handle: string, requestId: string, version: number): string {
+  return `${VAULT_SUBMIT_PREFIX}${handle}:${requestId}:${version}`;
 }
 
 /** The GCM additional data: binds an envelope to one customer, one company and one purpose. */

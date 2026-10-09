@@ -4,38 +4,24 @@ import type { AddressInfo } from "node:net";
 import { createServer, type Server } from "node:http";
 import { Wallet } from "ethers";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  GRANT_CONSENT_TYPE,
-  SEED_FIDUCIARIES,
-  WITHDRAW_CONSENT_TYPE,
-  purposeIdOf,
-  type ExpiringResponse,
-  type InboxResponse,
-  type NotificationsResponse,
-  type RequestNotice,
-  type TargetedRequestResponse,
-  type TargetedRequestsResponse,
-  type WsEvent,
-} from "@sammati/shared";
-import { createApp, createRealApp } from "../src/app";
+import { GRANT_CONSENT_TYPE, WITHDRAW_CONSENT_TYPE, purposeIdOf, type ExpiringResponse, type InboxResponse, type NotificationsResponse, type RequestNotice, type TargetedRequestResponse, type TargetedRequestsResponse, type WsEvent } from "@sammati/shared";
+import { createRealApp } from "../src/app";
 import { readConfig, type Config } from "../src/config";
-import { createRealCore, type RealCore } from "../src/real/core";
+import type { RealCore } from "../src/real/core";
 import { ExpiryScheduler } from "../src/real/expiry";
-import { StubStore } from "../src/store";
 import { topicsFor } from "../src/ws";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
-const QL = SEED_FIDUCIARIES[0]!.address;
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
+const QL = TEST_COMPANIES[0]!.address;
 const unix = () => Math.floor(Date.now() / 1000);
 const DAY = 86_400;
-const KEY = "demo-processor-events";
+const KEY = "test-processor-events";
 
 let chain: TestChain;
 let core: RealCore;
 let server: Server;
-let stubServer: Server;
 let base: string;
-let stubBase: string;
 let config: Config;
 const published: WsEvent[] = [];
 
@@ -53,19 +39,14 @@ async function api<T = any>(method: string, path: string, body?: unknown, header
 beforeAll(async () => {
   chain = await startTestChain();
   config = realConfig(chain, { processorEventKey: KEY });
-  core = await createRealCore(config, (e) => void published.push(e), () => {});
+  core = await createTestCore(config, (e) => void published.push(e), () => {});
   server = createServer(createRealApp(core));
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  const stubConfig = readConfig({});
-  stubServer = createServer(createApp({ store: new StubStore(stubConfig), config: stubConfig, publish: () => {} }));
-  await new Promise<void>((r) => stubServer.listen(0, r));
-  stubBase = `http://127.0.0.1:${(stubServer.address() as AddressInfo).port}`;
 });
 afterAll(async () => {
   core?.stop();
   await new Promise((r) => server?.close(r));
-  await new Promise((r) => stubServer?.close(r));
   await chain?.stop();
 });
 beforeEach(() => {
@@ -208,11 +189,6 @@ describe("the notification centre API (N-05)", () => {
     expect((await list(who)).unread).toBe(0);
   });
 
-  it("is real-mode only: the stub answers 501", async () => {
-    const who = Wallet.createRandom();
-    expect((await api("GET", `/v1/principals/${who.address}/notifications`, undefined, {}, stubBase)).status).toBe(501);
-    expect((await api("GET", `/v1/fiduciaries/${QL}/expiring`, undefined, {}, stubBase)).status).toBe(501);
-  });
 });
 
 describe("renewal (N-04)", () => {
@@ -400,16 +376,10 @@ describe("what the Processor and the processors report", () => {
   });
 });
 
-describe("DEMO_FAST_EXPIRY (trd.md §6.12)", () => {
-  it("measures in seconds, and an explicit setting wins", () => {
-    expect(readConfig({ DEMO_FAST_EXPIRY: "1" })).toMatchObject({ demoFastExpiry: true, expiryTickMs: 2000, expiryThresholdsSeconds: [60, 30], expiringWindowSeconds: 600 });
-    expect(readConfig({ DEMO_FAST_EXPIRY: "1", EXPIRY_THRESHOLDS_SECONDS: "5, 10", EXPIRY_TICK_MS: "500" })).toMatchObject({ expiryThresholdsSeconds: [10, 5], expiryTickMs: 500 });
-    expect(readConfig({})).toMatchObject({ demoFastExpiry: false, expiryTickMs: 30_000, expiryThresholdsSeconds: [3 * DAY, DAY], expiringWindowSeconds: 30 * DAY });
+describe("expiry settings (trd.md §6.12)", () => {
+  it("an explicit setting wins, and the defaults are days", () => {
+    expect(readConfig({ EXPIRY_THRESHOLDS_SECONDS: "5, 10", EXPIRY_TICK_MS: "500" })).toMatchObject({ expiryThresholdsSeconds: [10, 5], expiryTickMs: 500 });
+    expect(readConfig({})).toMatchObject({ expiryTickMs: 30_000, expiryThresholdsSeconds: [3 * DAY, DAY], expiringWindowSeconds: 30 * DAY });
     expect(readConfig({ EXPIRY_THRESHOLDS_SECONDS: "soon" }).expiryThresholdsSeconds).toEqual([3 * DAY, DAY]); // unusable: the default
-  });
-
-  it("a notice says nothing about fast expiry unless it is on", async () => {
-    const { notice } = await grant("credit_check", 2 * DAY);
-    expect(notice.fastExpiry).toBeUndefined();
   });
 });

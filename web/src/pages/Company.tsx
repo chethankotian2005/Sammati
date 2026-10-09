@@ -4,13 +4,15 @@
  *   - C-01: Purpose registry (table + Add purpose drawer in 3 languages)
  *   - C-02: Consent request QR (alias, purposes, large QR, "Waiting for scan…", "Consent received")
  *   - C-04: Live request feed (ALLOWED/BLOCKED, reason code, latency, 451 border-l)
- *   - C-05: Demo data simulator (big buttons calling /v1/demo/fire)
+ *   - C-04: live request feed
  *   - C-07: Consent table (live table of customers by purpose with status, filterable)
  *   - C-06 / C-08: Processors view and Compliance Evidence pack
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useParams } from "react-router-dom";
+import { LOGIN_REQUIRED } from "../core";
+import { storedConsoleToken } from "../session";
 import {
   type ConsentRow,
   type NoticePurpose,
@@ -31,10 +33,13 @@ import { ConsentsSection } from "./company/ConsentsSection";
 import { ExpiringConsents } from "./company/ExpiringConsents";
 import { ProcessorsSection } from "./company/ProcessorsSection";
 import { EvidenceSection } from "./company/EvidenceSection";
+import { RightsInboxSection } from "./company/RightsInboxSection";
 
 export function Company(): ReactNode {
   const { id } = useParams<{ id: string }>();
   const directory = useDirectory();
+  // A hosted console is for signed-in operators; Core refuses its reads without the token anyway (trd.md §10.8).
+  if (LOGIN_REQUIRED && !storedConsoleToken()) return <Navigate to="/console/login" replace />;
   const company = directory.bySlug(id);
   if (directory.status === "loading") return <CenteredNote>Loading companies…</CenteredNote>;
   if (directory.status === "error") return <CenteredNote>Cannot load the companies. Is Core running?</CenteredNote>;
@@ -166,7 +171,7 @@ function CompanyConsole({ company }: { company: FiduciaryInfo }): ReactNode {
             }`}
           >
             <span>⚡</span>
-            Simulator
+            Live requests
           </button>
         </div>
       </div>
@@ -232,6 +237,10 @@ function CompanyConsole({ company }: { company: FiduciaryInfo }): ReactNode {
 
       {activeSection === "evidence" && (
         <EvidenceSection company={company} />
+      )}
+
+      {activeSection === "rights-inbox" && (
+        <RightsInboxSection company={company} />
       )}
     </ConsoleLayout>
   );

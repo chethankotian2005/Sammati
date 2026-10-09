@@ -4,25 +4,14 @@ import type { AddressInfo } from "node:net";
 import { createServer, type Server } from "node:http";
 import { Wallet } from "ethers";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  GRANT_CONSENT_TYPE,
-  SEED_FIDUCIARIES,
-  purposeIdOf,
-  type FiduciaryConsentsResponse,
-  type InboxResponse,
-  type RequestNotice,
-  type TargetedRequestResponse,
-  type TargetedRequestsResponse,
-  type WsEvent,
-} from "@sammati/shared";
+import { GRANT_CONSENT_TYPE, purposeIdOf, type FiduciaryConsentsResponse, type InboxResponse, type RequestNotice, type TargetedRequestResponse, type TargetedRequestsResponse, type WsEvent } from "@sammati/shared";
 import { createRealApp } from "../src/app";
-import { createApp } from "../src/app";
-import { readConfig, type Config } from "../src/config";
-import { createRealCore, type RealCore } from "../src/real/core";
-import { StubStore } from "../src/store";
-import { realConfig, startTestChain, type TestChain } from "./harness";
+import type { Config } from "../src/config";
+import type { RealCore } from "../src/real/core";
+import { createTestCore, realConfig, startTestChain, type TestChain } from "./harness";
 
-const [QUICKLOAN, MEDICARE] = SEED_FIDUCIARIES;
+import { TEST_COMPANIES } from "@sammati/test-fixtures";
+const [QUICKLOAN, MEDICARE] = TEST_COMPANIES;
 const QL = QUICKLOAN!.address;
 const MC = MEDICARE!.address;
 const unix = () => Math.floor(Date.now() / 1000);
@@ -31,8 +20,6 @@ let chain: TestChain;
 let core: RealCore;
 let server: Server;
 let base: string;
-let stubBase: string;
-let stubServer: Server;
 let config: Config;
 const published: WsEvent[] = [];
 
@@ -47,20 +34,15 @@ async function api<T = any>(method: string, path: string, body?: unknown, root =
 beforeAll(async () => {
   chain = await startTestChain();
   config = realConfig(chain, { targetedRatePerMinute: 6, maxOpenRequestsPerUser: 3 });
-  core = await createRealCore(config, (e) => void published.push(e), () => {});
+  core = await createTestCore(config, (e) => void published.push(e), () => {});
   server = createServer(createRealApp(core));
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  const stubConfig = readConfig({});
-  stubServer = createServer(createApp({ store: new StubStore(stubConfig), config: stubConfig, publish: () => {} }));
-  await new Promise<void>((r) => stubServer.listen(0, r));
-  stubBase = `http://127.0.0.1:${(stubServer.address() as AddressInfo).port}`;
 });
 
 afterAll(async () => {
   core?.stop();
   await new Promise((r) => server?.close(r));
-  await new Promise((r) => stubServer?.close(r));
   await chain?.stop();
 });
 
@@ -423,21 +405,5 @@ describe("who hears what", () => {
     const updated = published.find((e) => e.event === "request.updated")!;
     expect(topicsFor(updated)).toEqual([`fiduciary:${QL.toLowerCase()}`]);
     expect(Object.keys(updated)).not.toContain("principal");
-  });
-});
-
-describe("the stub", () => {
-  it("says plainly that these need real mode", async () => {
-    const w = Wallet.createRandom().address;
-    for (const [method, path] of [
-      ["POST", "/v1/identities"],
-      ["GET", `/v1/principals/${w}/requests`],
-      ["GET", `/v1/principals/${w}/identity`],
-      ["POST", `/v1/fiduciaries/${QL}/requests/targeted`],
-      ["GET", `/v1/fiduciaries/${QL}/requests/targeted`],
-    ] as const) {
-      const res = await api(method, path, method === "POST" ? {} : undefined, stubBase);
-      expect([res.status, res.json.error.code]).toEqual([501, "NOT_IMPLEMENTED"]);
-    }
   });
 });

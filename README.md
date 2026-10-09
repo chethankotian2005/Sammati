@@ -9,48 +9,56 @@ Needs Node 20+, pnpm 9 (`npm i -g pnpm@9`) and, for the wallet, Flutter 3.x.
 
 ```
 pnpm install
-pnpm demo:up        # chain :8545 (deployed + seeded), Core :4000, Processor :4200, QuickLoan :4101, MediCare+ :4102, FoodRush :4103, web :5173
+pnpm demo:up        # chain :8545 (contracts deployed, relayer funded), Core :4000, Processor :4200, web :5173
 ```
 
-`demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, registers the three companies with their purposes and processors, and funds the relayer. Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Core runs in **real mode** (`docs/trd.md` §6.6): the same routes as the stub, backed by SQLite, the chain and a relayer wallet.
+`demo:up` starts a fresh Hardhat node, deploys `ConsentRegistry` and `AccessAnchor`, funds the relayer and starts Core, the Processor and the web app. **It starts empty**: no company, purpose, processor or customer is built in. A company joins at http://localhost:5173/join and the regulator approves it under Auditor > Registrations (access code `demo-regulator-key`); then follow `docs/integration.md` (`docs/prd.md` R-01 to R-04). Addresses land in `shared/deployments.json`; ABIs are in `shared/abi/`. Config is in `.env.example`, all optional.
 
-**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks (its Wi-Fi and the hotspot the phone joined) the banner lists every address: pick the phone's network by setting `CORE_PUBLIC_URL=http://<that address>:4000` in the environment or `.env`, which always wins over detection.
+**What it prints first matters for the phone.** The QR code tells the wallet which address to fetch the consent notice from, and `localhost` would be the phone itself. So `demo:up` detects the laptop's LAN address and prints it in a banner, e.g. `http://192.168.1.23:4000`. If the laptop is on two networks the banner lists both: set `PUBLIC_CORE_URL` to the right one.
 
-**Reset between runs with `pnpm demo:reset`.** It resets Core's database, then the chain, redeploys, reseeds, and resets Core again, in that order on purpose (see the comment at the top of `scripts/demo-reset.mjs`). Core also keeps a record of which chain its database describes and wipes itself if it is started against a different one, and `demo:up` clears the old database file, so a restart can never mix one run's log with another run's chain. The chain's clock is put back on the wall clock after every reset and at start.
+### Developer tools (`DEV_TOOLS=true`)
 
-To build a client without a chain, `pnpm demo:up:stub` serves every route in `docs/trd.md` §6 from `core/fixtures/*.json` with light in-memory state. (`pnpm demo:up:real` is an alias of `demo:up`.)
-
-Real mode needs nothing but the chain (config in `.env.example`, all optional). What it does not build yet answers `501 NOT_IMPLEMENTED`: console purpose/processor registration (the seed registers them).
-The tamper demo, in real mode (every 10 s, or after 20 entries, Core anchors each company's access log on chain):
+Two command-line scripts, for developers only. There is no HTTP endpoint or screen that does either; they work on files and the local chain. Core and the Processor refuse to start with `DEV_TOOLS=true` and `NODE_ENV=production`.
 
 ```
-POST /v1/demo/fire            # run a few requests through a company's gateway
-POST /v1/demo/anchor          # anchor them now instead of at the next 10 s tick
-POST /v1/audit/verify/<fid>   # ok: true, every batch matches its on-chain root
-POST /v1/demo/tamper/<fid>    # edits one stored log row
-POST /v1/audit/verify/<fid>   # ok: false, firstMismatch names the exact record
+DEV_TOOLS=true pnpm dev:reset                          # reset the chain, redeploy, fund the relayer, remove Core's database and the Processor's vault
+DEV_TOOLS=true pnpm dev:tamper -- <fiduciary> <seq>    # edit one stored access-log row, as a malicious insider would
 ```
 
-### `pnpm e2e`: the whole story, in under 30 s
+After `dev:tamper`, press **Verify** for that company in the Auditor (or `POST /v1/audit/verify/<fid>`): it reports `ok: false` and names the exact batch and record. The wallet's **Me > Developer settings > Short expiry for testing** adds 2-minute and 10-minute expiry choices; it is off by default, and a consent made with it is labelled **Developer option**.
+
+### `pnpm e2e`: the whole story, in under 45 s
 
 ```
-pnpm e2e            # starts the stack itself if none is running, and stops it afterwards
+pnpm e2e            # starts its own throwaway stack on other ports, and stops it afterwards
 ```
 
-It plays the demo once, against real services: reset → a company creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → tamper with one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step. It then plays the confidential-processing acts (`docs/prd.md` V-01 to V-06): the profile is sealed and sent to the Processor, QuickLoan's admin view shows a handle and a hash only, an apply returns a decision, a withdrawal makes the next apply a 451 and erases the vault entry, and every response, event, log line and database file of the run is searched for the demo PAN. It prints each step with its time and exits non-zero, naming the step, if anything is off.
+It plays the story once, against real services, with a headless wallet client and throwaway companies it creates through the public APIs: register and approve a company → it creates a consent request → the user signs and the relayer grants it on chain → a request is **ALLOWED** → a purpose never consented to is **BLOCKED** → the user withdraws → the same request is **BLOCKED** → the downstream processor acknowledges on chain → verify the log against the chain (**clean**) → `dev:tamper` one stored row → verify again (**mismatch pinpointed** to that record). It also checks the live WebSocket feeds saw each step, and plays the confidential-processing, portal, targeted-request and expiry stories (`docs/prd.md` V-01 to V-06, C-09, N-01 to N-05), searching every response, event, log and database file for the PAN it submitted.
 
-- With `pnpm demo:up` already running it reuses that stack and resets it first (about 6 s); with nothing running it starts one (about 12 s more). The 30 s budget (`E2E_BUDGET_MS`) covers the story, not starting the stack. A typical run takes 8 to 10 s.
-- It refuses a Core in stub mode, and `--no-start` makes it fail instead of starting a stack.
-- It ends with the QuickLoan log deliberately tampered with, so run `pnpm demo:reset` before rehearsing.
-- Set `E2E_CORE_URL` to point it at another Core.
+- It never touches a stack that is already running; `E2E_BUDGET_MS` sets the time budget.
+- Fixtures live in `*/test/` and in `core/scripts/e2e.ts`. None of them ships with the app.
 
-### Customer portal (`/portal/quickloan`)
+### The wallet account and profile (W-15 to W-17)
 
-QuickLoan's customer page for the demo: sign in with a name, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
+A new user creates an account in the wallet: choose a Sammati ID (checked with Core), secure the phone with a fingerprint or PIN, then optionally fill in a profile (name, contact, financial, health and preference details, all optional, `docs/trd.md` §4.6). The profile lives **only on the phone**, encrypted, and opens only after the device check; Core, the chain and every server never receive it. A company gets a detail only through a consent that needs it, as a per-purpose ciphertext for the Processor, and the wallet asks for a missing field only then. Edit it under **Me > My details**. **There is no account recovery in this build** (`docs/architecture.md` §5.9); use made-up details.
 
-### Data Flow Inspector (`/stage/flow`)
+### QuickLoan (`companies/quickloan`, prd.md Q-01 to Q-04)
 
-`http://localhost:5173/stage/flow` shows, from real events and real answers, the customer's data going in encrypted, what QuickLoan's staff and database can reach (ciphertext only) and the sealed Processor deciding (`docs/ui.md` §5.1). `/stage` has the same screen as a **Data flow** panel. With no stack running, `/stage/flow?replay=1` plays `web/public/flow-replay.json`, a recording of a real run; regenerate it with `E2E_RECORD_FLOW=web/public/flow-replay.json pnpm e2e`.
+A believable loan product that uses Sammati only through its public APIs. Register a company at `/join`, approve it in the Auditor, then:
+
+```
+FIDUCIARY=<address> SAMMATI_API_KEY=<key> STAFF_USER=staff STAFF_PASSWORD=<choose one> pnpm --filter @sammati/company-quickloan start
+```
+
+Open http://localhost:4101: landing page and EMI calculator, `/signup` (username only, then the Sammati checkbox and QR), `/dashboard`, and the back-office at `/staff`. Staff see applications and "protected by Sammati" metadata, never personal details. Sign-in challenge ("Confirm in Sammati") is specified in `docs/trd.md` §6.14 and not built; the rights inbox waits for R6.
+
+### Customer portal (`/portal/<company>`)
+
+A company's customer page, run by the sample lender (`examples/lender`): sign in with a customer id, tick the consent box, scan the QR with the wallet, share the details in the wallet, Apply, see the decision, withdraw and watch Apply stop (`docs/ui.md` §3.1, `docs/trd.md` §6.10). The page never receives or shows a PAN or an income.
+
+### Deploy to the cloud (Render, Vercel, GitHub Actions)
+
+`render.yaml` (Core, Processor, QuickLoan, a second company site), `web/vercel.json`, `.github/workflows/wallet-apk.yml` and `keepalive.yml` host the same system without changing what it does: variables and endpoints in `docs/trd.md` §10, the step-by-step runbook and troubleshooting in `docs/deploy-guide.md`. Every service answers `GET /healthz` at once; production refuses to start with a missing secret; the Processor needs `PROCESSOR_KEY` and never generates one. `pnpm e2e:remote` runs the public-API flow against the deployed URLs (`CORE_URL`, `PROCESSOR_URL`, `REGULATOR_KEY`).
 
 ### Deploy to Polygon Amoy (public proof)
 
@@ -67,33 +75,29 @@ The live demo runs on the local chain. For a public, checkable proof the same co
    pnpm deploy:amoy
    ```
    It prints the two contract addresses with their explorer pages and writes them to `shared/deployments.json` under `amoy`, with `explorerUrl` and `links` to both contracts and both deployment transactions. **Commit that file** so the links travel with the repo.
-4. To run Core against it: `CHAIN_NETWORK=amoy CHAIN_RPC=<your Amoy RPC> STUB_MODE=false pnpm --filter @sammati/core start`. Proof responses (`/v1/proof/consent/...`, `/v1/proof/access/...`, the ledger explorer) then carry an `explorerUrl` pointing at Amoy's explorer. On the local chain that field is `null`, because there is no explorer to link to. `CHAIN_EXPLORER_URL` overrides the base.
+4. To run Core against it: `CHAIN_NETWORK=amoy CHAIN_RPC=<your Amoy RPC> pnpm --filter @sammati/core start`. Proof responses (`/v1/proof/consent/...`, `/v1/proof/access/...`, the ledger explorer) then carry an `explorerUrl` pointing at Amoy's explorer. On the local chain that field is `null`, because there is no explorer to link to. `CHAIN_EXPLORER_URL` overrides the base.
 
 Things to know:
 - A wrong or missing `DEPLOYER_KEY`, an empty wallet and an unreachable RPC each stop the script with a message that says what to fix, before anything is sent.
-- `pnpm seed` refuses to run on Amoy: it registers the demo companies with Hardhat's publicly known keys, which is fine locally and an open invitation on a public network. Companies on Amoy need their own funded keys.
+- `pnpm seed` refuses to run on Amoy: it funds the relayer from Hardhat's publicly known admin key, which is fine locally and an open invitation on a public network. On Amoy the admin and relayer need their own funded keys.
 - The Amoy path (network config, the deployment record with its links, the failure messages, Core's proof links) is covered by tests, but I could not run a real deployment from the environment this was written in (no network access and no funded wallet), so the first `pnpm deploy:amoy` is untested against the live network.
 
 | Check | Command |
 |---|---|
 | Core is up | `curl localhost:4000/v1/health` |
-| Web | http://localhost:5173 (`/company/quickloan`, `/auditor`, `/stage`) |
-| Guarded endpoint | `curl -H "x-sammati-principal: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" localhost:4101/customers/1/credit-profile` returns data; without the header, `451 NO_PRINCIPAL` |
-| Reset state | `pnpm demo:reset` (wipes the chain, redeploys, reseeds, resets Core) |
-| Chain only | `pnpm deploy:local` and `pnpm seed` against a running node (`pnpm --filter @sammati/contracts node`); `pnpm --filter @sammati/contracts abi` re-exports the ABIs |
+| Web | http://localhost:5173 (`/company/<slug>`, `/auditor`, `/join`, `/portal/<slug>`) |
+| Guarded endpoint | run the sample lender with a company's key (`docs/integration.md` §4), then `curl -H "x-sammati-principal: <customer address>" localhost:4310/customers/1/credit-profile`: `451 NO_CONSENT` before consent, `200` after, `451 NO_PRINCIPAL` without the header |
+| Reset state | `DEV_TOOLS=true pnpm dev:reset` |
+| Chain only | `pnpm deploy:local` and `pnpm seed` (funds the relayer) against a running node (`pnpm --filter @sammati/contracts node`); `pnpm --filter @sammati/contracts abi` re-exports the ABIs |
 | Everything | `pnpm lint && pnpm typecheck && pnpm -r test` |
-| The demo story, end to end | `pnpm e2e` (see below) |
+| The story, end to end | `pnpm e2e` (see above) |
 | Wallet | `cd wallet && flutter analyze && flutter run` |
 
-Useful for stub development:
-- A ready-made consent request exists at `GET /v1/requests/req_demo_quickloan?principal=0x…`.
-- `POST /v1/demo/tamper/:fid` then `POST /v1/audit/verify/:fid` shows the tamper alarm; `pnpm demo:reset` clears it.
+Useful for development:
 - Signing test vectors for the Dart signer: `shared/test-vectors/eip712.json`.
-- Set `CORE_PUBLIC_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
+- Set `PUBLIC_CORE_URL` (see `.env.example`) to the laptop's LAN IP so the QR code points the phone at Core.
 
-A company joins without anyone editing seed data: open http://localhost:5173/join, send the form, approve it as the regulator under Auditor > Registrations (access code `demo-regulator-key`), and follow `docs/integration.md` (`docs/prd.md` R-01 to R-04).
-
-Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `companies/` (C), specs in `docs/`.
+Layout: `contracts/` `core/` `gateway/` `shared/` `processor/` (lane A), `wallet/` (B), `web/` `examples/` (C), specs in `docs/`.
 
 ## Problem statement (CB-04)
 Build a consent manager where users grant, view and withdraw purpose-specific consent across several companies, every action is recorded on a tamper-evident ledger, and companies' systems check consent before using data.
@@ -108,7 +112,7 @@ Build a consent manager where users grant, view and withdraw purpose-specific co
 | 4 | **ConsentRegistry + AccessAnchor** (Solidity) | Everyone | The shared source of truth |
 | 5 | **Sammati Processor** (Node, port 4200) | Companies, via a decision API | Use without reading: the customer's data is encrypted on the phone, stored as ciphertext, opened only here, and a company gets a decision back. A simulated enclave in this build (`architecture.md` §5.5) |
 
-Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), **MediCare+** (health), **FoodRush** (delivery).
+No company is built in: any number of companies join through registration and the regulator's approval (R-01 to R-04), and one citizen wallet works with all of them. `examples/lender` is a sample company backend.
 
 ## Locked decisions
 
@@ -119,7 +123,7 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 | Supporting platforms | Enforcement gateway + company console; Regulator audit dashboard (live "who accessed my data" feed lives inside the wallet) |
 | Wallet form factor | Native Flutter app, APK on a real phone |
 | Chain setup | Local Hardhat chain for live demo + same contracts deployed to Polygon Amoy as public proof |
-| Demo scenario | 3 companies sharing one user's wallet |
+| Scope | Any number of approved companies sharing one user's wallet; nothing is built in (X-01) |
 | Team / time | 3 people, ~24 hours, scope not reduced for time (see `tasks.md` for the golden path that protects the demo) |
 
 ## Documents
@@ -129,12 +133,13 @@ Demo companies (one citizen wallet, three companies): **QuickLoan** (fintech), *
 | `prd.md` | What and why: personas, features with IDs (W, C, A, B, V, N, R), priorities, acceptance criteria |
 | `architecture.md` | System design, trust model, data flows, why blockchain |
 | `trd.md` | Stack, contract interface, EIP-712 types, APIs, events, deployment |
-| `drd.md` | Data requirements: on-chain and off-chain schemas, hashing, seed data, privacy rules |
+| `drd.md` | Data requirements: on-chain and off-chain schemas, hashing, what a fresh deployment holds, privacy rules |
 | `ui.md` | Design system, every screen, copy, motion, i18n |
-| `demo.md` | The 4-minute demo script, stage setup, fallbacks, judge Q&A |
+| `demo.md` | The 4-minute demo script, setup, fallbacks, judge Q&A, the two demo shortcuts |
 | `tasks.md` | Work split for 3 people, 24-hour plan, cut lines, definition of done |
 | `integration.md` | For a company joining Sammati: register, get a key, integrate in 5 lines, send a request, call the Processor |
 | `dpdp-mapping.md` | DPDP obligations mapped to Sammati features with the evidence and an honest status; gaps and limitations; the claims review; and the VERIFY checklist for a human to check against the official Act and Rules. Wording is "aligned with the principles of", never "compliant" |
+| `cleanup-audit.md` | What demo scaffolding was removed (X-01) and why, with each keep, delete or replace decision |
 | `AGENTS.md` | Rules for AI coding tools working in this repo |
 
 ## Assumptions to confirm

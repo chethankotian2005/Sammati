@@ -31,7 +31,7 @@
         company QR      │ in each company │  └──────────────┘ └───────────────┘
                         └───▲─────▲─────▲─┘
                             │     │     │
-                      QuickLoan MediCare+ FoodRush   (3 demo company backends)
+                      company A  company B  ...      (any approved company)
                           │ handle in, decision out
                           ▼                      reads consent straight from the chain
         ┌─────────────────────────────────────┐  writes access log through the gateway SDK
@@ -48,9 +48,9 @@
 | Wallet | Flutter | Key custody, QR scan, consent UI, signing, live feed, proofs, rights |
 | Sammati Core | Node + TypeScript + SQLite | Relayer (pays gas), chain indexer, consent cache, cascade engine, log anchoring, audit APIs, WebSocket hub |
 | Gateway SDK | TypeScript package | Express middleware used by every company backend; reads consent cache with chain fallback; writes hash-chained access logs |
-| Demo companies | 3 small Express apps | Hold fake customer data behind guarded endpoints |
+| Company backends | The company's own servers | Not part of Sammati. `examples/lender` is a sample that shows the integration; it holds no customer data |
 | Company Console | React web | Purposes, QR requests, live feed, consent table, processors |
-| Auditor | React web | Scorecards, ledger explorer, tamper verification, report export |
+| Auditor | React web | Scorecards, ledger explorer, integrity verification, report export |
 | Contracts | Solidity + Hardhat | ConsentRegistry, AccessAnchor |
 | Sammati Processor | Node + TypeScript + SQLite | The only place a vault envelope is opened. Stores ciphertext, checks consent on chain, runs the loan rules, returns a decision, erases on withdrawal or expiry, logs each use through the gateway SDK |
 
@@ -63,7 +63,7 @@
 | Applicant (not yet a company) | Submit an application, follow its status | Have a fiduciary id, an API key or a single request until approved |
 | Relayer | Submit signed messages, pay gas | Create consent on a user's behalf (no signature, no effect) |
 | Regulator | Read everything, verify independently; **decide who may join** (approve or reject a registration, promote a company out of the sandbox, name the test customers, reissue a key) | Alter consent state, read a company's API key (it is shown once, to the company) |
-| Sammati Core | Relay, index, cache, anchor, fan out events | Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
+| Sammati Core | Relay, index, cache, anchor, fan out events | Receive or store a customer's profile (W-16): it has no endpoint, column or event for one. Read vault data: it never receives an envelope, holds no key, and cannot make the Processor decrypt (the Processor reads consent from the chain itself) |
 | Sammati Processor | Open an envelope in memory when the chain shows valid consent for that purpose, return a decision | Return plaintext to anyone, use data for another purpose (the envelope is bound to one purpose and the check is per purpose), keep data after consent ends, or hide a use (every evaluation is a hash-chained, anchored log entry). **In this build it is also the one component you must trust** (see the limitation below) |
 
 **Honest limitation:** the gateway is run by the company, so a malicious company could bypass it. Sammati detects this: any data access not present in the anchored log, or any anchored access without valid consent at that time, is flagged by the Auditor. We provide *prevention for honest implementers and detection for dishonest ones*.
@@ -96,28 +96,55 @@
 ### 5.4 Tamper detection
 1. Auditor selects a company and runs **Verify**.
 2. Core recomputes the access-log hash chain from the company's stored logs, rebuilds the Merkle roots per batch, compares to `AccessAnchor` roots.
-3. Any mismatch points to the exact batch and record. Demo control `Tamper` edits one stored row beforehand to show the alarm.
+3. Any mismatch points to the exact batch and record. To see the alarm, a developer runs `pnpm dev:tamper -- <fiduciary> <seq>` (§5.8), which edits one stored row in SQLite; there is no control for it in any UI and no endpoint.
 
 ### 5.5 Confidential processing
-Use without reading: QuickLoan gets a loan decision from data it never sees.
+Use without reading: a lender gets a loan decision from data it never sees.
 1. **Fetch the key.** The wallet asks Core where the Processor is (`GET /v1/processor`), then fetches its public key (`GET /v1/processor/pubkey`, labelled `simulated-enclave`).
-2. **Encrypt on the phone.** After the user has given consent for `credit_check`, the wallet seals the demo profile (PAN, income band, score) into an envelope for that key, bound to this customer, company and purpose (`trd.md` §4.4). Plaintext never leaves the phone. The user confirms with the device lock and the wallet signs the submission.
-3. **Store ciphertext.** `POST /v1/vault/submit` to the Processor. It checks the signature and `hasValidConsent` on chain, stores only the ciphertext under `handle = keccak256(envelope)`, and tells QuickLoan's webhook the handle. QuickLoan stores the handle and nothing else. Events `vault.encrypted` and `vault.stored` reach the wallet and the console.
-4. **Ask for a decision.** QuickLoan's apply endpoint calls `POST /v1/processor/evaluate` with its API key and the handle. The Processor checks consent on chain again (fail closed), opens the envelope in memory, applies the rules, and returns `{ decision, limit, reasonCodes }`. The plaintext goes out of scope with the function. The use is written to QuickLoan's hash-chained access log through the gateway SDK, so it is anchored and visible in the wallet's activity feed and to the Auditor.
+2. **Encrypt on the phone.** After the user has given consent for `credit_check`, the wallet seals the details the user typed (PAN, income band, employment) into an envelope for that key, bound to this customer, company and purpose (`trd.md` §4.4). Plaintext never leaves the phone. The user confirms with the device lock and the wallet signs the submission.
+3. **Store ciphertext.** `POST /v1/vault/submit` to the Processor. It checks the signature and `hasValidConsent` on chain, stores only the ciphertext under `handle = keccak256(envelope)`, and tells the company's webhook the handle. The company stores the handle and nothing else. Events `vault.encrypted` and `vault.stored` reach the wallet and the console.
+4. **Ask for a decision.** The company's apply endpoint calls `POST /v1/processor/evaluate` with its API key and the handle. The Processor checks consent on chain again (fail closed), opens the envelope in memory, applies the rules, and returns `{ decision, limit, reasonCodes }`. The plaintext goes out of scope with the function. The use is written to the company's hash-chained access log through the gateway SDK, so it is anchored and visible in the wallet's activity feed and to the Auditor.
 5. **Withdraw.** The user withdraws `credit_check`. The Processor sees the consent change (and re-checks on every call and every sweep), erases the ciphertext (`vault.erased`), and the next evaluate answers `451 CONSENT_WITHDRAWN`. The data is gone, not just blocked. Cascade (5.3) is separate: it tells downstream processors, while this erases at the Processor itself.
 
 ```
-wallet ──ciphertext──► Processor ──handle──► QuickLoan (webhook, stores handle only)
-QuickLoan ──handle + API key──► Processor ──decision only──► QuickLoan
+wallet ──ciphertext──► Processor ──handle──► Company (webhook, stores handle only)
+Company ──handle + API key──► Processor ──decision only──► Company
 Processor ──consent read──► chain        Processor ──access-log entry──► Core (via SDK) ──► anchor
-Processor ──events (hashes, no data)──► Core ──► wallet · console · stage
+Processor ──events (hashes, no data)──► Core ──► wallet · console
 ```
 
-**Seeing it.** The Data Flow Inspector (`ui.md` §5.1, `trd.md` §6.9) draws these hops from the real events and responses: the phone's own fields, the ciphertext in transit, what QuickLoan's staff and database administrators can reach (ciphertext only), and the sealed Processor's states. It is a viewer; it never decrypts, and it checks every event of the session for the demo values before it claims that no plaintext was visible.
+**Checking it.** There is no screen that draws these hops. `pnpm e2e` submits a profile with a known PAN and income and then searches every log line, WebSocket event, company-facing response, error message and database file of the run for them; it must find nothing. The company-side view of its own holdings (`What {company} holds`, `ui.md` §3) shows a handle, a hash and a status.
 
-**What each party can see.** Wallet: everything, it is the owner. Processor: plaintext for the duration of one evaluation. QuickLoan, Core, the web apps, the Auditor, a database dump: handles, hashes, ciphertext, decisions, never the data.
+**What each party can see.** Wallet: everything, it is the owner. Processor: plaintext for the duration of one evaluation. The company, Core, the web apps, the Auditor, a database dump: handles, hashes, ciphertext, decisions, never the data.
 
 **What stops a company asking for another purpose.** The envelope is authenticated with the purpose in its AAD, the evaluate call is checked against consent for the purpose it names, and the attempt, allowed or blocked, is an anchored log entry. A company that asks for `marketing` with a `credit_check` handle is refused (`NO_CONSENT`) and the refusal is on the record.
+
+### 5.9 Account, profile and recovery (W-15 to W-17)
+```text
+ phone                                                   Core                  Processor
+ 1 choose ID ──GET /v1/identities/availability──────────► handle table only
+ 2 device lock ─► wallet key (secure storage)
+   ──sign + POST /v1/identities (handle, principal)─────► identities: handle -> principal
+ 3 profile ─► AES-256-GCM under profile_key ─► profile_blob (secure storage, phone only)
+                                                          (nothing is sent)
+ consent needs fields ─► read profile (device check) ─► seal ONLY that purpose's fields
+   ──ciphertext envelope (per purpose)──────────────────────────────────────► vault (ciphertext)
+```
+1. **Create.** Three steps in the wallet: pick a Sammati ID (Core answers only whether it is free), secure the phone (the wallet key is created and the ID registered), fill the profile. Core learns a handle, an address and a time. It never learns a profile value.
+2. **Store.** The profile is encrypted on the phone under a random profile key kept in the platform's secure storage and read only after a successful device check. It is opened in memory for the foreground session and dropped when the app goes to the background.
+3. **Reuse.** A consent names data categories (`trd.md` §4.6); the wallet maps them to profile fields. If a needed field is missing it asks for that field only, on the share screen, and saves it. The envelope for the Processor contains just the fields of that one purpose and is bound to that company and purpose by its AAD, so a name given for one company is not usable by another.
+4. **Correct.** Editing a field already sent marks the consent; one tap seals the new values and submits again, and the Processor replaces the old copy (`superseded`). Nothing is pushed to a company without the customer's tap.
+5. **Trust.** The wallet is trusted with the profile; the phone's lock is the gate. Core, the chain, the company and the web apps hold none of it. The Processor sees one purpose's fields for one evaluation.
+
+**Recovery: out of scope here, and said so** (`prd.md` §5, `drd.md` §3b, the wallet's About screen). Losing the phone or clearing the app's data loses the wallet key, the profile and control of the Sammati ID; the customer starts again with a new account, and the old on-chain consents stay on chain until they expire or the old key withdraws them (which nobody can do any more). That last point is a real gap: a lost key cannot withdraw. **Production path:** (a) the profile and keys are backed up as a ciphertext the customer holds (a recovery phrase or a passkey-protected cloud blob), never readable by Sammati; (b) a recovery flow re-binds the Sammati ID and rotates the wallet key, with the contract allowing a recovery key or guardian to withdraw on a lost wallet's behalf; (c) hardware-backed keys bound to the biometric. Each is a separate piece of work with its own threat model, which is why none is half-built here.
+
+### 5.5a Usage you can see (V-08, V-09, W-18)
+1. **Share.** The wallet seals, for each purpose, only the profile fields that purpose's categories name, with a version and the notice hash it agreed to. The Processor checks consent and that notice hash on chain, stores ciphertext, and supersedes any older version.
+2. **Apply.** The company's backend calls evaluate with the handle(s) and the application. The Processor re-checks consent, opens the envelopes in memory, runs the rules of `drd.md` §4.5, and answers decision, limit, rate and reason codes. The plaintext is gone when the function returns.
+3. **Record.** The same call writes an access-log entry (`dataCategories`, `outcome`) on the company's hash-chained, anchored log. Core fans out `access.logged`; the wallet's Activity shows the sentence within two seconds, and its detail sheet joins the entry to the phone's own record of what it sent (ciphertext hash) and to the anchor proof.
+4. **Withdraw.** The Processor erases every live version, keeps the metadata row as the erasure record, and Core announces `data.erased`; the pass says what the company no longer holds.
+
+The Processor is a separate service with an in-memory key: **simulated sealed processing**, not a TEE (§4). Production path: a TEE with remote attestation, so the phone encrypts only to a key the hardware vouches for.
 
 ### 5.6 Asking a specific customer (no QR)
 1. The customer registers a Sammati ID in the wallet (`asha@sammati`): a signed message, `trd.md` §4.5. Core stores handle to address; nothing else.
@@ -147,15 +174,28 @@ Trust: Core is trusted to apply the rules above (it holds the handle map). It ca
 5. **Promote.** The regulator moves the company to live; the sandbox checks stop applying.
 6. **Reject.** The company stays outside: no id, no key, no directory entry. Anything it tries finds no company.
 
-**Authentication of company servers.** The API key (32 random bytes) identifies one company. Core stores its SHA-256 only. Every gateway call carries it; a key used for another company's id is refused; each company has its own rate limit; a missing or unknown key makes the SDK fail closed (451 `LEDGER_UNAVAILABLE` with a message that says why). Honest limits, said out loud: Core generates and holds the company and processor keys in the demo (production: the company holds its own and only its address is registered); the regulator's access code is a shared demo secret, not an identity system; the company console has no login in this build; the sandbox is Core's policy at the relayer and the request routes, not a contract rule, so a signed grant sent straight to the chain would bypass it (the gateway still has to be told, and the regulator can see it in the audit).
+**Authentication of company servers.** The API key (32 random bytes) identifies one company. Core stores its SHA-256 only. Every gateway call carries it; a key used for another company's id is refused; each company has its own rate limit; a missing or unknown key makes the SDK fail closed (451 `LEDGER_UNAVAILABLE` with a message that says why). Honest limits, said out loud: Core generates and holds the company and processor keys in this build (production: the company holds its own and only its address is registered); the regulator's access code is a shared secret, not an identity system; the company console has no login in this build; the sandbox is Core's policy at the relayer and the request routes, not a contract rule, so a signed grant sent straight to the chain would bypass it (the gateway still has to be told, and the regulator can see it in the audit).
 
-**No hard-coded companies.** Consoles, the Stage view, the Auditor and the wallet read the approved companies from Core's directory (`GET /v1/fiduciaries`) and refresh on `fiduciary.registered`. The three demo companies exist as seed data and as demo-only screens (the QuickLoan portal, the Data Flow Inspector, the simulator buttons).
+**No hard-coded companies.** Consoles, the Auditor and the wallet read the approved companies from Core's directory (`GET /v1/fiduciaries`) and refresh on `fiduciary.registered`. A fresh deployment has no companies: the first one arrives through `/join` and the regulator's approval (X-01).
 
 ### 5.7 Expiry, renewal and alerts
-1. Core's scheduler (every 30 s; seconds in `DEMO_FAST_EXPIRY`) looks at every Active consent in its cache. As expiry approaches it records `consent.expiring` once per threshold, and when it passes `consent.expired` once, in `notifications`, and pushes each to the customer's socket. Enforcement does not wait for it: the gateway and the Processor read the chain, so the consent stops working at the second it expires and the scheduler only tells the customer.
+1. Core's scheduler (every 30 s by default, `EXPIRY_TICK_MS`) looks at every Active consent in its cache. As expiry approaches it records `consent.expiring` once per threshold, and when it passes `consent.expired` once, in `notifications`, and pushes each to the customer's socket. Enforcement does not wait for it: the gateway and the Processor read the chain, so the consent stops working at the second it expires and the scheduler only tells the customer.
 2. The Processor refuses use on expiry at once, keeps the ciphertext for a short grace period so a renewal needs no resend, then erases it and reports `vault.erased`; Core turns that into **data erased** for the wallet. Cascade acknowledgements become notifications the same way.
 3. A company may ask a customer to renew (console, **Request renewal**). That is an ordinary request for one purpose: it appears in the wallet's inbox and Alerts, goes through the same notice and EIP-712 grant, and the company hears Sent, Seen, Granted by request id. Pressing **Renew** on a reminder does the same with a request Core opens on the customer's behalf.
 4. The phone: a live event raises a local notification; reminders for consents the wallet knows are also scheduled on the device from the expiry time, so they fire with the app closed. Closed-app delivery of company-initiated alerts needs Firebase and is not built (`trd.md` §6.12).
+
+### 5.8 Dev tools and the trust model (X-01)
+A fresh deployment holds the contracts, the regulator's chain account and a funded relayer. Nothing else is registered, and nothing in a running service can reset state, edit a log, sign for a customer or fabricate an access decision: Core and the Processor expose no such route, and the web app has no such control.
+
+Two command-line scripts exist for developers, enabled only by `DEV_TOOLS=true` (`trd.md` §6.4):
+1. `pnpm dev:reset` resets the local chain, redeploys the contracts, funds the relayer and removes Core's database and the Processor's vault when they are not in use. A Core or Processor still running notices the replaced chain and wipes what described it.
+2. `pnpm dev:tamper -- <fiduciary> <seq>` edits one stored access-log row directly in Core's SQLite file, as a malicious insider with database access would. It touches no hash. The Auditor's real **Verify** then recomputes the chain and the Merkle roots, compares them with the on-chain anchors, and names the exact batch and record. This is the same check an outside auditor would run, which is why the proof is worth showing.
+
+Core and the Processor refuse to start if `DEV_TOOLS=true` and `NODE_ENV=production`, so the scripts cannot be left switched on in a deployment. They act on files and the local chain, not through the services, so there is no credential or endpoint to guard.
+
+Failure modes: a missing `DEV_TOOLS=true` makes both scripts exit with a message and change nothing; `dev:tamper` on a row that does not exist exits non-zero without writing; `dev:reset` with a database another process holds open reports it and leaves the file (the running Core then wipes itself when it sees the new chain).
+
+The two shortcuts that remain, said plainly: Core holds the keys of companies and of their processors, and the Processor is a simulated sealed service (an ordinary process with an in-memory key) until it runs in a TEE with remote attestation.
 
 ## 6. Why blockchain here (the answer to "why not a database?")
 - **Consent is a dispute between a user and a company.** The company cannot be the one holding the evidence.
@@ -178,13 +218,52 @@ Trust: Core is trusted to apply the rules above (it holds the handle map). It ca
 | Chain node down | Gateway uses last cached state up to a short TTL, then fails closed (BLOCKED, reason `LEDGER_UNAVAILABLE`) |
 | Core down | Wallet shows offline banner; no signing without a notice fetched. The inbox keeps its last known list, and Decline and Block wait for a connection |
 | Wallet offline when a request is sent | Nothing is lost: the request waits in the inbox until it expires, and the wallet fetches the list when it reconnects |
-| Relayer out of funds | Alert in console; demo wallet topped up at start |
+| Relayer out of funds | Alert in console; `pnpm seed` tops it up on the local chain |
 | Clock skew | Expiry uses block timestamp on chain; cache re-validates |
+| Wallet profile cannot be decrypted (blob damaged, key lost) | The wallet says the saved details could not be read and starts with an empty profile; nothing partial is shown and nothing is sent. Consents and the wallet key are untouched |
+| Core unreachable while creating an account | Step 1 cannot check an ID and says so (**Choose later** skips it); if registration fails after the wallet exists, the step shows Retry and Choose another; the wallet is never created twice |
 | Processor cannot read the chain | Submit and evaluate answer `451 LEDGER_UNAVAILABLE`, nothing is decrypted, **nothing is erased** (an outage must not destroy data) |
 | Registration fails half-way (chain error, Core restart) | The application stays `pending`, the directory is untouched, the company key is kept on the row; Approve can be repeated and skips what is already on chain. Nothing is half-visible to companies or the wallet |
 | Core restarts before the applicant reads their API key | The key lived only in memory, so the status page says it can no longer be shown; the regulator reissues it (the old one is revoked) |
 | Admin or company account out of test ether | Approval fails at the funding or registration step with `REGISTRATION_FAILED` naming the step |
 | Company server has a wrong, revoked or another company's key | Every gateway call fails closed with a clear error, and the SDK logs the cause once; consent is never assumed |
-| Processor down | The wallet's secure-send fails with a retry; QuickLoan's apply answers an error (502), never a decision from anywhere else. Vault rows survive a restart; the key does not unless `PROCESSOR_KEY` is set, so after a restart without it old ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again |
+| Processor down | The wallet's secure-send fails with a retry; the company's apply answers an error (502), never a decision from anywhere else. Vault rows survive a restart; the key does not unless `PROCESSOR_KEY` is set, so after a restart without it old ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again |
 | Ciphertext edited in storage | AES-GCM authentication fails; evaluate answers 422 `CIPHERTEXT_INVALID`, never a guess |
 | Core down | The Processor keeps working (it reads the chain itself); its log entries queue in the SDK and events are dropped with a warning, never blocking a response |
+
+## 9. Deployment view (production)
+
+```
+ Phone (Android APK, built by GitHub Actions)                Browser
+   │  https + wss, CORE_URL baked in at build time              │  https
+   │  (Developer settings can switch it to a laptop)            ▼
+   │                                                    Vercel: web/ (static SPA, vercel.json rewrite)
+   │                                                            │  https + wss, VITE_CORE_URL, CORS_ORIGINS allowlist
+   ▼                                                            ▼
+ Render (Singapore)
+   sammati-core        $PORT  /healthz  disk /var/data  DB_PATH       holds relayer key, admin key, company keys
+   sammati-processor   $PORT  /healthz  disk /var/data  VAULT_PATH    PROCESSOR_KEY from env (backed up elsewhere)
+   sammati-quickloan   $PORT  /healthz  disk /var/data  QUICKLOAN_DB   company API key
+   sammati-company2    $PORT  /healthz  (no disk)                     company API key
+      │            │
+      │ JSON-RPC (rate limited: backoff, receipt polling)      GitHub Actions
+      ▼            ▼                                              keepalive.yml  → GET /healthz (never /readyz)
+   Polygon Amoy: ConsentRegistry, AccessAnchor                   wallet-apk.yml → APK artifact
+```
+
+Rules of the view: only Core and the Processor hold secrets that matter; every service binds `$PORT` on `0.0.0.0` behind Render's TLS proxy (`trust proxy` is on, so rate limits see the client); each service with state has exactly one instance and one disk; the chain is the only shared state between services besides HTTP. `trd.md` §10 has the variables, endpoints and boot order; `deploy-guide.md` has the runbook.
+
+### 9.1 Failure modes of the hosted setup
+
+| Failure | Behaviour |
+|---|---|
+| Core restarts (deploy, crash, Render maintenance) | Answers 503 `STARTING` until its database and the chain are ready, while `/healthz` answers at once. The indexer resumes from `last_block`; no event is applied or announced twice; notifications and anchors are not repeated (`trd.md` §10.5). Wallets and the web reconnect their sockets and refetch what they missed. Gateways fall back to `consent-state`, which fails closed (`LEDGER_UNAVAILABLE`) while Core is away |
+| Processor restarts | Vault rows are on its disk and `PROCESSOR_KEY` is in its environment, so stored ciphertext stays readable. Evaluations while it is down answer 502 to the company; nothing is decided elsewhere |
+| Cold start (an instance that slept, or a fresh deploy) | The first request after sleep waits for the boot (the chain connect and the indexer's catch-up; install happened at build). Keep-alive prevents sleeping on instance types that sleep; Render's health check waits on `/healthz`, which does not depend on the chain |
+| RPC provider rate limit (HTTP 429) or outage | The indexer's poll fails and backs off exponentially, then resumes from the same block with nothing lost. Relayed grants and withdrawals fail with 503 `LEDGER_UNAVAILABLE` (the wallet shows a retry), and a gateway that cannot refresh consent fails closed once its cache is stale. No cached consent outlives the 5 s rule, and nothing is wiped (`trd.md` §10.7) |
+| The RPC returns a block that is not the saved one | Production never auto-wipes: Core exits at start with `CHAIN_MISMATCH`, or, while running, applies nothing and reports it until the RPC agrees again. A person decides (`deploy-guide.md`) |
+| A disk is lost | Core: the chain is intact but the company and processor keys Core held are gone, so those companies must register again. Processor: ciphertext is gone, customers submit again. Disk snapshots are the backup |
+| `PROCESSOR_KEY` lost or changed | Every stored ciphertext answers `CIPHERTEXT_INVALID` until the wallet submits again. The key is kept outside Render for this reason (`drd.md` §6) |
+| Relayer out of test MATIC | Grants fail with a clear error; fund the relayer from a faucet (`deploy-guide.md`) |
+| Render's health check fails | The deploy is not promoted and the old instance keeps serving; the start-up log names the missing variable |
+

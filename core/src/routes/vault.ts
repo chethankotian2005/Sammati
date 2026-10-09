@@ -7,13 +7,12 @@ import { Router } from "express";
 import { getAddress, isAddress } from "ethers";
 import {
   VAULT_EVENT_FIELDS,
+  isCategoryId,
   type Hex,
-  type LoanDecision,
   type ProcessorOutcome,
   type VaultEraseCause,
   type VaultEvent,
   type VaultEventName,
-  type VaultView,
   type WsEvent,
 } from "@sammati/shared";
 import type { Config } from "../config";
@@ -40,6 +39,10 @@ const FIELD_PARSERS: Record<string, (v: unknown) => unknown> = {
   decryptingAt: (v) => int(v, "decryptingAt"),
   decision: (v) => (OUTCOMES.includes(v as ProcessorOutcome) ? v : bad("decision")),
   limit: (v) => (v === null ? null : int(v, "limit")),
+  version: (v) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 1 ? v : bad("version")),
+  rateBps: (v) => (v === null ? null : int(v, "rateBps")),
+  // Registry ids only: a category is a name from the fixed list, never a value (trd.md §4.6).
+  dataCategories: (v) => (Array.isArray(v) && v.length <= 8 && v.every((c) => typeof c === "string" && isCategoryId(c)) ? v : bad("dataCategories")),
   reasonCodes: (v) =>
     Array.isArray(v) && v.length <= 8 && v.every((c) => typeof c === "string" && DECISION_CODE.test(c)) ? v : bad("reasonCodes"),
   entryId: (v) => (typeof v === "string" && ENTRY_ID.test(v) ? v : bad("entryId")),
@@ -76,28 +79,6 @@ export function parseVaultEvent(body: unknown): VaultEvent {
   return event as unknown as VaultEvent;
 }
 
-/**
- * What Core is willing to relay from a company's answer to the console (trd.md §6.4): a loan decision or a vault
- * view, re-built field by field from checked values. Anything else, including extra fields, is dropped, so a company
- * (or a bug) cannot turn /v1/demo/fire into a way to move data through Core.
- */
-export function sanitiseResult(body: unknown): VaultView | LoanDecision | undefined {
-  if (!isRecord(body)) return undefined;
-  if (body.decision === "approved" || body.decision === "declined") {
-    const limit = body.limit === null ? null : typeof body.limit === "number" && Number.isSafeInteger(body.limit) && body.limit >= 0 ? body.limit : undefined;
-    const codes = body.reasonCodes;
-    if (limit === undefined || !Array.isArray(codes) || codes.length > 8 || !codes.every((c) => typeof c === "string" && DECISION_CODE.test(c))) return undefined;
-    return { decision: body.decision, limit, reasonCodes: codes as string[] };
-  }
-  if (body.status === "stored" || body.status === "erased" || body.status === "none") {
-    const hex = (v: unknown): Hex | null | undefined => (v === null ? null : typeof v === "string" && BYTES32.test(v) ? (v as Hex) : undefined);
-    const handle = hex(body.handle);
-    const ciphertextHash = hex(body.ciphertextHash);
-    return handle === undefined || ciphertextHash === undefined ? undefined : { handle, ciphertextHash, status: body.status };
-  }
-  return undefined;
-}
-
 function keyMatches(given: string | undefined, expected: string): boolean {
   if (!given) return false;
   const a = Buffer.from(given);
@@ -105,7 +86,7 @@ function keyMatches(given: string | undefined, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** `onVaultEvent` is real mode's hook (erasures become alerts); the stub has nothing to keep them in. */
+/** `onVaultEvent` turns erasures into alerts. */
 export function vaultRoutes(deps: { config: Config; publish: (event: WsEvent) => void; onVaultEvent?: (event: VaultEvent) => void }): Router {
   const r = Router();
 

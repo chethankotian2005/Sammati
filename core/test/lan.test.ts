@@ -50,16 +50,16 @@ describe("the QR address and its banner", () => {
     expect(qr.banner).toContain("detected on Wi-Fi");
   });
 
-  it("lets CORE_PUBLIC_URL override detection, as given", () => {
-    const qr = describeQrUrl({ port: "4000", env: { CORE_PUBLIC_URL: "http://192.168.43.10:4000" }, interfaces: typical });
+  it("lets PUBLIC_CORE_URL override detection, as given", () => {
+    const qr = describeQrUrl({ port: "4000", env: { PUBLIC_CORE_URL: "http://192.168.43.10:4000" }, interfaces: typical });
     expect(qr.url).toBe("http://192.168.43.10:4000");
     expect(qr.source).toBe("env");
-    expect(qr.banner).toContain("from CORE_PUBLIC_URL");
+    expect(qr.banner).toContain("from PUBLIC_CORE_URL");
     expect(qr.banner).not.toContain("192.168.1.23");
   });
 
-  it("ignores an empty CORE_PUBLIC_URL (a copied .env.example line) instead of using it", () => {
-    expect(describeQrUrl({ port: "4000", env: { CORE_PUBLIC_URL: "  " }, interfaces: typical }).url).toBe("http://192.168.1.23:4000");
+  it("ignores an empty PUBLIC_CORE_URL (a copied .env.example line) instead of using it", () => {
+    expect(describeQrUrl({ port: "4000", env: { PUBLIC_CORE_URL: "  " }, interfaces: typical }).url).toBe("http://192.168.1.23:4000");
   });
 
   it("lists the other networks when there are several, so the operator can choose the phone's", () => {

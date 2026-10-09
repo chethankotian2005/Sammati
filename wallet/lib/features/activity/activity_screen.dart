@@ -267,7 +267,7 @@ class _ActivityRowState extends State<_ActivityRow> with SingleTickerProviderSta
         );
       },
       child: InkWell(
-        onTap: () => showAccessProofSheet(context, item.id),
+        onTap: () => showAccessProofSheet(context, item.id, item: item),
         borderRadius: BorderRadius.circular(SammatiRadius.row),
         child: MergeSemantics(
           child: Semantics(
@@ -283,7 +283,7 @@ class _ActivityRowState extends State<_ActivityRow> with SingleTickerProviderSta
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${widget.title} · ${item.fiduciaryName}', style: style.titleMedium),
+                        Text(dataUseSentence(context, item, widget.title) ?? '${widget.title} · ${item.fiduciaryName}', style: style.titleMedium),
                         if (why != null) Text(why, style: style.bodyMedium?.copyWith(color: SammatiColors.mute)),
                       ],
                     ),

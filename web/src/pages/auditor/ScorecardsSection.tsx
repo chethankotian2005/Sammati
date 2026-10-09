@@ -12,14 +12,12 @@ interface ScorecardsSectionProps {
   scorecards: Scorecard[];
   onVerify: (company: Scorecard) => void;
   onViewReport: (company: Scorecard) => void;
-  onTamper: (company: Scorecard) => void;
 }
 
 export function ScorecardsSection({
   scorecards,
   onVerify,
   onViewReport,
-  onTamper,
 }: ScorecardsSectionProps): ReactNode {
   return (
     <div className="space-y-6">
@@ -107,6 +105,21 @@ export function ScorecardsSection({
                       </div>
                     </div>
                   </div>
+
+                  <div className="rounded-row bg-paper/60 p-2.5 col-span-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-semibold text-mute">Erasure requests</span>
+                      <div className="text-xs font-extrabold text-ink mt-0.5">
+                        {sc.erasureRequests}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-mute">Grievances (open / total)</span>
+                      <div className={`text-xs font-extrabold text-right mt-0.5 ${sc.openGrievances > 0 ? "text-marigold" : "text-ink"}`}>
+                        {sc.openGrievances} / {sc.grievanceRequests}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -125,14 +138,6 @@ export function ScorecardsSection({
                   className="rounded-row border border-line bg-paper px-3 py-2 text-xs font-extrabold text-ink transition-colors hover:bg-white"
                 >
                   Report
-                </button>
-                <button
-                  type="button"
-                  title="Presenter shortcut: simulate record tamper"
-                  onClick={() => onTamper(sc)}
-                  className="rounded-row border border-line bg-surface px-2.5 py-2 text-xs font-bold text-mute hover:text-block transition-colors"
-                >
-                  ⚡
                 </button>
               </div>
             </div>

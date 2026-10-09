@@ -1,0 +1,38 @@
+name: Keep-alive
+
+# Render instance types that sleep stop answering after a quiet spell, and the first request then waits for a cold
+# start. This calls GET /healthz of each service (trd.md §10.3): it answers at once and touches no chain, database,
+# log or socket. It never calls /readyz, which spends an RPC call. GitHub's schedule is best effort and is paused
+# after 60 days without repository activity.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /healthz on each service
+        env:
+          # Space-separated base URLs (Core, Processor, QuickLoan, the second company site). Defaults to Core alone.
+          URLS: ${{ vars.KEEPALIVE_URLS || vars.CORE_URL }}
+        run: |
+          if [ -z "$URLS" ]; then
+            echo "Set the KEEPALIVE_URLS (or CORE_URL) repository variable."
+            exit 1
+          fi
+          status=0
+          for url in $URLS; do
+            url="${url%/}"
+            # A sleeping instance can take about a minute to wake: wait for it, and retry once.
+            if curl --fail --silent --show-error --max-time 90 --retry 1 --retry-delay 5 "$url/healthz" > /dev/null; then
+              echo "ok  $url"
+            else
+              echo "FAILED  $url"
+              status=1
+            fi
+          done
+          exit $status

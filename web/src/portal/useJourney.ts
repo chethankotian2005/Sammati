@@ -1,15 +1,16 @@
 /** Connects the portal's state machine to the browser: fetch for the three calls, the live socket for the events. */
 
 import { useEffect, useRef, useState } from "react";
-import { SEED_FIDUCIARIES, type CreateRequestResponse, type FiduciaryConsentsResponse } from "@sammati/shared";
+import type { CreateRequestResponse, FiduciaryConsentsResponse } from "@sammati/shared";
 import { CORE_URL } from "../core";
 import { useAnyWsFrame, useWsReadyState } from "../ws";
-import { Journey, type JourneyDeps, type JourneyState } from "./journey";
+import { Journey, type JourneyDeps, type JourneyState, type PortalCompany } from "./journey";
 
-export const QUICKLOAN = SEED_FIDUCIARIES.find((f) => f.slug === "quickloan")!;
-
-/** Where QuickLoan's own backend is. */
-export const COMPANY_URL: string = import.meta.env.VITE_QUICKLOAN_URL ?? `http://localhost:${QUICKLOAN.port}`;
+/**
+ * Where the company's own backend is (the sample lender listens on 4310). A hosted build has none unless
+ * VITE_LENDER_URL says so, and then the customer portal says it is not available (trd.md §10.2).
+ */
+export const LENDER_URL: string = import.meta.env.VITE_LENDER_URL ?? (import.meta.env.PROD ? "" : "http://localhost:4310");
 
 async function json(res: Response): Promise<unknown> {
   const text = await res.text();
@@ -20,9 +21,12 @@ async function json(res: Response): Promise<unknown> {
   }
 }
 
-export const browserDeps: JourneyDeps = {
+/** The browser's side of the three calls, for one company. */
+export function makeBrowserDeps(company: PortalCompany, lenderUrl: string = LENDER_URL): JourneyDeps {
+  return {
+  company,
   async createRequest(alias, purposes) {
-    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${QUICKLOAN.address}/requests`, {
+    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${company.address}/requests`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ purposes, customerAlias: alias }),
@@ -32,19 +36,20 @@ export const browserDeps: JourneyDeps = {
     return { requestId: body.requestId, qrPayload: body.qrPayload };
   },
   async consentRows() {
-    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${QUICKLOAN.address}/consents`);
+    const res = await fetch(`${CORE_URL}/v1/fiduciaries/${company.address}/consents`);
     if (!res.ok) throw new Error(`Sammati answered ${res.status}`);
     return ((await json(res)) as FiduciaryConsentsResponse).rows;
   },
   async apply(alias, principal) {
-    const res = await fetch(`${COMPANY_URL}/customers/${encodeURIComponent(alias)}/apply`, {
+    const res = await fetch(`${lenderUrl}/customers/${encodeURIComponent(alias)}/apply`, {
       method: "POST",
       headers: { "x-sammati-principal": principal },
     });
     return { status: res.status, body: await json(res) };
   },
   now: () => Date.now(),
-};
+  };
+}
 
 export interface JourneyView {
   journey: Journey;
@@ -53,7 +58,7 @@ export interface JourneyView {
   online: boolean;
 }
 
-export function useJourney(deps: JourneyDeps = browserDeps): JourneyView {
+export function useJourney(deps: JourneyDeps): JourneyView {
   const ref = useRef<Journey | null>(null);
   ref.current ??= new Journey(deps);
   const journey = ref.current;

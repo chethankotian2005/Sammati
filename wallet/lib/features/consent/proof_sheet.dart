@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/activity.dart';
 import '../../core/consent_providers.dart';
 import '../../core/core_api.dart';
 import '../../core/preferences.dart';
@@ -22,6 +23,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../shell/hash_text.dart';
+import 'data_use_block.dart';
 
 // ---------------------------------------------------------------------------
 // Entry points
@@ -29,17 +31,14 @@ import '../shell/hash_text.dart';
 
 /// Opens the proof sheet for an access-log entry (`/v1/proof/access/:entryId`).
 /// Call from activity row tap.
-Future<void> showAccessProofSheet(BuildContext context, String entryId) {
+Future<void> showAccessProofSheet(BuildContext context, String entryId, {ActivityItem? item}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(SammatiRadius.pass)),
     ),
-    builder: (_) => ProviderScope(
-      overrides: [_proofModeProvider.overrideWith((ref) => _ProofMode.access(entryId))],
-      child: const _ProofSheet(),
-    ),
+    builder: (_) => _ProofSheet(mode: _ProofMode.access(entryId, item)),
   );
 }
 
@@ -52,10 +51,7 @@ Future<void> showConsentProofSheet(BuildContext context, String txHash) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(SammatiRadius.pass)),
     ),
-    builder: (_) => ProviderScope(
-      overrides: [_proofModeProvider.overrideWith((ref) => _ProofMode.consent(txHash))],
-      child: const _ProofSheet(),
-    ),
+    builder: (_) => _ProofSheet(mode: _ProofMode.consent(txHash)),
   );
 }
 
@@ -66,15 +62,22 @@ Future<void> showConsentProofSheet(BuildContext context, String txHash) {
 enum _ProofKind { access, consent }
 
 class _ProofMode {
-  const _ProofMode.access(this.id) : kind = _ProofKind.access;
-  const _ProofMode.consent(this.id) : kind = _ProofKind.consent;
+  const _ProofMode.access(this.id, [this.item]) : kind = _ProofKind.access;
+  const _ProofMode.consent(this.id) : kind = _ProofKind.consent, item = null;
 
   final _ProofKind kind;
   final String id;
+
+  @override
+  bool operator ==(Object other) => other is _ProofMode && other.kind == kind && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(kind, id);
+
+  /// The Activity row the sheet was opened from, when there is one: it carries the data-use facts (W-18).
+  final ActivityItem? item;
 }
 
-// Always overridden before the sheet widget reads it.
-final _proofModeProvider = Provider<_ProofMode>((_) => throw UnimplementedError());
 
 // ---------------------------------------------------------------------------
 // Async proof loader
@@ -107,8 +110,9 @@ class _Failed extends _ProofResult {
   const _Failed();
 }
 
-final _proofResultProvider = FutureProvider.autoDispose<_ProofResult>((ref) async {
-  final mode = ref.watch(_proofModeProvider);
+// One result per thing being proven. A family keyed by kind and id, not a nested ProviderScope: an unscoped provider
+// cannot read a scoped one.
+final _proofResultProvider = FutureProvider.autoDispose.family<_ProofResult, _ProofMode>((ref, mode) async {
   final api = ref.watch(coreApiFactoryProvider)(ref.watch(coreUrlProvider));
   if (mode.kind == _ProofKind.access) {
     final proof = await api.getAccessProof(mode.id);
@@ -132,12 +136,14 @@ final _proofResultProvider = FutureProvider.autoDispose<_ProofResult>((ref) asyn
 // ---------------------------------------------------------------------------
 
 class _ProofSheet extends ConsumerWidget {
-  const _ProofSheet();
+  const _ProofSheet({required this.mode});
+
+  final _ProofMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final result = ref.watch(_proofResultProvider);
+    final result = ref.watch(_proofResultProvider(mode));
 
     return DraggableScrollableSheet(
       expand: false,
@@ -171,18 +177,19 @@ class _ProofSheet extends ConsumerWidget {
                     Text(t.proof_loading, style: Theme.of(context).textTheme.bodyMedium),
                   ],
                 )),
-                error: (_, __) => _FailedBody(onRetry: () => ref.invalidate(_proofResultProvider)),
+                error: (_, __) => _FailedBody(onRetry: () => ref.invalidate(_proofResultProvider(mode))),
                 data: (r) => switch (r) {
                   _AccessResult(:final proof, :final merkleOk) => _AccessBody(
                       proof: proof,
                       merkleOk: merkleOk,
+                      item: mode.item,
                       scrollController: controller,
                     ),
                   _ConsentResult(:final proof) => _ConsentBody(
                       proof: proof,
                       scrollController: controller,
                     ),
-                  _ => _FailedBody(onRetry: () => ref.invalidate(_proofResultProvider)),
+                  _ => _FailedBody(onRetry: () => ref.invalidate(_proofResultProvider(mode))),
                 },
               ),
             ),
@@ -202,10 +209,12 @@ class _AccessBody extends StatelessWidget {
     required this.proof,
     required this.merkleOk,
     required this.scrollController,
+    this.item,
   });
 
   final AccessProof proof;
   final bool? merkleOk;
+  final ActivityItem? item;
   final ScrollController scrollController;
 
   @override
@@ -216,6 +225,7 @@ class _AccessBody extends StatelessWidget {
     return ListView(
       controller: scrollController,
       children: [
+        if (item != null && item!.isDataUse && (item!.dataCategories ?? const []).isNotEmpty) DataUseBlock(item: item!),
         Text(t.proof_headline, style: style.bodyLarge),
         const SizedBox(height: 24),
         _ProofRow(label: t.proof_record_hash, child: HashText(proof.entryHash)),

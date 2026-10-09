@@ -13,11 +13,14 @@ export const FINGERPRINT_KEY = "chain_fingerprint";
  * hash covers that case: it commits to the deploy transaction and its timestamp, so a redeploy after a
  * reset produces a different block.
  */
-export async function chainFingerprint(chain: Chain): Promise<string> {
+export async function chainFingerprint(chain: Chain, strict = false): Promise<string> {
   const [genesis, deployed] = await Promise.all([
     chain.provider.getBlock(0),
     chain.provider.getBlock(chain.deployment.startBlock ?? 1),
   ]);
+  // Hosted (strict): a node that cannot answer must not produce a fingerprint, which would be stored or compared as if it
+  // were a chain. Locally the gap is real (a reset node before its redeploy) and is part of the identity.
+  if (strict && (!genesis || !deployed)) throw new Error("The chain did not return its genesis or deployment block");
   return `${genesis?.hash ?? "no-genesis"}:${deployed?.hash ?? "no-deploy-block"}`;
 }
 

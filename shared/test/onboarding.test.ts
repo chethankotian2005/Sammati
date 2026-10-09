@@ -6,7 +6,7 @@ const valid = (): ApplicationInput => ({
   name: "DemoBank",
   sector: "Banking",
   contactEmail: "ops@demobank.example",
-  purposes: [{ code: "loan_offers", title: text("Loan offers"), description: text("Send you loan offers"), dataCategories: ["phone"], retentionDays: 90, sharesThirdParty: false, required: false }],
+  purposes: [{ code: "loan_offers", title: text("Loan offers"), description: text("Send you loan offers"), dataCategories: ["contact.mobile"], retentionDays: 90, sharesThirdParty: false, required: false }],
   processors: [{ name: "BureauOne", purposeCode: "loan_offers" }],
 });
 

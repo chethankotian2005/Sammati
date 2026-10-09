@@ -4,7 +4,7 @@
 // working the second it expires whether or not this timer has run.
 import type { Hex } from "@sammati/shared";
 import type { Config } from "../config";
-import { now } from "../store";
+import { now } from "../clock";
 import type { Db } from "./db";
 import type { Notifications } from "./notifications";
 
@@ -20,7 +20,7 @@ export class ExpiryScheduler {
     private readonly clock: () => number = now,
   ) {}
 
-  /** One pass over every Active consent. Returns how many notifications it raised (tests, `/v1/demo` tools). */
+  /** One pass over every Active consent. Returns how many notifications it raised (tests). */
   tick(): number {
     const t = this.clock();
     const rows = this.db

@@ -4,6 +4,9 @@ import {
   ZERO_HASH,
   canonicalJson,
   chainEntry,
+  entryCanonical,
+  entryFormat,
+  expectedPrevHash,
   hashEntry,
   hashPair,
   merkleProof,
@@ -140,5 +143,43 @@ describe("merkle", () => {
   it("throws on empty input and out-of-range index", () => {
     expect(() => merkleRoot([])).toThrow();
     expect(() => merkleProof(leaves(2), 2)).toThrow();
+  });
+});
+
+describe("usage record format and chain epochs (V-09, drd.md §4.1a)", () => {
+  const v1 = entry(1);
+  const v2 = { ...entry(2), dataCategories: ["financial.income_band", "financial.pan"], outcome: "approved" };
+
+  it("tells the two formats apart by the outcome key alone", () => {
+    expect(entryFormat(v1)).toBe(1);
+    expect(entryFormat(v2)).toBe(2);
+    expect(entryFormat({ ...v1, outcome: "" })).toBe(2);
+  });
+
+  it("an old entry hashes exactly as it did before the new keys existed", () => {
+    expect(entryCanonical(v1)).not.toContain("outcome");
+    expect(entryCanonical(v1)).not.toContain("dataCategories");
+  });
+
+  it("puts the new keys in sorted position, and the hash covers them", () => {
+    const text = entryCanonical(v2);
+    expect(text.indexOf('"at"')).toBeLessThan(text.indexOf('"dataCategories"'));
+    expect(text.indexOf('"dataCategories"')).toBeLessThan(text.indexOf('"decision"'));
+    expect(text.indexOf('"id"')).toBeLessThan(text.indexOf('"latencyMs"'));
+    expect(text.indexOf('"latencyMs"')).toBeLessThan(text.indexOf('"outcome"'));
+    expect(text.indexOf('"outcome"')).toBeLessThan(text.indexOf('"principal"'));
+    const base = hashEntry(ZERO_HASH, v2);
+    expect(hashEntry(ZERO_HASH, { ...v2, outcome: "declined" })).not.toBe(base);
+    expect(hashEntry(ZERO_HASH, { ...v2, dataCategories: ["financial.pan"] })).not.toBe(base);
+  });
+
+  it("the first format-2 entry after format-1 entries starts a new epoch at the zero hash", () => {
+    const last1 = { hash: "0x" + "ab".repeat(32), format: 1 as const };
+    const last2 = { hash: "0x" + "cd".repeat(32), format: 2 as const };
+    expect(expectedPrevHash(null, 1)).toBe(ZERO_HASH);
+    expect(expectedPrevHash(null, 2)).toBe(ZERO_HASH);
+    expect(expectedPrevHash(last1, 1)).toBe(last1.hash);
+    expect(expectedPrevHash(last1, 2)).toBe(ZERO_HASH);
+    expect(expectedPrevHash(last2, 2)).toBe(last2.hash);
   });
 });
