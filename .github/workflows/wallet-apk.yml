@@ -32,7 +32,7 @@ jobs:
           INPUT_URL: ${{ github.event.inputs.core_url }}
           VAR_URL: ${{ vars.CORE_URL }}
         run: |
-          url="${INPUT_URL:-$VAR_URL}"
+          url="${INPUT_URL:-${VAR_URL:-https://sammati-core.onrender.com}}"
           url="${url%/}"
           case "$url" in
             https://*) ;;

@@ -11,7 +11,8 @@ const _localeKey = 'locale';
 const _coreUrlKey = 'core_url';
 
 // Build-time default (trd.md §5); 10.0.2.2 is the host machine from the Android emulator.
-const defaultCoreUrl = String.fromEnvironment('CORE_URL', defaultValue: 'http://10.0.2.2:4000');
+// The hosted Core. Me > Developer settings can point the app at a laptop instead (docs/demo.md section 4).
+const defaultCoreUrl = String.fromEnvironment('CORE_URL', defaultValue: 'https://sammati-core.onrender.com');
 
 /// Overridden in main() with the instance loaded before runApp.
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) => throw UnimplementedError());

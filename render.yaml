@@ -2,6 +2,7 @@
 # have one disk each and therefore one instance. Every secret is `sync: false`: Render asks for it in the dashboard,
 # it never lives in this file. NODE_ENV=production switches each service to its production rules and start-up checks.
 #
+# Node 26 matches the development machines: better-sqlite3 13 crashed on Node 22 on Render.
 # The runtime is tsx, which is a dev dependency, so the build installs dev dependencies too (--prod=false).
 services:
   - type: web
@@ -19,7 +20,7 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: 20.18.1
+        value: 26.4.0
       - key: NODE_ENV
         value: production
       - key: CHAIN_NETWORK
@@ -64,7 +65,7 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: 20.18.1
+        value: 26.4.0
       - key: NODE_ENV
         value: production
       - key: CHAIN_NETWORK
@@ -97,7 +98,7 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: 20.18.1
+        value: 26.4.0
       - key: NODE_ENV
         value: production
       - key: QUICKLOAN_DB
@@ -128,7 +129,7 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
-        value: 20.18.1
+        value: 26.4.0
       - key: NODE_ENV
         value: production
       - key: SITE # which company this is: a file under companies/template/sites
